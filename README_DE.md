@@ -74,14 +74,31 @@ und wird komplett über eine **Weboberfläche** gesteuert – am Handy wie am PC
 
 ## Was geprüft wurde – und was nicht
 
-| Geprüft | Noch nicht geprüft |
-|---|---|
-| PC-Tests (`pytest`, 102 Tests, davon 9 im Browser) mit Attrappen für Ultimate-REST, FTP-Server (verhält sich wie das Ultimate: kein MLSD, Unix-LIST), SMB-Server (SMB-2/3-Client und SMB-1-Rückfall), Freigaben-Liste per DCE/RPC, Pico (`/jb/np` mit Digest) und UDP | Am echten Pi 3B (Trixie, Python 3.13, 2026-10-19) nur: Installation per `deploy.sh`, Dienst läuft (43 MB), Webseite antwortet, Netzwerksuche (4,2 s, Elite II + C64 Ultimate je einmal mit Ethernet-Adresse, SMB-Rechner), Gerätemeldung kommt bei den Picos an – Stream-Verteiler: Elite II → Pi → c64audio, c64viz, c64viz2 je ~251 Pakete/s, 3 min stabil, Pi ~10 % CPU; Abspielen vom Stick des Elite II (direkt) und des C64 Ultimate (Upload), HVSC-Songlängen (56 665), Unterlied, Pause, Wechsel am Titelende, Titel an die Picos; SMB 3 von einem Samba-Server: Ordner mit 96 SIDs 0,19 s, Kopfdaten von 20 Dateien 0,39 s, Abspielen |
-| HDMI-Ausgabe: Video-Pakete → Bild (auch mit verlorenen Paketen, NTSC), Ton → Spektrum, alle 17 Effekte (Zeit je Bild), Diashow mit Überblenden, automatischer Wechsel, der Dienst im Speicher statt am Bildschirm, Ton-Kopie und Video-Anforderung beim Ultimate; der Weg über den Grafikchip einmal am Mac im Fenster | Am Pi 3B mit 4K-Fernseher (1080p): Grafikchip, 29,9 Bilder/s in Balken, Regen, C64 Retro, Cyberdeck, Milkdrop; Ton und Bild des C64 vom Elite II (~50 Bilder/s empfangen), HDMI-Dienst ~42 % eines Kerns, mit C64-Bild ~90 %; Ton über HDMI mit Aus-/Einblenden, Diashow mit Bildern vom NAS |
-| 2,8″-Touch-Display mit einem Nachbau des ILI9341 (Befehle → Bildspeicher, nur geänderte Rechtecke) und des Touch-Controllers: Kalibrierung, Tasten, Seitenwechsel, Aufwecken | Das 2,8″-Display am echten Pi (bestellt) |
-| Player mit simulierter Uhr: Titelende per Songlänge, Zeitlimit, Stille, alle Unterlieder, Pause, Fehler überspringen, Zufall, Neustart | Am echten Ultimate: Upload, `songnr`, Pause/Fortsetzen, Stream-Anforderung |
-| Stream-Verteiler: unverändert an alle, nie zurück an den Absender, ein Absender zur Zeit, `C64NP1` wird durchgereicht | Gegen einen echten NAS/Windows-PC (SMB 2), das Installationsskript, das Einhängen der USB-Sticks |
-| Browsertests (Playwright, Chromium) am Handy-Format 390 × 844 und am Desktop: Anmelden, Durchklicken, Filter, Suche, Abspielen, Unterlied, Pause, Listen, neue SMB-Quelle über Netzwerksuche, Geräte, Einstellungen, Sicherung, Passwort, Hilfe; keine JavaScript-Fehler, keine waagrechte Bildlaufleiste | Picos mit `C64NP1` vom Pi (Format wie bei der Kette Empfänger → Visualizer) |
+**Am echten Gerät geprüft** (Raspberry Pi 3B mit Raspberry Pi OS „Trixie“, Ultimate 64 Elite II und C64 Ultimate,
+19.–24.10.2026):
+
+- Installation per `install/deploy.sh` (ruft `install.sh` auf); Dienst läuft (~45–70 MB, ~10 % eines Kerns), Webseite
+  antwortet in 9–28 ms
+- Netzwerksuche: Elite II und C64 Ultimate je einmal mit ihrer Ethernet-Adresse, dazu die SMB-Rechner (4,2 s)
+- Abspielen vom USB-Stick des Elite II (direkt) und des C64 Ultimate (Upload), Unterlied, Pause/Fortsetzen, Wechsel am
+  Titelende, fehlende Datei übersprungen, Stopp; HVSC-Songlängen (56 665 Einträge) und STIL vom Stick
+- Netzwerkfreigabe per SMB 3 von einem Samba-Server: Ordner mit 96 SIDs in 0,19 s, Abspielen per Upload
+- SID-Sockel des Ultimate automatisch umstellen und wieder zurückstellen
+- Stream-Verteiler: Elite II → Pi → Audio-Empfänger und zwei Visualizer, je ~251 Pakete/s, stabil; Titel per UDP an
+  die Picos
+- Fernseher (4K-TV mit 1080p): Effekte mit ~30 Bildern/s, Ton und Bild des C64, Ton über HDMI mit Aus-/Einblenden,
+  Diashow mit Bildern vom NAS, „Jetzt läuft“-Karte, Bedienung mit der Fernbedienung des Fernsehers (HDMI-CEC)
+- 2,8″-Touch-Display: Bild, Touch, Kalibrierung, Tasten
+- Wiederholungserkennung für Titel ohne Länge läuft am Pi
+
+**Noch nicht am Gerät geprüft:** SMB 2 gegen ein NAS oder einen Windows-PC/Mac, USB-Stick direkt am Pi (automatisches
+Einhängen), das kleine OLED-Display, das eigene WLAN des Pi und der Party-Modus, der Verlauf „Zuletzt gespielt“, die
+SID-Stimmen am Fernseher (nur mit einer Aufnahme vom Elite II geprüft), der Lautstärkeregler für den Fernsehton.
+
+**Automatische Tests am PC:** `pytest` mit Attrappen für Ultimate-REST, FTP-Server (verhält sich wie der des Ultimate:
+kein MLSD, Unix-LIST), SMB-Server (SMB 2/3 und SMB-1-Rückfall), Freigaben-Liste per DCE/RPC, Picos (`/jb/np` mit
+Digest, UDP), Display-Controller (ILI9341 + Touch) und Player mit simulierter Uhr; dazu Browsertests (Playwright) am
+Handy- und Desktop-Format ohne JavaScript-Fehler und ohne waagrechte Bildlaufleiste.
 
 ## Hardware
 

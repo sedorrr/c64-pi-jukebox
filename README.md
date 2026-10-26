@@ -70,14 +70,31 @@ controlled entirely through a **web page** (German) – on the phone as well as 
 
 ## What was tested – and what not
 
-| Tested | Not tested yet |
-|---|---|
-| PC tests (`pytest`, 102 tests, 9 of them in the browser) with stand-ins for the Ultimate REST API, an FTP server (behaves like the Ultimate's: no MLSD, Unix LIST), an SMB server (SMB 2/3 client and the SMB 1 fallback), the share listing over DCE/RPC, a Pico (`/jb/np` with digest) and UDP | On the real Pi 3B (Trixie, Python 3.13, 2026-10-19) only: install via `deploy.sh`, service runs (43 MB), page answers, network search (4.2 s, Elite II + C64 Ultimate once each with Ethernet address, SMB hosts), beacon reaches the Picos – stream distributor: Elite II → Pi → c64audio, c64viz, c64viz2 at ~251 packets/s each, stable for 3 min, Pi ~10 % CPU; playing from the Elite II stick (direct) and the C64 Ultimate stick (upload), HVSC song lengths (56,665), sub-song, pause, change at the end of a tune, titles to the Picos; SMB 3 from a Samba server: folder of 96 SIDs 0.19 s, headers of 20 files 0.39 s, playing |
-| HDMI output: video packets → picture (also with lost packets, NTSC), sound → spectrum, all 17 styles (time per picture), slide show with cross-fade, automatic change, the service in memory instead of on a screen, audio copy and video request at the Ultimate; the graphics-chip path once on the Mac in a window | On the Pi 3B with a 4K TV (1080p): graphics chip, 29.9 frames/s with Bars, Rain, C64 Retro, Cyberdeck, Milkdrop; sound and C64 picture from the Elite II (~50 pictures/s received), HDMI service ~42 % of one core, with the C64 picture ~90 %; sound over HDMI with fade-out/in, slide show with pictures from the NAS |
-| 2.8" touch display against an emulated ILI9341 (commands → picture memory, only changed rectangles) and touch controller: calibration, buttons, page change, wake-up | The 2.8" display on the real Pi (ordered) |
-| Player with a simulated clock: end by song length, time limit, silence, all sub-songs, pause, skipping errors, shuffle, restart | On a real Ultimate: upload, `songnr`, pause/resume, stream request |
-| Stream distributor: unchanged to all, never back to the sender, one sender at a time, `C64NP1` passed on | Against a real NAS/Windows PC (SMB 2), the install script, mounting of USB sticks |
-| Browser tests (Playwright, Chromium) at phone size 390 × 844 and desktop: login, browsing, filter, search, play, sub-song, pause, lists, new SMB source via network search, devices, settings, backup, password, help; no JavaScript errors, no horizontal scrolling | Picos receiving `C64NP1` from the Pi (same format as along the chain receiver → visualizer) |
+**Tested on the real device** (Raspberry Pi 3B with Raspberry Pi OS "Trixie", Ultimate 64 Elite II and C64 Ultimate,
+19–24 Oct 2026):
+
+- Installation via `install/deploy.sh` (runs `install.sh`); service runs (~45–70 MB, ~10 % of one core), page answers
+  in 9–28 ms
+- Network search: Elite II and C64 Ultimate once each with their Ethernet address, plus the SMB hosts (4.2 s)
+- Playing from the USB stick of the Elite II (direct) and of the C64 Ultimate (upload), sub-song, pause/resume, change
+  at the end of a tune, missing file skipped, stop; HVSC song lengths (56,665 entries) and STIL from the stick
+- Network share over SMB 3 from a Samba server: folder of 96 SIDs in 0.19 s, playing by upload
+- Switching the Ultimate's SID sockets automatically and back
+- Stream distributor: Elite II → Pi → audio receiver and two visualizers, ~251 packets/s each, stable; titles over UDP
+  to the Picos
+- TV (4K TV at 1080p): styles at ~30 frames/s, sound and picture of the C64, sound over HDMI with fade-out/in, slide
+  show with pictures from the NAS, "now playing" card, control with the TV's remote (HDMI-CEC)
+- 2.8" touch display: picture, touch, calibration, buttons
+- Repeat detection for tunes without a length runs on the Pi
+
+**Not tested on the device yet:** SMB 2 against a NAS or a Windows PC/Mac, a USB stick on the Pi itself (automatic
+mounting), the small OLED display, the Pi's own WLAN and party mode, the "recently played" history, the SID voices on
+the TV (only checked with a recording from the Elite II), the volume control for the TV sound.
+
+**Automatic tests on the PC:** `pytest` with stand-ins for the Ultimate REST API, an FTP server (behaves like the
+Ultimate's: no MLSD, Unix LIST), an SMB server (SMB 2/3 and the SMB 1 fallback), the share listing over DCE/RPC, Picos
+(`/jb/np` with digest, UDP), the display controller (ILI9341 + touch) and the player with a simulated clock; plus
+browser tests (Playwright) at phone and desktop size without JavaScript errors and without horizontal scrolling.
 
 ## Installation
 
