@@ -82,16 +82,17 @@ und wird komplett über eine **Weboberfläche** gesteuert – am Handy wie am PC
 - Netzwerksuche: Elite II und C64 Ultimate je einmal mit ihrer Ethernet-Adresse, dazu die SMB-Rechner (4,2 s)
 - Abspielen vom USB-Stick des Elite II (direkt) und des C64 Ultimate (Upload), Unterlied, Pause/Fortsetzen, Wechsel am
   Titelende, fehlende Datei übersprungen, Stopp; HVSC-Songlängen (56 665 Einträge) und STIL vom Stick
-- Netzwerkfreigabe per SMB 3 von einem Samba-Server: Ordner mit 96 SIDs in 0,19 s, Abspielen per Upload
+- Netzwerkfreigabe eines NAS (SMB 3): SIDs von dort abspielen (Upload), Ordner mit 96 SIDs in 0,19 s; Bilder für die
+  Diashow am Fernseher vom NAS
 - SID-Sockel des Ultimate automatisch umstellen und wieder zurückstellen
 - Stream-Verteiler: Elite II → Pi → Audio-Empfänger und zwei Visualizer, je ~251 Pakete/s, stabil; Titel per UDP an
   die Picos
 - Fernseher (4K-TV mit 1080p): Effekte mit ~30 Bildern/s, Ton und Bild des C64, Ton über HDMI mit Aus-/Einblenden,
-  Diashow mit Bildern vom NAS, „Jetzt läuft“-Karte, Bedienung mit der Fernbedienung des Fernsehers (HDMI-CEC)
+  Diashow, „Jetzt läuft“-Karte, Bedienung mit der Fernbedienung des Fernsehers (HDMI-CEC)
 - 2,8″-Touch-Display: Bild, Touch, Kalibrierung, Tasten
 - Wiederholungserkennung für Titel ohne Länge läuft am Pi
 
-**Noch nicht am Gerät geprüft:** SMB 2 gegen ein NAS oder einen Windows-PC/Mac, USB-Stick direkt am Pi (automatisches
+**Noch nicht am Gerät geprüft:** Freigaben mit SMB 2 (ältere NAS) sowie von einem Windows-PC oder Mac, USB-Stick direkt am Pi (automatisches
 Einhängen), das kleine OLED-Display, das eigene WLAN des Pi und der Party-Modus, der Verlauf „Zuletzt gespielt“, die
 SID-Stimmen am Fernseher (nur mit einer Aufnahme vom Elite II geprüft), der Lautstärkeregler für den Fernsehton.
 

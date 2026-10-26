@@ -78,16 +78,17 @@ controlled entirely through a **web page** (German) – on the phone as well as 
 - Network search: Elite II and C64 Ultimate once each with their Ethernet address, plus the SMB hosts (4.2 s)
 - Playing from the USB stick of the Elite II (direct) and of the C64 Ultimate (upload), sub-song, pause/resume, change
   at the end of a tune, missing file skipped, stop; HVSC song lengths (56,665 entries) and STIL from the stick
-- Network share over SMB 3 from a Samba server: folder of 96 SIDs in 0.19 s, playing by upload
+- Network share of a NAS (SMB 3): playing SIDs from it (upload), folder of 96 SIDs in 0.19 s; pictures for the slide
+  show on the TV from the NAS
 - Switching the Ultimate's SID sockets automatically and back
 - Stream distributor: Elite II → Pi → audio receiver and two visualizers, ~251 packets/s each, stable; titles over UDP
   to the Picos
 - TV (4K TV at 1080p): styles at ~30 frames/s, sound and picture of the C64, sound over HDMI with fade-out/in, slide
-  show with pictures from the NAS, "now playing" card, control with the TV's remote (HDMI-CEC)
+  show, "now playing" card, control with the TV's remote (HDMI-CEC)
 - 2.8" touch display: picture, touch, calibration, buttons
 - Repeat detection for tunes without a length runs on the Pi
 
-**Not tested on the device yet:** SMB 2 against a NAS or a Windows PC/Mac, a USB stick on the Pi itself (automatic
+**Not tested on the device yet:** shares over SMB 2 (older NAS) and from a Windows PC or Mac, a USB stick on the Pi itself (automatic
 mounting), the small OLED display, the Pi's own WLAN and party mode, the "recently played" history, the SID voices on
 the TV (only checked with a recording from the Elite II), the volume control for the TV sound.
 
