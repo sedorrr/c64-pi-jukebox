@@ -70,7 +70,8 @@ und wird komplett über eine **Weboberfläche** gesteuert – am Handy wie am PC
 - Installation mit **einem Skript** auf Raspberry Pi OS Lite (64 bit, Trixie oder Bookworm) als systemd-Dienst
 
 > **Anleitung für alle drei Geräte zusammen** (Visualizer, Audio-Empfänger, Raspberry-Pi-Jukebox – Einrichtung,
-> Verkettung, Bedienung, Besonderheiten, mit Bildern): [docs/Anleitung_C64-Oekosystem.pdf](docs/Anleitung_C64-Oekosystem.pdf)
+> Verkettung, Bedienung, Besonderheiten, mit Bildern): [docs/Anleitung_C64-Oekosystem.pdf](docs/Anleitung_C64-Oekosystem.pdf) –
+> englisch: [docs/Guide_C64-Ecosystem.pdf](docs/Guide_C64-Ecosystem.pdf)
 
 ## Was geprüft wurde – und was nicht
 

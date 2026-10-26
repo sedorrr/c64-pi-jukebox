@@ -66,7 +66,8 @@ controlled entirely through a **web page** (German) – on the phone as well as 
 - Installed by **one script** on Raspberry Pi OS Lite (64 bit, Trixie or Bookworm) as a systemd service
 
 > **Guide for all three devices together** (visualizer, audio receiver, Raspberry Pi jukebox – setup, chaining,
-> operation, illustrated; in German): [docs/Anleitung_C64-Oekosystem.pdf](docs/Anleitung_C64-Oekosystem.pdf)
+> operation, illustrated): [docs/Guide_C64-Ecosystem.pdf](docs/Guide_C64-Ecosystem.pdf) – German version:
+> [docs/Anleitung_C64-Oekosystem.pdf](docs/Anleitung_C64-Oekosystem.pdf)
 
 ## What was tested – and what not
 
