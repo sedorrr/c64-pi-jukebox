@@ -59,18 +59,25 @@ liegt im Ordner `case/` des Projekts.
 
 ### Jukebox installieren
 
-Den Projektordner auf den Pi kopieren und dort das Installationsskript starten. Vom Mac oder Linux-PC aus geht beides
-in einem Schritt (Benutzername wie im Imager festgelegt):
+**Direkt auf dem Pi (am einfachsten):** per SSH am Pi anmelden (`ssh <benutzer>@c64pi.local`, Benutzername wie im
+Imager festgelegt), das Projekt von GitHub holen und das Installationsskript starten:
 
 ```
-./install/deploy.sh pi@c64pi.local
-```
-
-Oder von Hand: den Ordner kopieren (`scp -r Pi3_c64_jukebox pi@c64pi.local:`), per SSH anmelden und
-
-```
-cd Pi3_c64_jukebox
+sudo apt install -y git
+git clone https://github.com/sedorrr/c64-pi-jukebox
+cd c64-pi-jukebox
 sudo ./install/install.sh
+```
+
+Ohne git geht es auch: auf GitHub **Code → Download ZIP**, die Datei auf den Pi kopieren
+(`scp c64-pi-jukebox-main.zip <benutzer>@c64pi.local:`), dort `unzip c64-pi-jukebox-main.zip` (ggf. vorher `sudo apt install -y unzip`),
+`cd c64-pi-jukebox-main` und `sudo ./install/install.sh`.
+
+**Vom Mac oder Linux-PC aus:** Liegt das Projekt schon auf dem PC (geklont oder entpackt), kopiert dieser Befehl im
+Projektordner alles auf den Pi und startet dort die Installation (fragt nach dem sudo-Passwort des Pi):
+
+```
+./install/deploy.sh <benutzer>@c64pi.local
 ```
 
 Das Skript
@@ -89,8 +96,9 @@ Das Skript
 
 ### Aktualisieren
 
-Dasselbe noch einmal: neuen Projektordner kopieren und `sudo ./install/install.sh` (bzw. `./install/deploy.sh`)
-aufrufen. Einstellungen, Listen und Songlängen in `/var/lib/c64jukebox` bleiben erhalten.
+Auf dem Pi im Projektordner `git pull` und danach `sudo ./install/install.sh` – bzw. den neuen Stand als ZIP holen
+oder vom PC aus `./install/deploy.sh` erneut aufrufen. Einstellungen, Listen und Songlängen in `/var/lib/c64jukebox`
+bleiben erhalten.
 
 ### Erster Aufruf
 

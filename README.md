@@ -118,14 +118,18 @@ browser tests (Playwright) at phone and desktop size without JavaScript errors a
 
 ## Installation
 
-Write Raspberry Pi OS Lite (64-bit) with the Raspberry Pi Imager (host name `c64pi`, SSH on). Then from the Mac/PC:
+Write Raspberry Pi OS Lite (64-bit) with the Raspberry Pi Imager (host name `c64pi`, SSH on). Then over SSH on the Pi:
 
 ```
-./install/deploy.sh pi@c64pi.local
+sudo apt install -y git
+git clone https://github.com/sedorrr/c64-pi-jukebox
+cd c64-pi-jukebox
+sudo ./install/install.sh
 ```
 
-or on the Pi in the project folder `sudo ./install/install.sh`. Open **http://c64pi.local/**, password
-`commodore64`. Updating = the same again; settings stay.
+Or from a Mac/Linux PC in the project folder: `./install/deploy.sh <user>@c64pi.local`. Then open
+**http://c64pi.local/**, password `commodore64`. Updating: `git pull` and `sudo ./install/install.sh` again; settings
+stay.
 
 ## Tests on the PC
 

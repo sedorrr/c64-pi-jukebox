@@ -134,14 +134,19 @@ Handy- und Desktop-Format ohne JavaScript-Fehler und ohne waagrechte Bildlauflei
 
 ## Installation
 
-Raspberry Pi OS Lite (64-bit) mit dem Raspberry Pi Imager schreiben (Rechnername `c64pi`, SSH an). Dann vom Mac/PC aus:
+Raspberry Pi OS Lite (64-bit) mit dem Raspberry Pi Imager schreiben (Rechnername `c64pi`, SSH an). Dann per SSH auf
+dem Pi:
 
 ```
-./install/deploy.sh pi@c64pi.local
+sudo apt install -y git
+git clone https://github.com/sedorrr/c64-pi-jukebox
+cd c64-pi-jukebox
+sudo ./install/install.sh
 ```
 
-oder auf dem Pi im Projektordner `sudo ./install/install.sh`. Danach **http://c64pi.local/** öffnen, Passwort
-`commodore64`. Aktualisieren = dasselbe noch einmal; Einstellungen bleiben. Details: [Handbuch](docs/HANDBUCH.md).
+Oder vom Mac/Linux-PC aus im Projektordner: `./install/deploy.sh <benutzer>@c64pi.local`. Danach
+**http://c64pi.local/** öffnen, Passwort `commodore64`. Aktualisieren: `git pull` und noch einmal
+`sudo ./install/install.sh`; Einstellungen bleiben. Details: [Handbuch](docs/HANDBUCH.md#installation).
 
 ## Projektstruktur
 
