@@ -91,10 +91,10 @@ und wird komplett über eine **Weboberfläche** gesteuert – am Handy wie am PC
   Diashow, die SID-Stimmen als Notenrolle, „Jetzt läuft“-Karte, Bedienung mit der Fernbedienung des Fernsehers (HDMI-CEC),
   Lautstärkeregler für den Fernsehton
 - 2,8″-Touch-Display: Bild, Touch, Kalibrierung, Tasten
-- Wiederholungserkennung für Titel ohne Länge läuft am Pi
+- Wiederholungserkennung für Titel ohne Länge läuft am Pi; Verlauf „Zuletzt gespielt“ im Tab „Listen“
 
 **Noch nicht am Gerät geprüft:** Freigaben mit SMB 2 (ältere NAS) sowie von einem Windows-PC oder Mac, USB-Stick direkt am Pi (automatisches
-Einhängen), das kleine OLED-Display, das eigene WLAN des Pi und der Party-Modus, der Verlauf „Zuletzt gespielt“.
+Einhängen), das kleine OLED-Display, das eigene WLAN des Pi und der Party-Modus.
 
 **Automatische Tests am PC:** `pytest` mit Attrappen für Ultimate-REST, FTP-Server (verhält sich wie der des Ultimate:
 kein MLSD, Unix-LIST), SMB-Server (SMB 2/3 und SMB-1-Rückfall), Freigaben-Liste per DCE/RPC, Picos (`/jb/np` mit
