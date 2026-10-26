@@ -1,0 +1,6 @@
+# only for the tests on the PC
+-r requirements.txt
+pytest>=7
+pygame>=2.5          # the HDMI part (on the Pi: python3-pygame from apt)
+numpy>=1.24          # the HDMI part (on the Pi: python3-numpy from apt)
+playwright>=1.40     # then once: python3 -m playwright install chromium

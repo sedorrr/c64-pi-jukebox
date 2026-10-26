@@ -1,0 +1,5 @@
+# C64-Jukebox: USB sticks are mounted read-only under /media/usb/<device>, e.g. /media/usb/sda1
+# (source "USB-Stick am Pi"). systemd-mount does the mounting, udev itself may not (private mount namespace);
+# the mount goes away by itself when the stick is pulled.
+ACTION=="add", SUBSYSTEMS=="usb", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", ENV{ID_FS_TYPE}=="vfat|exfat|ntfs|ntfs3", RUN{program}+="/usr/bin/systemd-mount --no-block --collect -o ro,umask=0022 $devnode /media/usb/%k"
+ACTION=="add", SUBSYSTEMS=="usb", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem", ENV{ID_FS_TYPE}!="vfat|exfat|ntfs|ntfs3", RUN{program}+="/usr/bin/systemd-mount --no-block --collect -o ro $devnode /media/usb/%k"

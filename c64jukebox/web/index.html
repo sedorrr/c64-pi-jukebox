@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#352879">
+<title>C64-Jukebox</title>
+<link rel="icon" href="icon.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="login" class="login" hidden>
+  <form id="lform">
+    <h1>C64-Jukebox</h1>
+    <input type="password" id="lpw" placeholder="Passwort" autocomplete="current-password" aria-label="Passwort">
+    <button class="primary">Anmelden</button>
+    <p id="lmsg" class="warn"></p>
+  </form>
+</div>
+
+<div id="app" hidden>
+<header class="top">
+  <span class="logo">C64-Jukebox</span>
+  <span id="topnow" class="topnow"></span>
+</header>
+<div id="pwwarn" class="warnbar" hidden>Das Web-Passwort ist noch das Standardpasswort – bitte unter
+  <a href="#" onclick="tab('set');return false">Einstellungen</a> ändern.</div>
+<nav class="tabs" id="tabs">
+  <button data-t="play" aria-label="Wiedergabe"><span class="tl">Wiedergabe</span><span class="ti">&#9654;&#xFE0E;</span></button>
+  <button data-t="files">Dateien</button>
+  <button data-t="lists">Listen</button>
+  <button data-t="dev">Geräte</button>
+  <button data-t="show" aria-label="Anzeige"><span class="tl">Anzeige</span><span class="ti">&#128250;</span></button>
+  <button data-t="set" aria-label="Einstellungen"><span class="tl">Einstellungen</span><span class="ti">&#9881;</span></button>
+  <button data-t="help" aria-label="Hilfe"><span class="tl">Hilfe</span><span class="ti">?</span></button>
+</nav>
+
+<main>
+<!-- ============================================================ playing -->
+<section data-tab="play">
+  <div class="card now" id="nowcard">
+    <div class="nowtitle" id="nt">Nichts läuft</div>
+    <div class="nowsub" id="na"></div>
+    <div class="stil hint" id="nstil" hidden></div>
+    <div class="badges" id="nb"></div>
+    <div class="prog" aria-hidden="true"><div id="pbar"></div></div>
+    <div class="times"><span id="tel"></span><span id="tlen"></span></div>
+    <div class="ctl">
+      <button id="bprev" title="Voriger Titel" aria-label="Voriger Titel">&#9198;</button>
+      <button id="bplay" class="big" title="Abspielen / Pause" aria-label="Abspielen / Pause">&#9654;</button>
+      <button id="bstop" title="Stopp (Reset)" aria-label="Stopp">&#9209;</button>
+      <button id="bnext" title="Nächster Titel" aria-label="Nächster Titel">&#9197;</button>
+    </div>
+    <div class="row" id="endrow" hidden>
+      <button id="bend" title="Das Stück ist hier zu Ende (oder fängt von vorn an): diese Spielzeit als seine Länge merken und weiter">&#9873; Ende hier merken</button>
+      <span class="hint">Länge unbekannt – am Ende des Stücks drücken, dann spielt es künftig genau so lange</span>
+    </div>
+    <div class="row" id="namerow" hidden>
+      <span class="grow" id="nametxt"></span>
+      <button id="bnameok" class="primary">Übernehmen</button><button id="bnameno">Nein</button>
+    </div>
+    <div class="row" id="looprow" hidden>
+      <span class="grow" id="looptxt"></span>
+      <button id="bloopok" class="primary">Übernehmen</button><button id="bloopno">Nein</button>
+    </div>
+    <div class="songsel" id="songsel" hidden>
+      <button id="sdown" aria-label="Voriges Unterlied">&#8249;</button>
+      <span id="sinfo"></span>
+      <button id="sup" aria-label="Nächstes Unterlied">&#8250;</button>
+    </div>
+    <div class="opts">
+      <label><input type="checkbox" id="oshuf"> Zufall</label>
+      <label><input type="checkbox" id="orep"> Liste wiederholen</label>
+      <label class="u64sel">Ultimate <select id="ou64"></select></label>
+    </div>
+    <div class="msg" id="pmsg"></div>
+  </div>
+
+  <div class="card lcard">
+    <div class="row">
+      <h3>Wiedergabeliste</h3>
+      <span id="lhead" class="hint grow"></span>
+      <a class="hl" href="#" onclick="help('die-wiedergabeliste');return false" title="Hilfe">?</a>
+    </div>
+    <div class="row search">
+      <input id="lfilter" type="search" placeholder="Suchen: Dateiname, Titel, Komponist" aria-label="In der Liste suchen">
+      <label class="favonly" title="Nur Favoriten zeigen"><input type="checkbox" id="lfav"> &#9733;</label>
+    </div>
+    <div class="row ltools">
+      <button id="lplay" title="Ausgewählten Titel abspielen (Doppelklick, Enter)">&#9654;</button>
+      <button id="lnext" title="Ausgewählte Titel als Nächstes spielen">Als Nächstes</button>
+      <button id="ldel" title="Ausgewählte Titel aus der Liste nehmen (Entf)">Entfernen</button>
+      <button id="lcheck" title="Kopfdaten und Längen aller Titel lesen">Längen prüfen</button>
+      <button id="lsave">Speichern …</button>
+      <button id="lmenu" title="Weitere Funktionen">Mehr &#9662;</button>
+      <span class="grow"></span>
+      <button id="lfocus" title="Zum laufenden Titel">&#8982;</button>
+    </div>
+    <div id="plmsg" class="hint" aria-live="polite"></div>
+    <div class="lwin" id="lwin" tabindex="0" aria-label="Wiedergabeliste">
+      <div class="lrow lhd" id="lhd">
+        <span class="c-no">#</span><span class="c-name" data-col="name">Dateiname</span><span class="c-title" data-col="title">Titel</span>
+        <span class="c-author" data-col="author">Komponist</span><span class="c-song" data-col="song">Stück</span>
+        <span class="c-sids" data-col="sids">SIDs</span><span class="c-len" data-col="len">Länge</span>
+        <span class="c-plays" data-col="plays">Gespielt</span><span class="c-fav" data-col="fav">&#9733;</span><span class="c-more"></span>
+      </div>
+      <div class="lspace" id="lspace"><div class="lrows" id="lrows"></div></div>
+    </div>
+    <p class="hint" id="lempty">Die Liste ist leer. Im Tab <a href="#" onclick="tab('files');return false">Dateien</a>
+      einen Titel antippen oder einen Ordner abspielen – oder unter „Mehr“ eine Playlist der PC-Jukebox importieren.</p>
+  </div>
+</section>
+
+<!-- ============================================================ files -->
+<section data-tab="files" class="off">
+  <div class="srcbar" id="srcbar"></div>
+  <div class="card">
+    <div class="crumbs" id="crumbs"></div>
+    <div class="row search">
+      <input id="ffilter" type="search" placeholder="Filtern: Name, Titel, Komponist, Jahr" aria-label="Filtern">
+      <button id="fsearch" title="Auch alle Unterordner durchsuchen" aria-label="In Unterordnern suchen">&#128269; Unterordner</button>
+    </div>
+    <div class="row folderacts">
+      <button id="fplay" class="primary">&#9654; Ordner abspielen</button>
+      <button id="fadd" title="Den Ordner hinten an die Liste hängen">+ Liste</button>
+      <label><input type="checkbox" id="frec" checked> mit Unterordnern</label>
+      <label><input type="checkbox" id="fshuf"> Zufall</label>
+      <a class="hl" href="#" onclick="help('dateien-auswaehlen');return false" title="Hilfe">?</a>
+    </div>
+    <div id="fstatus" class="hint"></div>
+    <ul id="flist" class="flist"></ul>
+  </div>
+</section>
+
+<!-- ============================================================ saved lists -->
+<section data-tab="lists" class="off">
+  <div class="card">
+    <div class="row"><h3>Gespeicherte Wiedergabelisten</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('wiedergabelisten');return false" title="Hilfe">?</a></div>
+    <ul id="pls" class="pls"></ul>
+    <p class="hint">Speichern: im Tab „Wiedergabe“ bei der Liste auf „Speichern …“.</p>
+  </div>
+  <div class="card">
+    <div class="row"><h3>Listen zusammenstellen</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('listen-zusammenstellen');return false" title="Hilfe">?</a></div>
+    <div id="smpre" class="row wrap"></div>
+    <details id="smown"><summary>Eigene Auswahl aus der HVSC</summary>
+      <div class="grid2">
+        <label>Bereich <select id="smarea"><option value="">alle</option><option value="MUSICIANS">Musiker</option>
+          <option value="GAMES">Spiele</option><option value="DEMOS">Demos</option></select></label>
+        <label>Komponist oder Pfad enthält <input id="smtext" placeholder="z. B. Hubbard"></label>
+        <label>Länge von <input type="number" id="smmin" min="0" max="60" step="0.5" class="num"> bis
+          <input type="number" id="smmax" min="0" max="60" step="0.5" class="num"> min</label>
+        <label>Anzahl <input type="number" id="smn" min="1" max="1000" value="50" class="num"></label>
+      </div>
+      <label><input type="checkbox" id="smmulti"> nur Stücke für 2 oder 3 SIDs</label>
+      <label><input type="checkbox" id="smstil"> nur mit STIL-Hintergrund</label>
+      <label><input type="checkbox" id="smnever"> nur nie gespielte</label>
+      <label>Reihenfolge <select id="smsort"><option value="random">zufällig</option><option value="path">nach Pfad</option>
+        <option value="top">meistgespielt zuerst</option></select></label>
+      <div class="row"><button id="smplay" type="button" class="primary">&#9654; Abspielen</button>
+        <button id="smadd" type="button">+ Anhängen</button><button id="smsave" type="button">Als Liste speichern …</button></div>
+    </details>
+    <div id="smstate" class="hint"></div>
+  </div>
+  <div class="card">
+    <div class="row"><h3>Zuletzt gespielt</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('zuletzt-gespielt');return false" title="Hilfe">?</a></div>
+    <ul id="hist" class="pls"></ul>
+    <div class="row"><button id="histall" type="button">Als Wiedergabeliste übernehmen</button><span class="grow"></span>
+      <button id="histclr" type="button" class="danger">Verlauf löschen</button></div>
+  </div>
+  <div class="card">
+    <h3>Statistik</h3>
+    <div id="statbox" class="hint"></div>
+  </div>
+</section>
+
+<!-- ============================================================ devices -->
+<section data-tab="dev" class="off">
+  <div class="card">
+    <div class="row"><h3>Ultimates</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('ultimates');return false" title="Hilfe">?</a></div>
+    <div id="u64rows"></div>
+    <div id="u64power" class="hint"></div>
+    <div class="row">
+      <button id="u64add">+ Ultimate</button>
+      <button id="u64scan">Im Netz suchen</button>
+      <span class="grow"></span>
+      <button id="u64save" class="primary">Speichern</button>
+    </div>
+    <div id="u64found"></div>
+  </div>
+
+  <div class="card">
+    <div class="row"><h3>Picos und Stream-Verteiler</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('stream-verteiler');return false" title="Hilfe">?</a></div>
+    <label class="switch"><input type="checkbox" id="ston"> Audio-Stream vom Ultimate zum Pi holen und an die Picos weiterreichen</label>
+    <div id="ststate" class="hint"></div>
+    <label class="switch"><input type="checkbox" id="pnews"> Retro-News an die Picos schicken – dort läuft im Leerlauf nach
+      jedem Lauftext eine Schlagzeile durch</label>
+    <div id="pnstate" class="hint"></div>
+    <div id="picorows"></div>
+    <div class="row">
+      <button id="picoadd">+ Pico</button>
+      <span class="grow"></span>
+      <button id="picosave" class="primary">Speichern</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row"><h3>Geräte im Netz</h3><span class="grow"></span><button id="devq">Neu suchen</button></div>
+    <div id="devchain" class="hint"></div>
+    <div id="devlist"></div>
+    <h4>Name des Pi in dieser Liste</h4>
+    <div class="row"><input id="pname" maxlength="16" aria-label="Name"><button id="pnsave">Speichern</button></div>
+    <p class="hint">Unter diesem Namen zeigen die Picos den Pi in „Geräte im Netz“. Die Adresse im Browser
+      bleibt <code>c64pi.local</code> (der Rechnername, den das Installationsskript setzt).</p>
+  </div>
+</section>
+
+<!-- ============================================================ TV and display -->
+<section data-tab="show" class="off">
+  <div class="card" id="hcard">
+    <div class="row"><h3>Fernseher (HDMI)</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('fernseher-hdmi');return false" title="Hilfe">?</a></div>
+    <label class="switch"><input type="checkbox" id="hon"> Bild am HDMI-Ausgang des Pi zeigen (1920 × 1080)</label>
+    <div id="hstate" class="hint"></div>
+    <div class="grid2">
+      <label>Effekt <select id="hmode"></select></label>
+      <label><input type="checkbox" id="hosd"> Titel, SID-Chips und Spielzeit einblenden</label>
+    </div>
+    <label><input type="checkbox" id="hstil"> dazu die STIL-Hintergründe zum Stück (unten links)</label>
+    <label><input type="checkbox" id="hqr"> wenn nichts läuft: QR-Code zur Weboberfläche (mit dem Handy scannen)</label>
+    <label><input type="checkbox" id="hbig"> bei jedem neuen Titel eine große Karte „Jetzt läuft“ –
+      <input type="number" id="hbigs" min="2" max="30" class="num"> s</label>
+    <label><input type="checkbox" id="hidle"> Effekte ausblenden, wenn keine Musik läuft – nach
+      <input type="number" id="hidles" min="5" max="3600" class="num"> s</label>
+    <h4>Effekt automatisch wechseln</h4>
+    <div class="grid2">
+      <label><input type="checkbox" id="hauto"> während der Wiedergabe wechseln</label>
+      <label>alle <input type="number" id="hautos" min="10" max="3600" class="num"> s</label>
+    </div>
+    <div id="hautomodes" class="chips"></div>
+  </div>
+
+  <div class="card">
+    <div class="row"><h3>Hintergrund am Fernseher</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('fernseher-hdmi');return false" title="Hilfe">?</a></div>
+    <div class="grid2">
+      <label>Hintergrund <select id="hbg"><option value="none">keiner (schwarz)</option>
+        <option value="images">Bilder (Diashow)</option><option value="video">Bild des C64 (vom Ultimate)</option></select></label>
+      <label>Helligkeit des Hintergrunds <span class="row"><input type="range" id="hop" min="0" max="100" step="5">
+        <span id="hopv" class="hint"></span></span></label>
+    </div>
+    <div id="himgbox" hidden>
+      <h4>Bilder für die Diashow</h4>
+      <div class="grid2">
+        <label>Bildwechsel alle <input type="number" id="himgs" min="3" max="3600" class="num"> s</label>
+        <label><input type="checkbox" id="hshuf"> zufällige Reihenfolge</label>
+        <label>Bilder von <select id="hsrc"><option value="">hochgeladenen Bildern (hier auf der Seite)</option>
+          <option value="*">einem Ordner: USB-Stick, Netzwerk, FTP …</option></select></label>
+      </div>
+      <div id="hsrcbox" hidden>
+        <div class="row"><span class="ico">&#128193;</span><span id="hfolder" class="grow"></span>
+          <button id="hpick" type="button">Ordner wählen …</button></div>
+        <div class="row"><label><input type="checkbox" id="hsub"> mit Unterordnern</label><span class="grow"></span>
+          <button id="hsync" type="button">Jetzt abgleichen</button></div>
+        <div id="hsyncmsg" class="hint"></div>
+      </div>
+      <div id="hupbox">
+        <div class="row"><label class="btn">Bilder hochladen … <input type="file" id="hfiles" accept="image/jpeg,image/png" multiple hidden></label>
+          <span id="hupmsg" class="hint"></span></div>
+        <div id="hlist" class="thumbs"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="newscard">
+    <div class="row"><h3>Retro-News am Fernseher</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('retro-news');return false" title="Hilfe">?</a></div>
+    <label><input type="checkbox" id="nidle"> im Leerlauf zeigen (wenn die Effekte ausgeblendet sind) – nächste Meldung alle
+      <input type="number" id="nevery" min="5" max="300" class="num"> s</label>
+    <label><input type="checkbox" id="nticker"> als Laufband unten, während die Musik spielt</label>
+    <div id="nstate" class="hint"></div>
+    <h4>Nachrichtenquellen (RSS/Atom)</h4>
+    <div id="nfeeds"></div>
+    <div class="row"><button id="nadd" type="button">+ Quelle</button><button id="ndefault" type="button">Standard-Quellen</button>
+      <span class="grow"></span><button id="nload" type="button">Jetzt laden</button><button id="nsave" type="button" class="primary">Speichern</button></div>
+  </div>
+
+  <div class="card">
+    <div class="row"><h3>Ton am Fernseher</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('fernseher-hdmi');return false" title="Hilfe">?</a></div>
+    <label><input type="checkbox" id="hsound"> Ton über HDMI zum Fernseher</label>
+    <label>Lautstärke <span class="row"><input type="range" id="hvol" min="0" max="100" step="5">
+      <span id="hvolv" class="hint"></span></span></label>
+    <label><input type="checkbox" id="hfade"> am Titelende aus-, beim nächsten einblenden:
+      <input type="number" id="hfades" min="0.2" max="15" step="0.5" class="num"> s</label>
+    <p class="hint">Der Ton kommt etwa 0,2 s nach dem Audio-Ausgang des Ultimate – hängt dort auch eine Anlage,
+      nur eines von beiden laut stellen. Aus- und Einblenden wirkt nur auf den Ton über HDMI.</p>
+  </div>
+
+  <div class="card">
+    <div class="row"><h3>TV-Fernbedienung (HDMI-CEC)</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('fernbedienung-des-fernsehers-hdmi-cec');return false" title="Hilfe">?</a></div>
+    <label><input type="checkbox" id="con"> Jukebox mit der Fernbedienung des Fernsehers bedienen</label>
+    <div id="cecbox">
+      <label><input type="checkbox" id="cclaim"> beim Abspielen als aktives Gerät melden, damit die Tasten sofort ankommen
+        <span class="hint">(manche Fernseher schalten dabei auf den Pi um)</span></label>
+      <label><input type="checkbox" id="ctvon"> Fernseher einschalten und auf den Pi umschalten, wenn die Wiedergabe beginnt</label>
+      <label>Fernseher ausschalten, wenn nichts mehr läuft – nach
+        <input type="number" id="ctvoff" min="0" max="240" class="num"> min <span class="hint">(0 = nie)</span></label>
+      <div class="row"><button id="ctvnow" type="button">Fernseher jetzt auf den Pi umschalten</button>
+        <button id="ctvsb" type="button">Fernseher ausschalten</button></div>
+      <div id="cecstate" class="hint"></div>
+      <p class="hint">Tasten: ▶ / ❚❚ / ■ = Stopp bzw. Abspielen, ⏭ ⏮ (oder ← →) = Titel, ↑ ↓ = Effekt am Fernseher, Programm +/− = Unterlied.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row"><h3>Display am Pi</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('display');return false" title="Hilfe">?</a></div>
+    <div class="grid2">
+      <label>Art <select id="dtype"><option value="auto">0,96″ OLED (SSD1306)</option><option value="sh1106">1,3″ OLED (SH1106)</option>
+        <option value="tft">2,8″ mit Touch (ILI9341, SPI)</option><option value="off">kein Display</option></select></label>
+      <label>dunkel nach <input type="number" id="doff" min="0" max="1440" class="num"> min ohne Wiedergabe</label>
+    </div>
+    <div id="dtft" class="row" hidden><label>Touch angeschlossen <select id="dtouch"><option value="own">mit eigenen Kabeln (Pins 35–40)</option>
+      <option value="shared">mit Y-Kabeln (Pins 19/21/23/26)</option></select></label>
+      <label>D/C an <select id="ddc"><option value="24">Pin 18</option><option value="23">Pin 16</option><option value="6">Pin 31</option></select></label>
+      <label><input type="checkbox" id="dflip"> Bild um 180° drehen</label>
+      <span class="grow"></span><button id="dcal" type="button">Touch einrichten</button></div>
+    <div id="dstate" class="hint"></div>
+    <div class="row"><span class="grow"></span><button id="dsave" class="primary">Speichern</button></div>
+  </div>
+</section>
+
+<!-- ============================================================ settings -->
+<section data-tab="set" class="off">
+  <h2 class="group">Abspielen</h2>
+  <div class="card">
+    <h3>Wiedergabe</h3>
+    <label>Nächster Titel ohne bekannte Länge nach <input type="number" id="plim" min="0" max="120" step="0.5" class="num"> Minuten (0 = nie)</label>
+    <label><input type="checkbox" id="psil"> oder nach <input type="number" id="psils" min="2" max="60" class="num"> s Stille (braucht den Stream)</label>
+    <label>Wiederholung erkennen (Titel ohne Länge, braucht den Stream) <select id="ploop"><option value="suggest">vorschlagen</option>
+      <option value="auto">automatisch als Länge übernehmen</option><option value="off">aus</option></select>
+      <a class="hl" href="#" onclick="help('wiederholung-erkennen');return false" title="Hilfe">?</a></label>
+    <label>Gleiches Stück per Name in der HVSC suchen (andere Fassung der Datei) <select id="pname"><option value="suggest">vorschlagen</option>
+      <option value="auto">automatisch als Länge übernehmen</option><option value="off">aus</option></select>
+      <a class="hl" href="#" onclick="help('laenge-ueber-den-namen');return false" title="Hilfe">?</a></label>
+    <label>Unterlieder <select id="psub"><option value="start">nur das Startlied</option><option value="all">alle nacheinander</option></select></label>
+    <label><input type="checkbox" id="psid"> SID-Adressen am Ultimate bei Bedarf umstellen (ein freier Sockel, nie
+      UltiSID; wird danach zurückgestellt)</label>
+    <div class="row"><button id="psidchk" type="button">SID-Adressen am Ultimate anzeigen</button>
+      <a class="hl" href="#" onclick="help('sid-adressen-am-ultimate');return false" title="Hilfe">?</a></div>
+    <div id="psidcfg" class="hint"></div>
+    <div class="row"><span class="grow"></span><button id="psave" class="primary">Speichern</button></div>
+  </div>
+
+  <div class="card">
+    <div class="row"><h3>Zeitplan</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('zeitplan');return false" title="Hilfe">?</a></div>
+    <div id="schrows"></div>
+    <div id="schstate" class="hint"></div>
+    <div class="row"><button id="schadd" type="button">+ Eintrag</button><span class="grow"></span>
+      <button id="schsave" type="button" class="primary">Speichern</button></div>
+  </div>
+
+  <div class="card">
+    <div class="row"><h3>Songlängen</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('songlaengen');return false" title="Hilfe">?</a></div>
+    <div id="slstate"></div>
+    <p class="hint">Am einfachsten: im Tab „Dateien“ die Datei <code>Songlengths.md5</code> der HVSC antippen
+      (liegt in <code>C64Music/DOCUMENTS</code>). Oder hier vom Handy/PC hochladen:</p>
+    <div class="row">
+      <label class="filebtn">HVSC-Datei hochladen<input type="file" id="slup" accept=".md5,.txt"></label>
+      <label class="filebtn">Eigene Längen hochladen<input type="file" id="slupc" accept=".md5,.txt"></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row"><h3>Daten der PC-Jukebox übernehmen</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('daten-der-pc-jukebox');return false" title="Hilfe">?</a></div>
+    <p class="hint">Aus dem Einstellungsordner des Ultimate64 SID Player (Mac: <code>~/Library/Application Support/Ultimate64SIDPlayer</code>,
+      Windows: <code>%APPDATA%</code>). Zähler werden addiert, Favoriten ergänzt, eigene Längen zusammengeführt.</p>
+    <div class="row">
+      <label class="filebtn">play_counts.json<input type="file" id="pcplays" accept=".json"></label>
+      <label class="filebtn">favorites.json<input type="file" id="pcfavs" accept=".json"></label>
+      <label class="filebtn">user_songlengths.txt<input type="file" id="pclens" accept=".txt"></label>
+    </div>
+    <label><input type="checkbox" id="pclensow"> bei abweichenden Längen die aus der Datei nehmen (sonst bleiben meine)</label>
+    <div class="row"><a class="btn" href="/api/songlengths/export" download>Eigene Längen herunterladen</a></div>
+  </div>
+
+  <h2 class="group">Netzwerk des Pi</h2>
+  <div class="card">
+    <div class="row"><h3>WLAN und Netzwerk</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('netzwerk-des-pi');return false" title="Hilfe">?</a></div>
+    <div id="netstate"></div>
+    <p class="hint" id="wapnote" hidden>Im eigenen WLAN des Pi trennt die Suche die Verbindung für etwa 15 Sekunden
+      (der Pi kann nicht gleichzeitig senden und suchen); danach die Seite neu laden.</p>
+    <div class="row"><button id="wscan">WLANs suchen</button><button id="wforget" hidden>Dieses WLAN vergessen</button>
+      <span id="wmsg" class="hint"></span></div>
+    <div id="wlist" class="chips"></div>
+    <h4>Eigenes WLAN des Pi (Zugangspunkt)</h4>
+    <label><input type="checkbox" id="apon"> öffnen, wenn weder Kabel noch ein bekanntes WLAN da ist</label>
+    <div class="grid2">
+      <label>Name <input id="apssid" maxlength="32" placeholder="C64-Jukebox" autocapitalize="off"></label>
+      <label>Passwort <input id="appw" type="password" placeholder="commodore64" autocomplete="new-password"></label>
+    </div>
+    <div class="row"><span class="grow"></span><button id="netsave" class="primary">Speichern</button></div>
+  </div>
+
+  <div class="card">
+    <div class="row"><h3>Party-Modus</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('party-modus');return false" title="Hilfe">?</a></div>
+    <p class="hint">Unterwegs ohne fremdes WLAN: Der Pi spannt ein WLAN unter dem Namen und Passwort deines Heim-WLANs auf –
+      Picos und Handys verbinden sich von selbst. Das Ultimate per Netzwerkkabel direkt an den Pi. Zu Hause (Heim-WLAN in
+      Reichweite oder Kabel am Router) bleibt der Party-Modus still.</p>
+    <label><input type="checkbox" id="pon"> Party-Modus an</label>
+    <label>Heim-WLAN <input id="pssid" list="psaved" placeholder="Name wie zu Hause"><datalist id="psaved"></datalist></label>
+    <label>Passwort <input type="password" id="ppw" autocomplete="new-password" placeholder="leer = das im Pi gespeicherte"></label>
+    <div id="pstate" class="hint"></div>
+    <div class="row"><span class="grow"></span><button id="psave2" class="primary" type="button">Speichern</button></div>
+  </div>
+
+  <h2 class="group">System</h2>
+  <div class="card">
+    <h3>Web-Passwort</h3>
+    <div class="grid2">
+      <input type="password" id="pwold" placeholder="Bisheriges Passwort" autocomplete="current-password" aria-label="Bisheriges Passwort">
+      <input type="password" id="pwnew" placeholder="Neues Passwort" autocomplete="new-password" aria-label="Neues Passwort">
+    </div>
+    <div class="row"><span class="grow"></span><button id="pwsave">Passwort ändern</button></div>
+  </div>
+
+  <div class="card">
+    <div class="row"><h3>Sicherung</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('sicherung');return false" title="Hilfe">?</a></div>
+    <p class="hint">Eine Datei mit allen Einstellungen (auch Passwörtern), Quellen, Wiedergabelisten und eigenen Songlängen.</p>
+    <div class="row">
+      <a class="btn" href="/api/backup" download id="bkdl">Sicherung herunterladen</a>
+      <label class="filebtn">Sicherung einspielen<input type="file" id="bkup" accept=".json"></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row"><span id="ver" class="hint"></span><span class="grow"></span><button id="logout">Abmelden</button></div>
+  </div>
+</section>
+
+<!-- ============================================================ help -->
+<section data-tab="help" class="off">
+  <div class="card help" id="helpbody">Lade das Handbuch …</div>
+</section>
+</main>
+</div>
+
+<!-- source editor -->
+<dialog id="srcdlg">
+  <form method="dialog" onsubmit="return false">
+    <h3 id="sdtitle">Quelle</h3>
+    <label>Art
+      <select id="sk">
+        <option value="smb">Netzwerkfreigabe (SMB: Windows, NAS, Mac, Linux)</option>
+        <option value="ftp">FTP-Server</option>
+        <option value="u64">USB-Stick am Ultimate (FTP)</option>
+        <option value="local">Ordner oder USB-Stick am Pi</option>
+      </select>
+    </label>
+    <label>Name <input id="sl" maxlength="40" placeholder="z. B. NAS Musik"></label>
+    <div class="k-net">
+      <label>Server <input id="sh" placeholder="nas.local oder 192.168.1.10" autocapitalize="off"></label>
+      <div class="row"><button type="button" id="sscan">Im Netz suchen</button><span id="sscanst" class="hint"></span></div>
+      <div id="sscanprog"></div>
+      <div id="sscanres" class="chips"></div>
+    </div>
+    <div class="k-cred grid2">
+      <label>Benutzer <input id="su" autocapitalize="off" autocomplete="off" placeholder="leer = Gast"></label>
+      <label>Passwort <input id="sw" type="password" autocomplete="new-password"></label>
+    </div>
+    <div class="k-smb">
+      <label>Freigabe <input id="ss" autocapitalize="off" placeholder="z. B. Musik"></label>
+      <div class="row"><button type="button" id="sshares">Freigaben anzeigen</button><span id="ssharest" class="hint"></span></div>
+      <div id="sshareres" class="chips"></div>
+    </div>
+    <div class="k-ftp"><label>Port <input id="sp" type="number" class="num" value="21"></label></div>
+    <div class="k-u64"><label>Ultimate <select id="sx"></select></label></div>
+    <label class="k-path">Ordner <input id="sd" placeholder="/" autocapitalize="off"></label>
+    <div class="row"><button type="button" id="stest">Verbindung testen</button></div>
+    <div id="smsg" class="msg"></div>
+    <div class="row">
+      <button type="button" id="sdel" class="danger">Löschen</button>
+      <span class="grow"></span>
+      <button type="button" id="scancel">Abbrechen</button>
+      <button type="button" id="ssave" class="primary">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- row menu / more menu -->
+<dialog id="menudlg" class="menu">
+  <form method="dialog" onsubmit="return false">
+    <h3 id="menutitle"></h3>
+    <div id="menubtns" class="menubtns"></div>
+    <div class="row"><span class="grow"></span><button type="button" onclick="$('menudlg').close()">Schließen</button></div>
+  </form>
+</dialog>
+
+<!-- import a play list of the PC program -->
+<dialog id="impdlg">
+  <form method="dialog" onsubmit="return false">
+    <h3>Playlist der PC-Jukebox importieren</h3>
+    <p class="hint">„Export Playlist for Sharing“ (<code>…_u64playlist.json</code>) oder eine <code>.u64pl</code> aus dem
+      Playlist-Ordner des Ultimate64 SID Player.</p>
+    <label class="filebtn">Datei wählen<input type="file" id="impfile" accept=".json,.u64pl,.txt"></label>
+    <span id="impname" class="hint"></span>
+    <label>In dieser Quelle suchen <select id="impsrc"></select></label>
+    <label>Ordner (samt Unterordnern) <input id="imppath" value="/" autocapitalize="off"></label>
+    <label><input type="checkbox" id="impsave" checked> als gespeicherte Wiedergabeliste ablegen</label>
+    <div id="impprog"></div>
+    <div id="impres" class="impres"></div>
+    <div class="row"><span class="grow"></span><button type="button" id="impclose">Schließen</button>
+      <button type="button" id="impgo" class="primary">Importieren</button></div>
+  </form>
+</dialog>
+
+<!-- picture folder for the slide show: like the "Dateien" tab -->
+<dialog id="picdlg" class="wide">
+  <form method="dialog" onsubmit="return false">
+    <div class="row"><h3>Ordner mit Bildern wählen</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="$('picdlg').close();help('fernseher-hdmi');return false" title="Hilfe">?</a></div>
+    <div class="srcbar" id="picsrc"></div>
+    <div class="crumbs" id="piccrumbs"></div>
+    <div class="row search"><input id="picfilter" type="search" placeholder="Filtern: Ordner- oder Bildname" aria-label="Filtern"></div>
+    <div id="picstatus" class="hint"></div>
+    <ul id="piclist" class="flist piclist"></ul>
+    <div class="row picfoot"><label><input type="checkbox" id="picsub"> mit Unterordnern</label><span class="grow"></span>
+      <button type="button" id="picno">Abbrechen</button><button type="button" id="picok" class="primary">Diesen Ordner nehmen</button></div>
+  </form>
+</dialog>
+
+<!-- small question -->
+<dialog id="askdlg">
+  <form method="dialog" onsubmit="return false">
+    <h3 id="asktitle"></h3>
+    <input id="askin" maxlength="60" aria-label="Eingabe">
+    <div class="row"><span class="grow"></span><button type="button" id="askno">Abbrechen</button><button type="button" id="askok" class="primary">OK</button></div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast" role="status"></div>
+<script src="app.js"></script>
+</body>
+</html>

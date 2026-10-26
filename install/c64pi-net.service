@@ -1,0 +1,19 @@
+[Unit]
+Description=C64-Jukebox: Netzwerk-Wächter (eigenes WLAN, wenn weder Kabel noch bekanntes WLAN da ist)
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+WorkingDirectory=/opt/c64jukebox
+ExecStart=/opt/c64jukebox/venv/bin/python -m c64jukebox.netwatch
+# /run/c64pi: net.json (state, for the jukebox), request.json + web (from the jukebox)
+RuntimeDirectory=c64pi
+RuntimeDirectoryMode=0770
+# keep it over restarts: the jukebox has it bind-mounted writable (ProtectSystem=strict)
+RuntimeDirectoryPreserve=yes
+Group=c64jukebox
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

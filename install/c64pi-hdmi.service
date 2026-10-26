@@ -1,0 +1,28 @@
+[Unit]
+Description=C64-Jukebox: Bild am HDMI-Ausgang (Effekte, Diashow, Bild des C64)
+After=c64jukebox.service c64pi-net.service
+
+[Service]
+User=c64jukebox
+Group=c64jukebox
+# video + render: the graphics chip (/dev/dri) without a desktop; audio: sound over HDMI
+SupplementaryGroups=video render audio
+WorkingDirectory=/opt/c64jukebox
+# the system's Python with python3-pygame and python3-numpy from apt (not the jukebox's venv)
+Environment=PYTHONPATH=/opt/c64jukebox
+Environment=SDL_VIDEODRIVER=kmsdrm
+Environment=PYGAME_HIDE_SUPPORT_PROMPT=1
+ExecStart=/usr/bin/python3 -m c64jukebox.hdmi --run /run/c64pi
+Restart=always
+RestartSec=5
+# the jukebox and the stream distributor come first
+Nice=5
+MemoryMax=250M
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=-/run/c64pi
+
+[Install]
+WantedBy=multi-user.target

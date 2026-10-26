@@ -1,0 +1,5 @@
+# C64-Jukebox: what the Pi needs (installed by install/install.sh into /opt/c64jukebox/venv)
+aiohttp>=3.9,<4      # web server, REST client for the Ultimates and the Picos
+smbprotocol>=1.13,<2 # SMB shares, SMB 2.0.2-3.1.1 (nothing is mounted)
+pysmb>=1.2.9,<2      # only for old devices with SMB 1, and NetBIOS names in the network search
+Pillow>=10.1         # pictures for the small OLED display
