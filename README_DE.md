@@ -88,13 +88,13 @@ und wird komplett über eine **Weboberfläche** gesteuert – am Handy wie am PC
 - Stream-Verteiler: Elite II → Pi → Audio-Empfänger und zwei Visualizer, je ~251 Pakete/s, stabil; Titel per UDP an
   die Picos
 - Fernseher (4K-TV mit 1080p): Effekte mit ~30 Bildern/s, Ton und Bild des C64, Ton über HDMI mit Aus-/Einblenden,
-  Diashow, „Jetzt läuft“-Karte, Bedienung mit der Fernbedienung des Fernsehers (HDMI-CEC)
+  Diashow, die SID-Stimmen als Notenrolle, „Jetzt läuft“-Karte, Bedienung mit der Fernbedienung des Fernsehers (HDMI-CEC)
 - 2,8″-Touch-Display: Bild, Touch, Kalibrierung, Tasten
 - Wiederholungserkennung für Titel ohne Länge läuft am Pi
 
 **Noch nicht am Gerät geprüft:** Freigaben mit SMB 2 (ältere NAS) sowie von einem Windows-PC oder Mac, USB-Stick direkt am Pi (automatisches
-Einhängen), das kleine OLED-Display, das eigene WLAN des Pi und der Party-Modus, der Verlauf „Zuletzt gespielt“, die
-SID-Stimmen am Fernseher (nur mit einer Aufnahme vom Elite II geprüft), der Lautstärkeregler für den Fernsehton.
+Einhängen), das kleine OLED-Display, das eigene WLAN des Pi und der Party-Modus, der Verlauf „Zuletzt gespielt“, der
+Lautstärkeregler für den Fernsehton.
 
 **Automatische Tests am PC:** `pytest` mit Attrappen für Ultimate-REST, FTP-Server (verhält sich wie der des Ultimate:
 kein MLSD, Unix-LIST), SMB-Server (SMB 2/3 und SMB-1-Rückfall), Freigaben-Liste per DCE/RPC, Picos (`/jb/np` mit

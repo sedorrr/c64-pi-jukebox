@@ -84,13 +84,13 @@ controlled entirely through a **web page** (German) – on the phone as well as 
 - Stream distributor: Elite II → Pi → audio receiver and two visualizers, ~251 packets/s each, stable; titles over UDP
   to the Picos
 - TV (4K TV at 1080p): styles at ~30 frames/s, sound and picture of the C64, sound over HDMI with fade-out/in, slide
-  show, "now playing" card, control with the TV's remote (HDMI-CEC)
+  show, the SID voices as a note roll, "now playing" card, control with the TV's remote (HDMI-CEC)
 - 2.8" touch display: picture, touch, calibration, buttons
 - Repeat detection for tunes without a length runs on the Pi
 
 **Not tested on the device yet:** shares over SMB 2 (older NAS) and from a Windows PC or Mac, a USB stick on the Pi itself (automatic
-mounting), the small OLED display, the Pi's own WLAN and party mode, the "recently played" history, the SID voices on
-the TV (only checked with a recording from the Elite II), the volume control for the TV sound.
+mounting), the small OLED display, the Pi's own WLAN and party mode, the "recently played" history, the volume control
+for the TV sound.
 
 **Automatic tests on the PC:** `pytest` with stand-ins for the Ultimate REST API, an FTP server (behaves like the
 Ultimate's: no MLSD, Unix LIST), an SMB server (SMB 2/3 and the SMB 1 fallback), the share listing over DCE/RPC, Picos
