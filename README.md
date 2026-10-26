@@ -75,7 +75,7 @@ controlled entirely through a **web page** (German) – on the phone as well as 
 </p>
 <p>
 <img src="docs/bedienung/bilder/tv_sidvoices.png" width="49%" alt="TV: SID voices as a note roll">
-<img src="docs/bedienung/bilder/tft_play.png" width="49%" alt="2.8 inch touch display on the Pi">
+<img src="docs/bedienung/bilder/tft_play.png" width="36.7%" alt="2.8 inch touch display on the Pi">
 </p>
 
 *The web page on the PC (in German); on the TV a style with the “now playing” card, the menu for the TV remote and

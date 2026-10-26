@@ -79,7 +79,7 @@ und wird komplett über eine **Weboberfläche** gesteuert – am Handy wie am PC
 </p>
 <p>
 <img src="docs/bedienung/bilder/tv_sidvoices.png" width="49%" alt="Fernseher: SID-Stimmen als Notenrolle">
-<img src="docs/bedienung/bilder/tft_play.png" width="49%" alt="2,8-Zoll-Touch-Display am Pi">
+<img src="docs/bedienung/bilder/tft_play.png" width="36.7%" alt="2,8-Zoll-Touch-Display am Pi">
 </p>
 
 *Die Weboberfläche am PC; am Fernseher ein Effekt mit „Jetzt läuft“-Karte, das Menü für die TV-Fernbedienung und die
