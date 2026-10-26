@@ -3,6 +3,7 @@
 *Deutsche Version: [README_DE.md](README_DE.md)*
 
 **Manual (German):** [docs/HANDBUCH.md](docs/HANDBUCH.md) – the same manual is the **Hilfe** tab of the web page.
+**Operating guide with pictures** (web page and TV, German): [docs/Bedienung_Pi-Jukebox.pdf](docs/Bedienung_Pi-Jukebox.pdf)
 
 A Raspberry Pi 3B plays SID music on the **Ultimates** (Ultimate 64, C64 Ultimate, Ultimate II+) around the clock and is
 controlled entirely through a **web page** (German) – on the phone as well as on the PC, at **http://c64pi.local/**.
@@ -64,6 +65,22 @@ controlled entirely through a **web page** (German) – on the phone as well as 
   stream's way
 - **Password** (first password `commodore64`, as on the Picos), **backup** of all settings as one file
 - Installed by **one script** on Raspberry Pi OS Lite (64 bit, Trixie or Bookworm) as a systemd service
+
+## Pictures
+
+<p><img src="docs/bedienung/bilder/web_pc.png" width="100%" alt="Web page on the PC: playback and list"></p>
+<p>
+<img src="docs/bedienung/bilder/tv_titlecard.png" width="49%" alt="TV: style with now-playing card">
+<img src="docs/bedienung/bilder/tv_menu.png" width="49%" alt="TV: menu for the TV remote">
+</p>
+<p>
+<img src="docs/bedienung/bilder/tv_sidvoices.png" width="49%" alt="TV: SID voices as a note roll">
+<img src="docs/bedienung/bilder/tft_play.png" width="49%" alt="2.8 inch touch display on the Pi">
+</p>
+
+*The web page on the PC (in German); on the TV a style with the “now playing” card, the menu for the TV remote and
+the SID voices as a note roll; the optional touch display on the Pi. Operating guide with pictures (German):
+[docs/Bedienung_Pi-Jukebox.pdf](docs/Bedienung_Pi-Jukebox.pdf).*
 
 > **Guide for all three devices together** (visualizer, audio receiver, Raspberry Pi jukebox – setup, chaining,
 > operation, illustrated): [docs/Guide_C64-Ecosystem.pdf](docs/Guide_C64-Ecosystem.pdf) – German version:

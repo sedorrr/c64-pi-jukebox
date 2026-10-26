@@ -4,6 +4,7 @@
 
 **Bedienungsanleitung:** [docs/HANDBUCH.md](docs/HANDBUCH.md) – Installation, Quellen, Wiedergabe, Songlängen,
 Stream-Verteiler, Sicherung, Fehlersuche. Dasselbe Handbuch steht im Tab **Hilfe** der Weboberfläche.
+**Bedienung mit Bildern** (Weboberfläche und Fernseher): [docs/Bedienung_Pi-Jukebox.pdf](docs/Bedienung_Pi-Jukebox.pdf)
 
 Ein Raspberry Pi 3B spielt rund um die Uhr SID-Musik auf den **Ultimates** (Ultimate 64, C64 Ultimate, Ultimate II+)
 und wird komplett über eine **Weboberfläche** gesteuert – am Handy wie am PC, unter **http://c64pi.local/**.
@@ -68,6 +69,22 @@ und wird komplett über eine **Weboberfläche** gesteuert – am Handy wie am PC
 - **Geräte im Netz:** meldet sich wie die Picos (UDP 11064, `t:"pi"`) und zeigt die Picos und den Weg des Tons
 - **Passwortschutz** (Startpasswort `commodore64`, wie bei den Picos), **Sicherung** aller Einstellungen als eine Datei
 - Installation mit **einem Skript** auf Raspberry Pi OS Lite (64 bit, Trixie oder Bookworm) als systemd-Dienst
+
+## Bilder
+
+<p><img src="docs/bedienung/bilder/web_pc.png" width="100%" alt="Weboberfläche am PC: Wiedergabe und Liste"></p>
+<p>
+<img src="docs/bedienung/bilder/tv_titlecard.png" width="49%" alt="Fernseher: Effekt mit Jetzt-läuft-Karte">
+<img src="docs/bedienung/bilder/tv_menu.png" width="49%" alt="Fernseher: Menü für die TV-Fernbedienung">
+</p>
+<p>
+<img src="docs/bedienung/bilder/tv_sidvoices.png" width="49%" alt="Fernseher: SID-Stimmen als Notenrolle">
+<img src="docs/bedienung/bilder/tft_play.png" width="49%" alt="2,8-Zoll-Touch-Display am Pi">
+</p>
+
+*Die Weboberfläche am PC; am Fernseher ein Effekt mit „Jetzt läuft“-Karte, das Menü für die TV-Fernbedienung und die
+SID-Stimmen als Notenrolle; das optionale Touch-Display am Pi. Alles zur Bedienung:
+[docs/Bedienung_Pi-Jukebox.pdf](docs/Bedienung_Pi-Jukebox.pdf).*
 
 > **Anleitung für alle drei Geräte zusammen** (Visualizer, Audio-Empfänger, Raspberry-Pi-Jukebox – Einrichtung,
 > Verkettung, Bedienung, Besonderheiten, mit Bildern): [docs/Anleitung_C64-Oekosystem.pdf](docs/Anleitung_C64-Oekosystem.pdf) –
