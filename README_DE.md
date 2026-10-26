@@ -4,7 +4,8 @@
 
 **Bedienungsanleitung:** [docs/HANDBUCH.md](docs/HANDBUCH.md) – Installation, Quellen, Wiedergabe, Songlängen,
 Stream-Verteiler, Sicherung, Fehlersuche. Dasselbe Handbuch steht im Tab **Hilfe** der Weboberfläche.
-**Bedienung mit Bildern** (Weboberfläche und Fernseher): [docs/Bedienung_Pi-Jukebox.pdf](docs/Bedienung_Pi-Jukebox.pdf)
+**Bedienung mit Bildern** (Weboberfläche und Fernseher): [docs/Bedienung_Pi-Jukebox.pdf](docs/Bedienung_Pi-Jukebox.pdf) –
+englisch: [docs/Operation_Pi-Jukebox.pdf](docs/Operation_Pi-Jukebox.pdf)
 
 Ein Raspberry Pi 3B spielt rund um die Uhr SID-Musik auf den **Ultimates** (Ultimate 64, C64 Ultimate, Ultimate II+)
 und wird komplett über eine **Weboberfläche** gesteuert – am Handy wie am PC, unter **http://c64pi.local/**.

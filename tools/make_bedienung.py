@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
 The illustrated operating guide of the jukebox (web page and TV): docs/bedienung/bedienung.html ->
-docs/Bedienung_Pi-Jukebox.pdf (Chromium via Playwright).
+docs/Bedienung_Pi-Jukebox.pdf (German) and docs/bedienung/operation_en.html -> docs/Operation_Pi-Jukebox.pdf (English),
+both with the same pictures (Chromium via Playwright).
 
-    .venv/bin/python tools/make_bedienung.py            only the PDF from the HTML and the pictures in docs/bedienung/bilder/
+    .venv/bin/python tools/make_bedienung.py            only the PDFs from the HTML and the pictures in docs/bedienung/bilder/
     .venv/bin/python tools/make_bedienung.py --shots    take the pictures first
     DEJAVU_DIR=<folder with DejaVuSans*.ttf>             (optional) draw the TV pictures in the Pi's font
 
@@ -21,7 +22,8 @@ import time
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOC = os.path.join(ROOT, "docs", "bedienung")
 IMG = os.path.join(DOC, "bilder")
-PDF = os.path.join(ROOT, "docs", "Bedienung_Pi-Jukebox.pdf")
+PDFS = (("bedienung.html", "Bedienung_Pi-Jukebox.pdf", "C64-Jukebox – Bedienung · Seite", "von"),
+        ("operation_en.html", "Operation_Pi-Jukebox.pdf", "C64 jukebox – operation · page", "of"))
 PHONE = {"width": 420, "height": 900}
 DESK = {"width": 1280, "height": 860}
 ULT, PI_IP = "192.168.1.168", "192.168.1.78"
@@ -241,16 +243,18 @@ def make_pdf():
     with sync_playwright() as p:
         b = p.chromium.launch()
         pg = b.new_page()
-        pg.goto("file://" + os.path.join(DOC, "bedienung.html"))
-        pg.wait_for_timeout(500)
-        pg.pdf(path=PDF, format="A4", print_background=True, prefer_css_page_size=True,
-               display_header_footer=True, header_template="<span></span>",
-               footer_template='<div style="font:8px Helvetica,Arial,sans-serif;width:100%;text-align:center;color:#888">'
-                               'C64-Jukebox – Bedienung · Seite <span class="pageNumber"></span> von '
-                               '<span class="totalPages"></span></div>',
-               margin={"top": "14mm", "bottom": "16mm", "left": "14mm", "right": "14mm"})
+        for html, pdf, page, of in PDFS:
+            pdf = os.path.join(ROOT, "docs", pdf)
+            pg.goto("file://" + os.path.join(DOC, html))
+            pg.wait_for_timeout(500)
+            pg.pdf(path=pdf, format="A4", print_background=True, prefer_css_page_size=True,
+                   display_header_footer=True, header_template="<span></span>",
+                   footer_template='<div style="font:8px Helvetica,Arial,sans-serif;width:100%%;text-align:center;'
+                                   'color:#888">%s <span class="pageNumber"></span> %s <span class="totalPages"></span>'
+                                   '</div>' % (page, of),
+                   margin={"top": "14mm", "bottom": "16mm", "left": "14mm", "right": "14mm"})
+            print("PDF:", pdf, "(%d KB)" % (os.path.getsize(pdf) // 1024))
         b.close()
-    print("PDF:", PDF, "(%d KB)" % (os.path.getsize(PDF) // 1024))
 
 
 if __name__ == "__main__":
