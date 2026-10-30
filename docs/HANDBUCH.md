@@ -26,7 +26,8 @@ Diashow eigener Bilder oder über dem Live-Bild des C64.
   Fernbedienung des Fernsehers (HDMI-CEC).
 - Stellt bei Bedarf einen SID-Sockel des Ultimate auf die Adresse um, die ein Stück braucht, und markiert Stücke,
   die nicht passen – wie die PC-Jukebox.
-- Hintergründe zum Stück aus der STIL der HVSC, Verlauf „Zuletzt gespielt“.
+- Hintergründe zum Stück aus der STIL der HVSC, Verlauf „Zuletzt gespielt“, Sperrliste für Titel, die nicht mehr
+  von selbst kommen sollen.
 - Passwortschutz, Sicherung aller Einstellungen in einer Datei.
 
 ## Was man braucht
@@ -100,6 +101,12 @@ Auf dem Pi im Projektordner `git pull` und danach `sudo ./install/install.sh` �
 oder vom PC aus `./install/deploy.sh` erneut aufrufen. Einstellungen, Listen und Songlängen in `/var/lib/c64jukebox`
 bleiben erhalten.
 
+Ob es eine neue Version gibt, sieht die Jukebox selbst nach: einmal am Tag liest sie die Versionsnummer des
+veröffentlichten Programms auf GitHub (`github.com/sedorrr/c64-pi-jukebox`, nur diese eine kleine Datei, ohne
+Angaben über den Pi). Ist sie höher als die installierte, steht oben auf der Seite ein blauer Hinweis (✕ blendet ihn
+für diese Version aus). Installiert wird dabei nichts. Abschalten oder sofort prüfen: *Einstellungen → System →
+Updates*.
+
 ### Erster Aufruf
 
 1. Im Browser **http://c64pi.local/** öffnen (geht der Name nicht, die IP-Adresse des Pi aus dem Router).
@@ -121,12 +128,17 @@ Oben steht immer der laufende Titel. Darunter die Tabs:
 | Listen | gespeicherte Wiedergabelisten, Statistik |
 | Geräte | Ultimates, Picos und Stream-Verteiler, Geräte im Netz (mit dem Namen des Pi) |
 | Anzeige | Fernseher (HDMI): Effekte, Hintergrund, Ton – und das kleine Display am Pi |
-| Einstellungen | *Abspielen* (Wiedergabe, Songlängen, Daten der PC-Jukebox) · *Netzwerk des Pi* (WLAN, eigenes WLAN) · *System* (Passwort, Sicherung) |
+| Einstellungen | *Abspielen* (Wiedergabe, Songlängen, Daten der PC-Jukebox) · *Netzwerk des Pi* (WLAN, eigenes WLAN) · *System* (Passwort, Sicherung, Updates) |
 | Hilfe | dieses Handbuch |
 
 Am Handy stehen „Wiedergabe“, „Anzeige“, „Einstellungen“ und „Hilfe“ als **▶**, **📺**, **⚙** und **?** in der
 Tab-Leiste. Die runden **?**-Knöpfe in
 den Tabs springen an die passende Stelle des Handbuchs.
+
+**Als App auf dem Startbildschirm:** Am iPhone/iPad in Safari **Teilen → Zum Home-Bildschirm**, am Android-Handy in
+Chrome **⋮ → Zum Startbildschirm hinzufügen**. Die Jukebox bekommt ein eigenes Symbol (die Note) und öffnet sich ohne
+Adressleiste wie eine App – ein App Store ist dafür nicht nötig. Sie bleibt eine Webseite: Das Handy muss im selben
+Netz wie der Pi sein, und die Anmeldung bleibt wie im Browser.
 
 ## Wiedergabe
 
@@ -316,6 +328,13 @@ Oben im Tab **Dateien** stehen die **Quellen** als Kacheln. Eine Kachel antippen
   Während der Suche steht darunter, wie viele Ordner schon durchsucht sind und welcher gerade dran ist.
   Eine wiederholte Suche ist schnell, weil der Pi die Ordnerlisten einen Tag lang behält. Mit ✕ in der Pfadzeile geht
   es zurück zum Ordner. „Ordner abspielen“ spielt dann die Treffer.
+- **🔍 HVSC** (sobald die [Songlängen](#songlaengen) der HVSC aus einer Quelle geladen sind) sucht in der **ganzen
+  HVSC** – sofort, ohne einen Ordner zu lesen: Die Jukebox kennt alle Pfade aus `Songlengths.md5`. Dasselbe gilt für
+  🔍 Unterordner in einem Ordner der HVSC. Dateiname und Komponisten-Ordner (`Hubbard_Rob`) findet sie damit gleich;
+  **Titel, Komponist und Veröffentlichung** aus den Dateien selbst kommen dazu, sobald einmal *Einstellungen →
+  Songlängen → Titel für die Suche einlesen* gelaufen ist. Das liest im Hintergrund von jeder HVSC-Datei nur die
+  ersten 124 Byte (über SMB einige Minuten, der Fortschritt steht dort; die Musik läuft weiter) und muss nur nach
+  einer neuen HVSC-Version wiederholt werden – dann nur für die neuen Dateien.
 
 ### Quellen einrichten
 
@@ -378,6 +397,8 @@ und Fortschrittsbalken und Liste zeigen die Spielzeit.
 2. Im Tab **Dateien** zu diesem Ordner gehen und bei der Datei **als HVSC-Längen laden** tippen. Oder im Tab
    **Einstellungen → Songlängen** die Datei vom Handy/PC hochladen.
 3. Der Pi liest sie ein (ein paar Sekunden) und behält sie, auch über einen Neustart.
+4. Geladen aus einer Quelle (nicht hochgeladen), kennt die Jukebox damit auch alle Pfade der HVSC für die
+   [Suche über die ganze HVSC](#filtern-und-suchen); **Titel für die Suche einlesen** ergänzt Titel und Komponisten.
 
 **Eigene Längen** haben Vorrang vor der HVSC: eine Textdatei mit Zeilen `<md5>=<Sekunden>` (das Format des
 Ultimate64 SID Player) oder im HVSC-Format `<md5>=m:ss m:ss …`. Die MD5 wird über die ganze Datei gebildet.
@@ -472,6 +493,20 @@ Neustart). **▶** spielt einen davon als nächsten, **+** hängt ihn hinten an 
 übernehmen** macht aus dem Verlauf eine neue Liste (in der gespielten Reihenfolge, jeder Titel einmal) – die lässt sich
 dann wie jede Liste speichern. **Verlauf löschen** leert ihn.
 
+### Gesperrte Titel
+
+Ein Stück, das man nicht mehr hören möchte, muss nicht aus jeder Liste gelöscht werden: **⊘ Nicht mehr spielen**
+(unter dem laufenden Titel, im Menü **⋯** einer Zeile oder am Fernseher im Menü) springt sofort zum nächsten und setzt
+das Stück auf die Sperrliste. Danach überspringt die Jukebox es überall, wo sie selbst wählt: beim Weiterschalten am
+Titelende und mit **⏭**, bei Zufall, bei „Entdecken“ und in den [zusammengestellten Listen](#listen-zusammenstellen).
+In der Wiedergabeliste ist es durchgestrichen. **Von Hand gewählt** (Zeile antippen, ▶) spielt es trotzdem.
+
+Gesperrt wird die Datei (über ihre MD5-Summe, wie die Favoriten): eine Kopie unter anderem Namen oder in einem anderen
+Ordner ist ebenfalls gesperrt. Ein Favorit verliert beim Sperren seinen Stern; wer ein gesperrtes Stück wieder zum
+Favoriten macht, hebt die Sperre auf. Im Tab „Listen“ stehen unter **Gesperrte Titel** alle gesperrten Stücke
+(neueste oben) mit **Wieder spielen**; die Sperrliste ist Teil der [Sicherung](#sicherung). Sind alle Titel einer
+Liste gesperrt, hält die Wiedergabe an.
+
 ### Playlists der PC-Jukebox importieren
 
 Im Tab „Wiedergabe“ unter **Mehr ▾ → Playlist der PC-Jukebox importieren …**: Datei wählen, dann die **Quelle und den
@@ -507,6 +542,12 @@ Ultimate64 SID Player einlesen (Mac: `~/Library/Application Support/Ultimate64SI
 
 Zähler, Favoriten und eigene Längen gehören wie in der PC-Jukebox zur **MD5 der Datei** – sie gelten also auch, wenn die
 Datei woanders liegt. „Eigene Längen herunterladen“ liefert die `user_songlengths.txt` für die PC-Jukebox.
+
+**Automatisch abgleichen** (PC-Jukebox ab Version 1.83): dort *Settings → Preferences… → Pi-Jukebox* einschalten,
+Adresse (`c64pi.local`) und das Passwort dieser Seite eintragen. Vor jedem „Check Lengths“ holt sich die PC-Jukebox die
+eigenen Längen, die nur der Pi kennt, und schickt ihm die, die nur sie kennt; beim Speichern ihrer Längen am
+Programmende gehen neue gleich mit. Haben beide für dasselbe Stück eine andere Länge, fragt die PC-Jukebox einmal, welche
+gilt. Längen je Unterlied (nur hier möglich) bleiben unberührt. Auf der Seite ist dafür nichts einzustellen.
 
 ## Ultimates
 
@@ -838,6 +879,28 @@ eingeblendet – wie „Fade between songs“ in der PC-Jukebox. Das geht bei Ti
 ohne Länge vor dem Zeitlimit (der grauen „Default“-Länge); ein Wechsel wegen Stille kommt unangekündigt. Es wirkt nur auf den Ton über HDMI: Der Audio-Ausgang des Ultimate spielt auf dem echten SID-Chip und
 bleibt unverändert. Es ist kein Überblenden – auf dem Ultimate klingt immer nur ein Titel.
 
+### Bluetooth-Kopfhörer
+
+Statt über den Fernseher kann der Ton auch über **Bluetooth-Kopfhörer** (oder einen Bluetooth-Lautsprecher) laufen –
+z. B. abends, wenn sonst niemand mithören soll. Der Pi 4 hat Bluetooth eingebaut; nötig sind die Pakete `bluez` und
+`bluez-alsa-utils` (das Installationsskript holt sie und hebt die Bluetooth-Sperre auf, mit der Raspberry Pi OS
+startet – sonst meldet die Suche nichts).
+
+1. Kopfhörer in den **Kopplungsmodus** bringen (meist die Ein-Taste einige Sekunden halten, bis eine Lampe blinkt).
+2. *Anzeige → Bluetooth-Kopfhörer → Kopfhörer suchen* (12 s). Gefundene Kopfhörer stehen darunter: **Koppeln**
+   (der Kopfhörer muss dabei noch im Kopplungsmodus sein; die Jukebox sucht ihn vorher kurz noch einmal).
+   Beats/AirPods: Ohrhörer ins Case, Deckel offen, Taste am Case etwa 15 s halten, bis die Lampe weiß blinkt.
+3. Danach ist **Ton über die Kopfhörer, solange sie verbunden sind** eingeschaltet: Der Ton des Fernsehers geht an die
+   Kopfhörer, sobald sie verbunden sind, und zurück an den Fernseher, wenn man sie ausschaltet (die Jukebox sieht alle
+   5 s nach). Eingeschaltete Kopfhörer verbinden sich von selbst wieder; sonst hilft **Verbinden**.
+
+Lautstärke und Aus-/Einblenden wirken wie beim Ton am Fernseher. Der Ton kommt über Bluetooth etwa 0,2 s später;
+die Effekte am Fernseher laufen ihm dann ein wenig voraus. Der Fernseher-Ausgang (HDMI) muss eingeschaltet sein –
+der Ton läuft über denselben Weg. Am Fernseher schaltet **Ton über Kopfhörer** im Menü zwischen Kopfhörern und
+Fernseher um. **✕** löscht eine Kopplung. Das Installationsskript stellt Bluetooth auf „klassisch“ (`ControllerMode =
+bredr`): Apple- und Beats-Kopfhörer lassen sich über Bluetooth LE nicht koppeln. Suche und Koppeln stehen mit ihrem
+Ergebnis im Ereignisprotokoll.
+
 ### Fernbedienung des Fernsehers (HDMI-CEC)
 
 Über das HDMI-Kabel kann der Fernseher die Tasten seiner Fernbedienung an den Pi schicken (HDMI-CEC, bei den
@@ -858,7 +921,10 @@ am Fernseher als Abspielgerät „C64-Jukebox“; beim Fernseher muss CEC einges
 **Menü am Fernseher:** ↑ ↓ wählen, **OK** oder → ausführen bzw. öffnen, **Zurück** oder ← eine Ebene zurück (in der
 obersten: schließen). Nach 30 s ohne Taste schließt es von selbst. Darin:
 
-- **Musik wählen** – oben die **Quellen** („Ordner: USB-Stick am Ultimate“ …), darunter die Zusammenstellungen
+- **Musik wählen** – ganz oben **In der HVSC suchen** (wenn die HVSC-Songlängen geladen sind): Wörter mit der
+  Bildschirmtastatur eingeben, **Fertig** zeigt die Treffer (bis 200; Titel und Komponist wie bei
+  [🔍 HVSC](#filtern-und-suchen)). **Alle … abspielen** oder ein Treffer macht aus den Treffern die Wiedergabeliste,
+  **Zurück** führt wieder zur Tastatur, um die Wörter zu ändern. Darunter die **Quellen** („Ordner: USB-Stick am Ultimate“ …), dann die Zusammenstellungen
   (★ Favoriten, Meistgespielt, Nie gespielt, Zufällige aus der HVSC, Kurze Stücke, Stücke für 2 oder 3 SIDs) und alle
   gespeicherten Listen; die gewählte spielt sofort. In einer Quelle blättert man durch die Ordner wie im Tab
   **Dateien**: **Diesen Ordner abspielen**, **… mit allen Unterordnern**, **Ordner hinten anhängen**, darunter die
@@ -869,11 +935,14 @@ obersten: schließen). Nach 30 s ohne Taste schließt es von selbst. Darin:
   und schließt sich dann von selbst. Hat die Jukebox die Wiederholung selbst
   gefunden, steht hier stattdessen **Erkannte Länge übernehmen** (siehe [Wiederholung erkennen](#wiederholung-erkennen)),
   hat sie dasselbe Stück in der HVSC gefunden, **HVSC-Länge übernehmen** (siehe [Länge über den Namen](#laenge-ueber-den-namen)).
+- **Titel nicht mehr spielen** – fragt nach und setzt den laufenden Titel auf die Sperrliste (siehe
+  [Gesperrte Titel](#gesperrte-titel)), dann kommt der nächste.
 - **Zufall**, **Wiederholen** – an/aus.
 - **Längen prüfen** – wie auf der Webseite (Fortschritt in der Hinweiszeile des Menüs); danach erscheint
   **22 HVSC-Längen übernehmen**.
 - **Effekt** – alle Effekte zur Auswahl (der laufende ist markiert); eine Wahl schaltet den automatischen Wechsel aus.
 - **Effekte automatisch wechseln**, **Ton am Fernseher**, **Titel einblenden** – an/aus.
+- **Ton über Kopfhörer** – nur mit gekoppelten [Bluetooth-Kopfhörern](#bluetooth-kopfhoerer): an/aus.
 - **Lautstärke am Fernseher** – jedes OK eine Stufe leiser (100 → 90 … 10, dann wieder 100).
 - **Ultimate** – welches Ultimate spielt: alle eingetragenen (das aktive mit ●), ein anderes wählen (läuft gerade
   Musik, fragt das Menü vorher: sie wird dabei gestoppt). **Im Netzwerk suchen** sucht wie im Tab **Geräte**
@@ -881,6 +950,8 @@ obersten: schließen). Nach 30 s ohne Taste schließt es von selbst. Darin:
   Ein Netzwerk-Passwort trägt man auf der Webseite nach.
 - **Ultimate einschalten / ausschalten** – das gewählte Ultimate über sein WLAN wecken bzw. ausschalten (Ausschalten
   fragt nach, siehe [Ultimates](#ultimates)).
+- **Pi ausschalten** – fragt nach und fährt den Pi herunter; mit eingerichteter Steckdose geht danach auch der Strom aus
+  (siehe [Ausschalten und Steckdose](#ausschalten-und-steckdose)).
 - Eine **gespeicherte Liste** in „Musik wählen“ öffnet ein kleines Menü: **Abspielen**, **Hinten anhängen**,
   **Umbenennen** (eine Tastatur am Bildschirm: Pfeile wählen, OK tippt, Zurück löscht das letzte Zeichen, „Fertig“
   übernimmt) und **Löschen** (fragt nach, „Nein“ ist vorgewählt).
@@ -901,6 +972,12 @@ kommen die Tasten der Fernseher-Fernbedienung an. Die Fernbedienung des Fire TV 
 - **Fernseher einschalten …, wenn die Wiedergabe beginnt:** startet man die Musik am Handy, geht der Fernseher an und
   schaltet auf den Pi. Achtung: auch, wenn gerade jemand fernsieht.
 - **Fernseher ausschalten, wenn nichts mehr läuft – nach N min:** nur, wenn der Fernseher gerade den Pi zeigt.
+- **Fernseher einschalten …, wenn der Pi startet:** sobald der Pi nach dem Einschalten (z. B. „Alexa, schalte Jukebox
+  ein“ über die [Steckdose](#ausschalten-und-steckdose)) am HDMI-Kabel bereit ist, geht der Fernseher an und zeigt den
+  Pi – nur in den ersten 90 s nach dem Start, damit ein später eingeschalteter Fernseher nicht auf den Pi springt.
+  Später schaltet **Fernseher jetzt auf den Pi umschalten** den Fernseher jederzeit ein.
+- **Pi ausschalten, wenn der Fernseher ausgeht:** eine Minute nach dem Standby des Fernsehers fährt der Pi herunter
+  (mit Steckdose auch der Strom), siehe [Ausschalten und Steckdose](#ausschalten-und-steckdose).
 
 Die Zeile darunter zeigt den Zustand: „Warte auf den Fernseher …“ heißt, der Pi hat noch keine Adresse am HDMI-Kabel
 (Fernseher aus oder CEC am Fernseher abgeschaltet). Der Pi braucht dafür kein zusätzliches Programm.
@@ -960,11 +1037,52 @@ Die Karte **Geräte im Netz** im Tab „Geräte“ zeigt alle Picos und Pis mit 
 **Neu suchen** fragt alle Geräte sofort. Den Namen, unter dem der Pi dort erscheint, legt man in derselben Karte unter
 *Name des Pi in dieser Liste* fest.
 
+## Ausschalten und Steckdose
+
+*Einstellungen → Ausschalten und Steckdose → **Pi ausschalten*** (oder **Pi ausschalten** im Menü am Fernseher)
+stoppt die Musik und fährt den Pi sauber herunter. Einfach den Strom wegnehmen sollte man nicht: Das kann die
+SD-Karte beschädigen.
+
+Hängt der Pi an einer **smarten Steckdose mit Tuya-Technik** (z. B. Antela, App „Smart Life“ oder „Tuya Smart“),
+stellt er vor dem Herunterfahren ihren eingebauten **Ausschalt-Timer**: Nach *Strom aus nach* Sekunden (Standard 30,
+mindestens 20 – der Pi braucht etwa 10 s) schaltet die Steckdose ab. Eingeschaltet wird über die App oder per Sprache,
+z. B. „Alexa, schalte Jukebox ein“ – der Pi startet, sobald Strom da ist. „Alexa, schalte Jukebox **aus**“ besser nicht
+benutzen: Das nimmt dem laufenden Pi den Strom.
+
+Antwortet die Steckdose nicht, bleibt der Pi an (die Seite fragt, ob er trotzdem herunterfahren soll – der Strom bleibt
+dann an). Scheitert das Herunterfahren selbst, nimmt die Jukebox den Timer sofort zurück.
+
+**Einrichten.** Die Jukebox schaltet die Steckdose direkt im Heimnetz (ohne Cloud). Dafür braucht sie
+die **Geräte-ID** und den **lokalen Schlüssel** der Steckdose. Beides zeigt die Tuya-Entwicklerplattform (kostenloses
+Konto, einmalig etwa 15 Minuten):
+
+1. Auf [platform.tuya.com](https://platform.tuya.com) ein Konto anlegen, *Cloud → Development → Create Cloud Project*
+   (Rechenzentrum *Central Europe*, die vorgeschlagenen Dienste übernehmen).
+2. Im Projekt *Devices → Link App Account → Add App Account*: den QR-Code mit der App „Smart Life“ scannen
+   (*Ich → Scan-Symbol oben rechts*). Danach stehen alle Geräte der App mit ihrer **Device ID** in der Liste.
+3. Den lokalen Schlüssel zeigt *Cloud → API Explorer → Device Management → Query device details* für die Device ID
+   (Feld `local_key`). Wer Python hat, bekommt beides auch mit `python3 -m tinytuya wizard`.
+4. In der Karte **Geräte-ID** und **Lokaler Schlüssel** eintragen, **Prüfen** tippen: Die Jukebox sucht die Steckdose im
+   Netz (die Adresse darf leer bleiben), zeigt ob sie an ist, ihre Leistung und ob sie einen Ausschalt-Timer hat.
+
+**Mit dem Fernseher aus.** *Anzeige → TV-Fernbedienung → Pi ausschalten, wenn der Fernseher ausgeht*: Geht der
+Fernseher in Standby – mit seiner Fernbedienung, durch die Jukebox (*Fernseher ausschalten, wenn nichts mehr läuft*) oder
+über die Seite –, fährt der Pi eine Minute später herunter, mit eingerichteter Steckdose geht danach der Strom aus.
+Kommt der Fernseher in dieser Minute wieder, bleibt der Pi an. Die Jukebox hört dafür auf die Standby-Meldung des
+Fernsehers und fragt ihn alle 30 s, ob er an ist (HDMI-CEC muss eingeschaltet sein). Sie reagiert nur auf ein Ausgehen,
+das sie selbst gesehen hat: Startet der Pi bei ausgeschaltetem Fernseher (z. B. für Musik nur über die Picos), bleibt
+er an. Solange Bluetooth-Kopfhörer verbunden sind, bleibt er ebenfalls an. Die Karte zeigt, ob der Fernseher an ist
+und wann der Pi ausgeht; das Ereignisprotokoll nennt jeden Schritt.
+
+Der Schlüssel ändert sich, wenn man die Steckdose in der App neu einrichtet – dann wieder holen. Die Steckdose sollte im
+Router eine feste Adresse bekommen; sonst sucht die Jukebox sie bei jedem Prüfen neu. Damit der Pi sich selbst
+ausschalten darf, legt das Installationsskript eine polkit-Regel an; fehlt sie, sagt die Karte das.
+
 ## Sicherung
 
 *Einstellungen → Sicherung → Sicherung herunterladen* speichert eine Datei `c64pi-sicherung-<Datum>.json` mit allen
-Einstellungen, Quellen samt Passwörtern, Ultimates, Picos, Wiedergabelisten, der aktuellen Liste und den eigenen
-Songlängen. Die Datei deshalb gut aufheben. Das Web-Passwort ist nur als Prüfsumme enthalten.
+Einstellungen, Quellen samt Passwörtern, Ultimates, Picos, Wiedergabelisten, der aktuellen Liste, den eigenen
+Songlängen, den Zählern, Favoriten und gesperrten Titeln. Die Datei deshalb gut aufheben. Das Web-Passwort ist nur als Prüfsumme enthalten.
 
 **Sicherung einspielen** ersetzt alles durch den Stand der Datei – auch auf einem neu installierten Pi. Die
 HVSC-Songlängen sind nicht in der Sicherung (die Datei ist groß und kommt aus der HVSC); einfach neu laden.
@@ -1058,7 +1176,14 @@ Wer das nicht möchte, trägt in `/etc/systemd/system/c64jukebox.service` hinter
 | Anfrage | Bedeutung |
 |---|---|
 | `GET /api/state` | Zustand: laufender Titel, Spielzeit, Stream, Ultimates |
-| `POST /api/ctl` `{"c":"next"}` | `play`, `pause` (wechselt), `stop`, `next`, `prev`, `goto` + `i`, `song` + `n`, `remove` + `i`, `clear`, `shuffle` + `on` |
+| `POST /api/ctl` `{"c":"next"}` | `play`, `pause` (wechselt), `stop`, `next`, `prev`, `goto` + `i`, `song` + `n`, `remove` + `i`, `clear`, `shuffle` + `on`, `block` (laufender Titel, oder + `i`), `unblock` + `key` oder `i` |
+| `POST /api/search` `{"src","path","q"}` | Suche (Auftrag; in der HVSC sofort aus dem Verzeichnis) |
+| `GET /api/hvsc/titles`, `POST /api/hvsc/titles` | Wie viele HVSC-Dateien die Suche mit Titel kennt (`n` von `of`) / Titel einlesen (Auftrag) |
+| `POST /api/update/check` | Jetzt auf GitHub nach einer neuen Version sehen (`ver`, `newer`, `installed`) |
+| `GET /api/power`, `POST /api/power/off` `{"force"}` | Darf der Pi sich ausschalten, ist eine Steckdose eingerichtet / Steckdosen-Timer stellen und herunterfahren (`timer`, `secs`) |
+| `POST /api/plug/check` | Steckdose fragen (Auftrag: `ip`, `ver`, `on`, `timer`, `secs`, `watt`) |
+| `GET /api/bt?devices=1`, `POST /api/bt` `{"act","mac"}` | Bluetooth-Kopfhörer: Zustand und gekoppelte Geräte / `scan`, `pair` (Aufträge), `connect`, `disconnect`, `forget`, `on` + `on` |
+| `GET /api/blocked` | Sperrliste: `items` mit `key`, `title`, `author`, `path`, `at` |
 | `POST /api/queue` | Titel in die Liste: `{"mode":"replace","items":[{"src":…,"path":…}],"start":0}`; `mode` auch `add` oder `next` |
 | `POST /api/folder` | Ordner abspielen: `{"src","path","recursive","shuffle","mode"}` |
 | `GET /api/ls?src=…&path=…` | Ordnerliste |

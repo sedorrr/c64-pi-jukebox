@@ -76,7 +76,8 @@ def test_requirements_cover_imports():
             third |= t
             assert ".loopfind" not in own, (f, "loopfind needs numpy: only through loopwatch's process")
             assert not any(o.startswith(".hdmi") and o != ".hdmi.modes" for o in own), (f, own)
-    names = {"aiohttp": "aiohttp", "yarl": "aiohttp", "smb": "pysmb", "nmb": "pysmb", "smbprotocol": "smbprotocol", "PIL": "Pillow"}
+    names = {"aiohttp": "aiohttp", "yarl": "aiohttp", "smb": "pysmb", "nmb": "pysmb", "smbprotocol": "smbprotocol", "PIL": "Pillow",
+             "tinytuya": "tinytuya"}
     assert third <= set(names), third
     for mod in third:
         assert names[mod] in req

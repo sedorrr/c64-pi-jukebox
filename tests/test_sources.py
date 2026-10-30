@@ -104,6 +104,7 @@ def test_smb(monkeypatch):
     assert run(src.list("/")) == [{"n": "Tunes", "d": True, "s": 0}]
     assert run(src.list("/Tunes")) == [{"n": "a.sid", "d": False, "s": len(SID)}]
     assert run(src.read("/Tunes/a.sid")) == SID
+    assert run(src.head("/Tunes/a.sid", 0x7C)) == SID[:0x7C]         # a header only (HVSC titles for the search)
     assert servers["nas"].connects == 1                              # one connection for all calls
     with pytest.raises(SourceError, match="nicht gefunden"):
         run(src.list("/nope"))

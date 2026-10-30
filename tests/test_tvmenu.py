@@ -107,6 +107,23 @@ def test_menu_drawing():
     pygame.image.save(scr.snapshot(), os.path.join(HERE, "web", "hdmi_menu.png"))
 
 
+def test_long_question_wraps():
+    """the block question names the tune: it wraps inside the box instead of running over its edge"""
+    pygame.init()
+    q = "„Rave-N - Jussi Hannula (Juzdie) - Extended Remix“ überspringen und nicht mehr von selbst spielen?"
+    m = {"title": q, "sel": 0, "more_up": False, "more_down": False, "note": "", "hint": "↑↓ wählen · OK · ← zurück",
+         "items": [{"l": "Nein", "v": ""}, {"l": "Ja, nicht mehr spielen", "v": ""}]}
+    mv = MenuView()
+    short = mv.items(dict(m, title="Kurz?"))[0].surf.get_height()
+    s = mv.items(m)[0].surf
+    assert s.get_width() == MenuView.W and s.get_height() >= short + MenuView.TITLE_LINE      # two or three lines
+    from c64jukebox.hdmi.app import wrap
+    assert all(mv.f_title.size(x)[0] <= MenuView.W - 100 for x in wrap(q, mv.f_title, MenuView.W - 100, 3))
+    scr = SoftScreen()
+    scr.present(mv.items(m))
+    pygame.image.save(scr.snapshot(), os.path.join(HERE, "web", "hdmi_menu_ask.png"))
+
+
 def test_sub_tune_keys_only_with_sub_tunes(tmp_path):
     async def t(e):
         jb, p = e.jb, e.jb.player
@@ -321,4 +338,21 @@ def test_choose_the_ultimate_on_the_tv(tmp_path, monkeypatch):
         await jb._cec_cmd("select")
         assert jb.config["ultimates"][-1]["addr"] == "127.0.0.3" and jb.config["u64_sel"] == len(jb.config["ultimates"]) - 1
         assert m.found == []
+    run(tmp_path, t)
+
+
+def test_block_from_the_tv(tmp_path):
+    async def t(e):
+        jb, p = e.jb, e.jb.player
+        jb.config.data["hdmi"]["on"] = True
+        await p.set_items(e.items("b.sid", "a.sid"))
+        await jb._cec_cmd("select")
+        names = [x[0] for x in jb.menu.entries()]
+        jb.menu.sel["main"] = names.index("Titel nicht mehr spielen")
+        await jb._cec_cmd("select")                         # asks first
+        assert "nicht mehr von selbst spielen" in jb.menu.view()["title"]
+        await jb._cec_cmd("down")
+        await jb._cec_cmd("select")
+        assert "gesperrt" in jb.menu.view()["note"] and p.cur["info"]["title"] == "Alpha"
+        assert jb.stats.is_blocked(p.items[0])
     run(tmp_path, t)

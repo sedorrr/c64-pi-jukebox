@@ -80,6 +80,14 @@ def test_login(browser, demo):
     page.click("#lform button")
     page.wait_for_selector("#app:not([hidden])")
     assert page.is_visible("#pwwarn")                          # still the first password
+    demo.jb.update = {"ver": "9.9", "newer": True, "at": 0}       # a newer version on GitHub: the blue hint
+    page.wait_for_selector("#updbar:not([hidden]):has-text('Version 9.9')")
+    page.click("#updx")                                        # closed: stays away for this version
+    page.reload()
+    page.wait_for_selector("#app:not([hidden])")
+    page.wait_for_timeout(1500)
+    assert page.is_hidden("#updbar")
+    demo.jb.update = None
     right = page.evaluate("Math.max(...[...document.querySelectorAll('#tabs button')].map(b => b.getBoundingClientRect().right))")
     assert right <= PHONE["width"], "tabs do not fit on the phone: %d" % right
     assert not page.errors
@@ -191,6 +199,30 @@ def test_desktop_folder_search_and_new_source(browser, demo):
     assert page.locator("#flist li.sid").count() == 2
     assert "MUSICIANS/H/Hubbard_Rob" in page.inner_text("#flist")
     page.click("#crumbs a:has-text('✕')")
+    page.wait_for_selector("#flist li.dir:has-text('MUSICIANS')")
+    # the whole HVSC from Songlengths.md5 (loaded from this source); titles read once in the settings
+    import os as _os
+    sl = open(_os.path.join(demo.jb.config.source("pi")["path"], "DOCUMENTS", "Songlengths.md5"), "rb").read()
+    demo.call(demo.jb.set_songlengths("hvsc", sl, {"src": "pi", "path": "/DOCUMENTS/Songlengths.md5", "label": "Ordner am Pi"}))
+    try:
+        page.wait_for_selector("#fhvsc:not([hidden])")
+        page.click(".src:has-text('USB-Stick am Ultimate')")                     # from another source
+        page.fill("#ffilter", "huelsbeck")
+        page.click("#fhvsc")
+        page.wait_for_selector("#fstatus:has-text('1 Treffer')")                # Turrican: only its header says so
+        assert "Huelsbeck_Chris/Shades.sid" in page.inner_text("#flist")
+        page.click("#tabs button[data-t=set]")
+        page.wait_for_selector("#hvtrow:not([hidden]) #hvtgo")
+        page.click("#hvtgo")
+        page.wait_for_selector("#hvtstate:has-text('7 von 7')")
+        page.click("#tabs button[data-t=files]")
+        page.fill("#ffilter", "rainbow arts")                                   # only in the headers
+        page.click("#fhvsc")
+        page.wait_for_selector("#fstatus:has-text('2 Treffer')")
+        assert "Turrican" in page.inner_text("#flist")
+        page.click("#crumbs a:has-text('✕')")
+    finally:
+        demo.jb.clear_songlengths("hvsc")
     page.wait_for_selector("#flist li.dir:has-text('MUSICIANS')")
     # the whole folder with sub-folders, shuffled
     page.check("#fshuf")
@@ -393,6 +425,18 @@ def test_list_window(browser, demo):
     page.fill("#askin", "3:05")
     page.click("#askok")
     page.wait_for_selector("#lrows .lrow[data-i='5'] .c-len:has-text('3:05*')")
+    # never play again via the row menu: struck through, in the "Listen" tab with "Wieder spielen"
+    page.click("#lrows .lrow[data-i='6'] [data-more]")
+    page.click("#menubtns button:has-text('Nicht mehr spielen')")
+    page.wait_for_selector("#lrows .lrow.blk[data-i='6']")
+    assert len(demo.jb.stats.block) == 1
+    page.click("#tabs button[data-t=lists]")
+    page.wait_for_selector("#blocked li button:has-text('Wieder spielen')")
+    page.click("#blocked li button")
+    page.wait_for_function("document.querySelectorAll('#blocked li').length === 0")
+    assert not demo.jb.stats.block
+    page.click("#tabs button[data-t=play]")
+    page.wait_for_selector("#lrows .lrow[data-i='6']:not(.blk)")
     # search (server side, whole list)
     page.fill("#lfilter", "hülsbeck")
     page.wait_for_function("document.querySelectorAll('#lrows .lrow[data-i]').length === 2")
@@ -625,4 +669,34 @@ def test_hdmi_card(browser, demo):
     page.wait_for_selector("#hlist:has-text('Noch keine Bilder')")
     page.uncheck("#hon")
     until(lambda: not demo.jb.config["hdmi"]["on"])
+    assert not page.errors
+
+
+def test_switch_off_with_the_plug(browser, demo):
+    from test_plug import ID
+    page = new_page(browser, demo, PHONE)
+    page.on("dialog", lambda d: d.accept())
+    page.click("#tabs button[data-t=set]")
+    page.wait_for_selector("#pwrstate:has-text('ohne Steckdose')")
+    page.fill("#plid", ID)
+    page.fill("#plkey", demo.plug.key)
+    page.click("#plchk")                                          # saved, then found in the network by its id
+    page.wait_for_selector("#plstate:has-text('Steckdose an (192.168.1.60, Version 3.5), 12.3 W')")
+    assert page.input_value("#plip") == "192.168.1.60" and demo.jb.config["plug"]["key"] == demo.plug.key
+    page.reload()
+    page.wait_for_selector("#app:not([hidden])")
+    page.click("#tabs button[data-t=set]")
+    page.wait_for_selector("#pwrstate:has-text('30 s später')")
+    page.wait_for_timeout(1000)                                   # the tab came back by itself and was loaded twice
+    assert page.input_value("#plkey") == "••••"                   # the key leaves the Pi only masked
+    page.fill("#ploff", "45")
+    page.click("#plsave")
+    until(lambda: demo.jb.config["plug"]["off_s"] == 45)
+    assert demo.jb.config["plug"]["key"] == demo.plug.key
+    page.click("#pwroff")
+    page.wait_for_selector("#pwrstate:has-text('schaltet in 45 s ab')")
+    assert demo.plug.dps["9"] == 45 and page.is_disabled("#pwroff")
+    no_overflow(page)
+    demo.jb.powering_off = False
+    demo.jb.config.data["plug"].update(ip="", id="", key="")
     assert not page.errors

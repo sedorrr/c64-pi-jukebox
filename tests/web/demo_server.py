@@ -137,6 +137,13 @@ class Demo:
                           scan_hosts=["127.0.0.1"] + ["192.0.2.%d" % i for i in range(1, 30)],   # TEST-NET: never answers
                           scan_ports={"smb": self.ftp.port, "ftp": self.ftp.port, "http": self.u64.port})
         self.jb.scan_timeout = 1.5                  # long enough to watch the progress
+        # switching off: never the real computer; a fake smart plug (tests/test_plug.py)
+        from test_plug import FakeTuya
+        from c64jukebox.plug import Plug
+        self.plug = FakeTuya(ip="192.168.1.60")
+        self.jb.plug = Plug(lib=self.plug)
+        self.jb.power_can_cmd = [sys.executable, "-c", "print('s \"yes\"')"]
+        self.jb.power_cmd = [sys.executable, "-c", "pass"]
         c = self.jb.config.data
         if c["ultimates"][0]["addr"] == "":
             c["ultimates"] = [{"label": "Elite II", "addr": self.u64.addr, "pw": ""}]

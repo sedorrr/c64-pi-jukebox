@@ -87,7 +87,12 @@ class Player:
             self.fails = 0
             self._changed()
         if play and items:
-            await self.play_pos(self.pos)
+            if start is None:                  # shuffled: a blocked tune is skipped like when moving on
+                async with self.lock:
+                    self.pos = -1
+                    await self._advance(manual=True)
+            else:
+                await self.play_pos(self.pos)
 
     async def add_items(self, items, play_next=False):
         items = [self._clean(i) for i in items][:max(0, LIST_MAX - len(self.items))]
@@ -259,8 +264,12 @@ class Player:
             self.retry_at = None
             await self._start(song)
 
-    async def _start(self, song=None):
-        """lock held"""
+    def _blocked(self, item):
+        stats = getattr(self.core, "stats", None)
+        return bool(stats) and stats.is_blocked(item)
+
+    async def _start(self, song=None, skip_blocked=False):
+        """lock held. With skip_blocked a tune found blocked once its MD5 is known is not played: returns False"""
         item = self.items[self.order[self.pos]]
         self.state, self.msg = "load", ""
         self.version += 1
@@ -275,6 +284,10 @@ class Player:
                 raise SourceError("Keine SID-Datei: " + item["name"])
             md5 = sidfile.md5(data)
             core.remember_info(item["src"], item["path"], len(data), md5, head)
+            if skip_blocked and self._blocked(dict(item, md5=md5)):
+                item["md5"] = md5
+                events.log("gesperrt, übersprungen: %s" % item["name"])
+                return False
             if song is None:
                 song = item.get("song") or head["start"]
             song = min(max(1, int(song)), head["songs"])
@@ -294,7 +307,7 @@ class Player:
                 core.notifier.stopped()
             else:
                 self.retry_at = self.clock() + RETRY_S
-            return
+            return True
         self.fails = 0
         secs = core.songlengths.lookup(md5, song)
         info = dict(head, name=item["name"], path=item["path"], src=item["src"], md5=md5, song=song)
@@ -318,6 +331,7 @@ class Player:
         events.log("Titel: %s (Lied %d, %s)" % (item["name"], song, "%d s" % secs if secs else "Länge unbekannt"))
         core.hub.mark_loud()
         core.notifier.playing(info, secs, self.elapsed)
+        return True
 
     async def discover(self, by_author=False):
         """like the PC program: a never played tune (else one of the least played); or a tune of an author
@@ -334,10 +348,11 @@ class Player:
 
     def _discover_pick(self, stats, by_author):
         counts = [stats.count(it) for it in self.items]
-        cand = list(range(len(self.items)))
+        cand = [i for i, it in enumerate(self.items) if not stats.is_blocked(it)] or list(range(len(self.items)))
         if by_author:
             per = {}
-            for i, it in enumerate(self.items):
+            for i in cand:
+                it = self.items[i]
                 a = (it.get("author") or "").strip()
                 if a.lower() in ("", "<?>", "unknown", "n/a"):
                     continue
@@ -383,16 +398,21 @@ class Player:
         if not manual and c and self.opts.get("subsongs") == "all" and c["song"] < c["info"]["songs"]:
             await self._start(c["song"] + 1)
             return
-        if self.pos + 1 >= len(self.order):
-            if not self.opts.get("repeat", True) and not manual:
-                await self._stop("Ende der Liste")
+        for _ in range(len(self.order)):               # blocked tunes are skipped, at most one round
+            if self.pos + 1 >= len(self.order):
+                if not self.opts.get("repeat", True) and not manual:
+                    await self._stop("Ende der Liste")
+                    return
+                if self.opts.get("shuffle"):
+                    self._make_order()
+                self.pos = 0
+            else:
+                self.pos += 1
+            if self._blocked(self.items[self.order[self.pos]]):
+                continue
+            if await self._start(skip_blocked=True) is not False:
                 return
-            if self.opts.get("shuffle"):
-                self._make_order()
-            self.pos = 0
-        else:
-            self.pos += 1
-        await self._start()
+        await self._stop("Alle Titel der Liste sind gesperrt")
 
     async def set_song(self, song):
         async with self.lock:

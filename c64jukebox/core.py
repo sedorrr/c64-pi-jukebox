@@ -24,7 +24,7 @@ from . import schedule, smartlist
 from .cec import KEY_NAMES, CecLink, CecProtocol
 from .sidaddr import SidAddressing
 from .stil import Stil
-from . import arpfix, events, loopwatch, namematch, tvmenu, wol
+from . import arpfix, bt, events, loopwatch, namematch, plug, tvmenu, wol
 from .nowplaying import Notifier, news_body
 from .player import LIST_MAX, Player
 from .songlengths import SongLengths, parse as parse_lengths
@@ -34,6 +34,17 @@ from .stream import StreamHub, local_ip
 from .ultimate import STREAM_PORT, Ultimate, UltimateError
 
 SEARCH_MAX = 500
+# the published program: its VERSION is compared with ours once a day (a hint on the page, nothing is installed)
+UPDATE_URL = "https://raw.githubusercontent.com/sedorrr/c64-pi-jukebox/main/c64jukebox/__init__.py"
+UPDATE_EVERY_S = 86400
+TV_BOOT_S = 90             # TV on at the start (cec.tv_on_boot): only this long after it - later, the TV seen
+                           # for the first time is someone switching it on, not to be pulled to the Pi
+PI_OFF_S = 60               # TV to standby -> Pi off (cec.pi_off); the TV on again within it keeps the Pi on
+TV_ASK_S = 30               # how often the TV is asked whether it is on (some do not announce their standby)
+
+
+def version_key(v):
+    return tuple(int(x) for x in re.findall(r"\d+", v or ""))
 INFO_SONGS_MAX = 64
 HDMI_IMAGES_MAX = 300
 HDMI_IMAGE_SIZE = (1920, 1080)
@@ -124,13 +135,28 @@ class Jukebox:
         self.cec = None                                  # CecLink while the TV's remote is on
         self.sched_fired = set()                         # (entry id, minute) that ran
         self._hvsc_list = (None, [])                     # (mtime of the stored Songlengths.md5, smartlist.parse_hvsc)
+        self._hvsc_hay = (None, [])                      # (that mtime, [(path, md5, text to search)]) - hvsc_hay()
+        self.update = None                               # {"ver", "newer", "at"} of the last look at GitHub
+        self._update_at = time.monotonic() - UPDATE_EVERY_S + 60      # the first look a minute after the start
         self.sched_msg = ""                              # what the timer did last (for the page)
         self.cec_ready = False
         self.cec_retry_at = -1e9
         self.cec_was_playing = False
         self.cec_stopped_at = None                       # since when nothing plays (TV to standby after tv_off_min)
+        self.tv_seen_on = False                          # the TV was on while the Pi ran (pi_off needs it)
+        self.tv_off_at = None                            # since when it is off (Pi off after PI_OFF_S)
+        self.tv_ask_at = -1e9
+        self.tv_boot_until = None                        # cec.tv_on_boot: TV on until then (set at the start)
         self.stil = Stil()
         self.menu = tvmenu.TvMenu(self, self.clock)       # the menu on the TV (remote keys over HDMI-CEC)
+        self.bt = bt.Bluetooth()                          # headphones for the TV sound
+        self.plug = plug.Plug()                           # the smart plug the Pi hangs on (switched off after shutdown)
+        self.power_cmd = ["systemctl", "poweroff"]        # allowed to the service by polkit (install.sh)
+        self.power_can_cmd = ["busctl", "call", "org.freedesktop.login1", "/org/freedesktop/login1",
+                              "org.freedesktop.login1.Manager", "CanPowerOff"]
+        self.powering_off = False
+        self.bt_conn = False                              # the chosen headphones are connected
+        self.bt_at = 0.0
         self.power_msg = ""                               # what switching an Ultimate on/off did last
         # repeat of a tune without a length (loopwatch.py): the tune looked at, since when, and what was found
         self.loops = None
@@ -164,6 +190,7 @@ class Jukebox:
         self.bg = asyncio.get_running_loop().create_task(self._loop())
         if self.sidaddr.pending:                         # switched before a restart/power cut: back to normal
             await self.sid_release()
+        self.tv_boot_until = self.clock() + TV_BOOT_S
         self.cec_apply()
         events.log("Jukebox gestartet in %.1f s (Songlängen %.1f s)" % (time.monotonic() - t0, t_sl))
         return self
@@ -274,8 +301,11 @@ class Jukebox:
                     self._side("video", self._video_keep)            # stop it for seconds)
                     self._side("sid", self._sid_keep)
                     self._side("loop", self._loop_keep)
+                    if (self.config.data.get("bt") or {}).get("mac") and time.monotonic() - self.bt_at >= 5:
+                        self._side("bt", self._bt_keep)
                     self._hdmi_sync_due()
                     self._news_due()
+                    self._update_due()
                     self._cec_tick()
                     self._party_check()
                     for e in schedule.due(self.config["schedule"], time.localtime(self.wall()), self.sched_fired):
@@ -358,6 +388,7 @@ class Jukebox:
             f = dict(smartlist.preset(f["preset"]), preset=f["preset"])
         plays = {k[4:]: n for k, n in self.stats.plays.items() if k.startswith("md5:")}
         favs = {k[4:] for k in self.stats.fav if k.startswith("md5:")}
+        blocked = self.stats.blocked_md5s()
         if f.get("preset") == "fav":                    # every favourite, also outside the HVSC
             return [{"src": v.get("src", ""), "path": v.get("path", ""), "name": v.get("name") or v.get("path", "").rsplit("/", 1)[-1],
                      "title": v.get("title", ""), "author": v.get("author", "")}
@@ -368,6 +399,8 @@ class Jukebox:
             by_md5 = {m: p for p, m, _ in hv}
             out = []
             for k, n in sorted(self.stats.plays.items(), key=lambda x: -x[1]):
+                if k in self.stats.block:
+                    continue
                 if k.startswith("md5:") and k[4:] in by_md5:
                     out.append(dict(smartlist.item(root[0], root[1], by_md5[k[4:]]), md5=k[4:]))
                 elif k.startswith("path:") and k.count(":") >= 2:
@@ -380,7 +413,7 @@ class Jukebox:
             raise ValueError("Dafür zuerst die Songlängen der HVSC aus einer Quelle laden (Tab „Dateien“)")
         # the whole HVSC (~60 000 entries) in a thread: the stream distributor and the TV keep going
         return await asyncio.get_running_loop().run_in_executor(
-            None, smartlist.pick, hv, root, f, plays, favs, self.stil if f.get("stil") else None)
+            None, smartlist.pick, hv, root, f, plays, favs, self.stil if f.get("stil") else None, blocked)
 
     async def smart(self, f, mode="play", name=""):
         items = await self.smart_items(f)
@@ -461,7 +494,7 @@ class Jukebox:
 
     def cec_set(self, d):
         c = self.config.data["cec"]
-        for k in ("on", "claim", "tv_on"):
+        for k in ("on", "claim", "tv_on", "pi_off", "tv_on_boot"):
             if k in d:
                 c[k] = bool(d[k])
         if "tv_off_min" in d:
@@ -541,9 +574,15 @@ class Jukebox:
         self.cec_was_playing = playing
         # every second: the TV may give the Pi another address (other input, standby, another player took ours)
         self.cec_ready = link.configured()
+        self._tv_off_check(link)
         if not self.cec_ready:
             return
         link.proto.playing = self.player.state == "play"
+        if self.tv_boot_until is not None:
+            if c.get("tv_on_boot") and self.clock() <= self.tv_boot_until:
+                self.cec_send(link.proto.tv_on())
+                events.log("Fernseher eingeschaltet (Start des Pi)")
+            self.tv_boot_until = None                            # once
         if started and c.get("tv_on"):
             self.cec_send(link.proto.tv_on())
         elif started and c.get("claim", True) and not link.proto.active:
@@ -553,6 +592,37 @@ class Jukebox:
                 and self.clock() - self.cec_stopped_at >= mins * 60):
             self.cec_send(link.proto.tv_standby())                   # once: standby makes us inactive
 
+    def _tv_off_check(self, link):
+        """pi_off: the TV went from on to standby -> the Pi off PI_OFF_S later (on again in between: not). Only a change
+        seen while the Pi runs: a Pi started by the plug while the TV stays off keeps running (music on the Picos)."""
+        if not self.config["cec"].get("pi_off"):
+            self.tv_seen_on, self.tv_off_at = False, None
+            return
+        now = self.clock()
+        if self.cec_ready and now - self.tv_ask_at >= TV_ASK_S:
+            self.tv_ask_at = now
+            self.cec_send(link.proto.ask_tv_power())
+        power = link.proto.tv_power
+        if power == "on":
+            if self.tv_off_at is not None:
+                events.log("Fernseher wieder an – Pi bleibt an")
+            self.tv_seen_on, self.tv_off_at = True, None
+        elif power == "standby" and self.tv_seen_on and self.tv_off_at is None:
+            self.tv_off_at = now
+            events.log("Fernseher ist aus – Pi wird in %d s ausgeschaltet" % PI_OFF_S)
+        if self.tv_off_at is not None and now - self.tv_off_at >= PI_OFF_S:
+            self.tv_seen_on, self.tv_off_at = False, None
+            if self.bt_active():
+                events.log("Fernseher aus, aber Kopfhörer verbunden – Pi bleibt an")
+            elif not self.powering_off:
+                asyncio.get_running_loop().create_task(self._tv_power_off())
+
+    async def _tv_power_off(self):
+        try:
+            await self.power_off()
+        except ValueError as e:
+            events.log("Pi nicht ausgeschaltet: %s" % e)
+
     def cec_status(self):
         c = self.cec
         if not c:
@@ -560,7 +630,8 @@ class Jukebox:
         p = c.proto
         return {"on": True, "ready": self.cec_ready, "adapter": c.adapter, "err": c.err, "la": p.la if self.cec_ready else None,
                 "phys": "%d.%d.%d.%d" % tuple((p.phys >> s) & 15 for s in (12, 8, 4, 0)) if p.phys != 0xFFFF else "",
-                "active": p.active, "last": p.last, "recent": list(p.recent)}
+                "active": p.active, "last": p.last, "recent": list(p.recent), "tv": p.tv_power,
+                "pi_off_in": max(0, int(PI_OFF_S - (self.clock() - self.tv_off_at))) if self.tv_off_at is not None else None}
 
     # ------------------------------------------------------------ the Ultimate(s)
     def ultimate_by_addr(self, addr, pw=None):
@@ -707,10 +778,158 @@ class Jukebox:
         self.hub.set_targets([p["addr"] for p in self.config["picos"] if p.get("addr") and p.get("stream", True)])
         h = self.config["hdmi"]
         self.hub.local = [("127.0.0.1", self.hdmi_audio_port)] if h.get("on") else []
-        if h.get("on") and h.get("sound"):                      # the TV sound: its own process (hdmi/soundproc.py)
+        if h.get("on") and self.sound_wanted():                 # the TV sound: its own process (hdmi/soundproc.py)
             self.hub.local.append(("127.0.0.1", self.hdmi_sound_port))
         if self._loop_cur is not None and self.loops and self.loops.port:
             self.hub.local.append(("127.0.0.1", self.loops.port))
+
+    # ------------------------------------------------------------ Bluetooth headphones (bt.py)
+    def bt_active(self):
+        """the sound goes to the headphones now: switched on and connected"""
+        b = self.config.data.get("bt") or {}
+        return bool(b.get("on") and b.get("mac") and self.bt_conn)
+
+    def sound_wanted(self):
+        return bool(self.config["hdmi"].get("sound")) or self.bt_active()
+
+    async def _bt_keep(self):
+        """every few seconds: are the chosen headphones connected? (they connect by themselves when switched on)"""
+        b = self.config.data.get("bt") or {}
+        if not b.get("mac") or not self.bt.present:
+            conn = False
+        else:
+            if not self.bt_at:
+                await self.bt.power()                       # Bluetooth stays off after a start otherwise
+            i = await self.bt.info(b["mac"])
+            conn = bool(i and i["connected"])
+        self.bt_at = time.monotonic()
+        if conn != self.bt_conn:
+            self.bt_conn = conn
+            events.log("Kopfhörer %s %s" % (b.get("name") or b.get("mac"), "verbunden" if conn else "getrennt"))
+            self.apply_targets()
+
+    def bt_status(self):
+        b = self.config.data.get("bt") or {}
+        return {"present": self.bt.present, "on": bool(b.get("on")), "mac": b.get("mac", ""), "name": b.get("name", ""),
+                "connected": self.bt_conn, "active": self.bt_active()}
+
+    async def bt_devices(self):
+        return await self.bt.devices()
+
+    async def bt_scan(self, job):
+        job.progress = "Suche %d s … (Kopfhörer in den Kopplungsmodus bringen)" % bt.SCAN_S
+        found = await self.bt.scan()
+        events.log("Bluetooth-Suche: %s" % (", ".join("%s %s" % (d["mac"], d["name"]) for d in found) or "nichts gefunden"))
+        return found
+
+    def _bt_choose(self, mac, name):
+        b = self.config.data.setdefault("bt", {})
+        b.update(mac=mac, name=name or (b.get("name") if b.get("mac") == mac else "") or mac, on=True)
+        self.config.save()
+
+    async def bt_pair(self, job, mac):
+        job.progress = "Kopple … (Kopfhörer im Kopplungsmodus lassen)"
+        try:
+            i = await self.bt.pair(mac)
+        except ValueError as e:
+            events.log("Bluetooth: Koppeln mit %s fehlgeschlagen: %s" % (mac, e))
+            raise
+        events.log("Bluetooth: %s gekoppelt (%s), verbunden" % (mac, i["name"]))
+        self._bt_choose(mac, i["name"])
+        await self._bt_keep()
+        return i
+
+    async def bt_connect(self, mac):
+        i = await self.bt.connect(mac)
+        self._bt_choose(mac, i["name"])
+        await self._bt_keep()
+        return i
+
+    async def bt_disconnect(self, mac):
+        await self.bt.disconnect(mac)
+        await self._bt_keep()
+
+    async def bt_forget(self, mac):
+        await self.bt.remove(mac)
+        b = self.config.data.setdefault("bt", {})
+        if b.get("mac") == mac:
+            b.update(mac="", name="", on=False)
+            self.config.save()
+        await self._bt_keep()
+
+    def bt_set(self, on):
+        b = self.config.data.setdefault("bt", {})
+        b["on"] = bool(on) and bool(b.get("mac"))
+        self.config.save()
+        self.apply_targets()
+
+    # ------------------------------------------------------------ switching the Pi off (with the smart plug, plug.py)
+    async def _cmd(self, cmd, timeout=10):
+        try:
+            p = await asyncio.create_subprocess_exec(*cmd, stdin=asyncio.subprocess.DEVNULL,
+                                                     stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+            out, _ = await asyncio.wait_for(p.communicate(), timeout)
+        except (OSError, asyncio.TimeoutError) as e:
+            return False, str(e) or "keine Antwort"
+        return p.returncode == 0, out.decode("utf-8", "replace").strip()
+
+    async def can_power_off(self):
+        """logind lets the service switch the Pi off (polkit rule from install.sh): 's "yes"'"""
+        ok, out = await self._cmd(self.power_can_cmd, timeout=5)
+        return ok and '"yes"' in out
+
+    async def power_state(self):
+        c = self.config["plug"]
+        return {"can": await self.can_power_off(), "plug": plug.configured(c), "off_s": c.get("off_s", 30)}
+
+    async def plug_check(self, job=None):
+        """the plug answers? A plug found by its id keeps the address and version it announced"""
+        if job:
+            job.progress = "Frage die Steckdose …"
+        c = self.config["plug"]
+        st = await self.plug.status(c)
+        if st["ip"] != c.get("ip") or st["ver"] != c.get("ver"):
+            c.update(ip=st["ip"], ver=st["ver"])
+            self.config.save()
+        return st
+
+    async def power_off(self, force=False):
+        """set the plug's timer, then shut down (in a moment: the page gets its answer first). Without the timer
+        (plug not answering) only with force - the Pi must never lose its power while it runs."""
+        if self.powering_off:
+            raise ValueError("Der Pi wird schon ausgeschaltet")
+        if not await self.can_power_off():
+            raise ValueError("Der Pi darf sich nicht selbst ausschalten – Installationsskript noch einmal ausführen")
+        c = self.config["plug"]
+        secs = max(20, min(int(c.get("off_s") or 30), 600))
+        timer = False
+        if plug.configured(c):
+            try:
+                await self.plug.countdown(c, secs)
+                timer = True
+            except ValueError as e:
+                if not force:
+                    raise ValueError("Steckdose antwortet nicht (%s) – der Pi bleibt an" % e)
+        self.powering_off = True
+        events.log("Pi wird ausgeschaltet" + (" – Steckdose schaltet in %d s ab" % secs if timer else ""))
+        try:
+            await self.player.stop()
+        except Exception:                                  # noqa: BLE001 - switching off goes on regardless
+            pass
+        asyncio.get_running_loop().call_later(1.5, lambda: asyncio.ensure_future(self._power_off_now(timer)))
+        return {"timer": timer, "secs": secs}
+
+    async def _power_off_now(self, timer):
+        ok, out = await self._cmd(self.power_cmd)
+        if ok:
+            return
+        events.log("Ausschalten fehlgeschlagen: %s" % out[-120:])
+        self.powering_off = False
+        if timer:                                          # the Pi stays on: the plug must not cut it
+            try:
+                await self.plug.countdown(self.config["plug"], 0)
+            except ValueError as e:
+                events.log("Steckdosen-Timer nicht zurückgesetzt: %s" % e)
 
     # ------------------------------------------------------------ repeat of a tune without a length (loopfind.py)
     def _loop_wanted(self):
@@ -974,7 +1193,9 @@ class Jukebox:
         if not on and not self._hdmi_was_on:
             return
         self._hdmi_was_on = on
-        d = {"t": time.time(), "cfg": self.config["hdmi"], "img_dir": self.hdmi_img_dir(), "name": self.config["name"],
+        cfg = dict(self.config["hdmi"], sound=self.sound_wanted(),
+                   sound_dev=bt.alsa_device(self.config["bt"]["mac"]) if self.bt_active() else "")
+        d = {"t": time.time(), "cfg": cfg, "img_dir": self.hdmi_img_dir(), "name": self.config["name"],
              "ip": self.my_ip(), "player": self._player_for_screen(),
              "news": self.news.for_screen() if self.news_wanted() else [], "sid_msg": self.sid_msg,
              "menu": self.menu.view(),
@@ -1134,6 +1355,28 @@ class Jukebox:
 
     def news_active(self):
         return [f for f in self.news_feeds() if f["on"]]
+
+    def _update_due(self):
+        if self.config.data.get("updates", True) and UPDATE_URL and self.session and \
+                time.monotonic() - self._update_at >= UPDATE_EVERY_S:
+            self._update_at = time.monotonic()
+            self._side("update", self.update_check)
+
+    async def update_check(self):
+        """the VERSION of the published program; newer than ours -> a hint on the page (update: git pull + install.sh)"""
+        try:
+            async with self.session.get(UPDATE_URL, timeout=aiohttp.ClientTimeout(total=15)) as r:
+                text = await r.text() if r.status == 200 else ""
+        except (aiohttp.ClientError, asyncio.TimeoutError, OSError):
+            text = ""
+        m = re.search(r'^VERSION\s*=\s*"([^"]+)"', text, re.M)
+        if not m:
+            events.log("Update-Prüfung: GitHub nicht erreichbar")
+            return None                                  # the last answer stays in self.update
+        self.update = {"ver": m.group(1), "newer": version_key(m.group(1)) > version_key(VERSION), "at": int(time.time())}
+        if self.update["newer"]:
+            events.log("Neue Version %s auf GitHub (installiert: %s)" % (m.group(1), VERSION))
+        return self.update
 
     def _news_due(self):
         if self.news_wanted() and self.news.due() and self.session:
@@ -1429,8 +1672,118 @@ class Jukebox:
                 break
         return items
 
+    def hvsc_root(self):
+        """(source, folder of C64Music) when the HVSC song lengths were loaded from a source, else None"""
+        root = smartlist.hvsc_root(self.config["songlengths"].get("hvsc"))
+        return root if root and self.config.source(root[0]) else None
+
+    def in_hvsc(self, src_id, path):
+        root = self.hvsc_root()
+        return bool(root) and src_id == root[0] and \
+            (norm(path).rstrip("/") + "/").startswith(norm(root[1]).rstrip("/") + "/")
+
+    async def hvsc_hay(self):
+        """the whole HVSC to search without reading a folder: paths and MD5 from Songlengths.md5, titles, composers and
+        release lines from the header cache (filled by hvsc_titles). Built once, a batch at a time"""
+        root = self.hvsc_root()
+        hv = await self.hvsc_list() if root else []
+        if not hv:
+            return []
+        if self._hvsc_hay[0] == self._hvsc_list[0]:
+            return self._hvsc_hay[1]
+        base = norm(root[1]).rstrip("/")
+        heads = {}
+        for rows in self.catalog.under(root[0], base):
+            for p, d in rows:
+                heads[p] = (d.get("title", "") + "\n" + d.get("author", "") + "\n" + d.get("released", "")).lower()
+            await asyncio.sleep(0)
+        out = []
+        for k, (rel, md5, _) in enumerate(hv):
+            p = base + rel
+            out.append((p, md5, rel.lower() + "\n" + heads.get(p, "")))
+            if k % 5000 == 4999:
+                await asyncio.sleep(0)
+        self._hvsc_hay = (self._hvsc_list[0], out)
+        return out
+
+    def hvsc_titles_state(self):
+        """how much of the HVSC the search knows by title: {"n": with header, "of": all}"""
+        root = self.hvsc_root()
+        hv = self._hvsc_list[1] if root else []
+        hay = self._hvsc_hay[1] if self._hvsc_hay[0] == self._hvsc_list[0] else []
+        return {"of": len(hv), "n": sum(1 for x in hay if x[2].count("\n") > 1) if hay else None}
+
+    async def hvsc_titles(self, job):
+        """read the header (124 bytes) of every HVSC file not in the cache yet - once, in the background; the search
+        then also finds titles, composers and release lines"""
+        root = self.hvsc_root()
+        if not root:
+            raise ValueError("Dafür zuerst die Songlängen der HVSC aus einer Quelle laden (Tab „Dateien“)")
+        hv = await self.hvsc_list()
+        base = norm(root[1]).rstrip("/")
+        have = set()
+        for rows in self.catalog.under(root[0], base):
+            have.update(p for p, _ in rows)
+            await asyncio.sleep(0)
+        todo = [(base + rel, md5) for rel, md5, _ in hv if base + rel not in have]
+        src = self.sources.get(root[0])
+        done = fails = 0
+        t0 = time.monotonic()
+        try:
+            for k, (p, md5) in enumerate(todo):
+                if k % 25 == 0:
+                    job.pct = int(100 * k / max(1, len(todo)))
+                    left = (time.monotonic() - t0) / k * (len(todo) - k) if k > 20 else None
+                    job.progress = "%d von %d Titeln gelesen%s" % (
+                        k, len(todo), ", noch etwa %d min" % max(1, round(left / 60)) if left else "")
+                try:
+                    head = sidfile.parse_header(await src.head(p, sidfile.HEADER_LEN))
+                except SourceError:
+                    head = None
+                if head:
+                    self.catalog.put_info(root[0], p, 0, md5, head)        # size unknown: matches any size
+                    done += 1
+                else:
+                    fails += 1
+        finally:
+            self.catalog.flush()
+            self._hvsc_hay = (None, [])
+        events.log("HVSC-Titel gelesen: %d neu, %d nicht lesbar, %d schon bekannt" % (done, fails, len(have)))
+        return {"n": done, "fails": fails, "known": len(have), "of": len(hv)}
+
+    async def hvsc_find(self, q, limit=SEARCH_MAX):
+        """the whole HVSC by words (TV menu): search hits like the page's, at most limit"""
+        root = self.hvsc_root()
+        if not root or not await self.hvsc_hay():
+            raise ValueError("Dafür zuerst die Songlängen der HVSC aus einer Quelle laden")
+        return await self._search_hvsc(None, root[1], q.lower().split(), limit)
+
+    async def _search_hvsc(self, job, path, terms, limit=SEARCH_MAX):
+        base = norm(path).rstrip("/") + "/"
+        hits = []
+        hay = await self.hvsc_hay()
+        for k, (p, md5, text) in enumerate(hay):
+            if k % 5000 == 4999:
+                await asyncio.sleep(0)
+            if not p.startswith(base) or not all(t in text for t in terms):
+                continue
+            hit = {"n": p.rsplit("/", 1)[-1], "d": False, "s": 0, "p": p}
+            c = self.catalog.get_info(self.hvsc_root()[0], p)
+            if c:
+                hit["i"] = compact(c, c["md5"], self.songlengths)
+            hits.append(hit)
+            if len(hits) >= limit:
+                if job:
+                    job.progress = "%d Treffer (gekürzt)" % len(hits)
+                return hits
+        if job:
+            job.progress = "%d Treffer im HVSC-Verzeichnis" % len(hits)
+        return hits
+
     async def search(self, job, src_id, path, q):
         terms = q.lower().split()
+        if self.in_hvsc(src_id, path) and await self.hvsc_hay():      # the whole HVSC is known: no folder to read
+            return await self._search_hvsc(job, path, terms)
         hits = []
         base = norm(path).rstrip("/")
         async for d, entries in self.walk(src_id, path, True, max_age=86400, job=job):
@@ -1824,6 +2177,7 @@ class Jukebox:
                 "year": item.get("year", ""), "song": item.get("song") or item.get("start") or 0,
                 "songs": item.get("songs", 0), "chips": item.get("chips", 0), "sids": item.get("sids", []),
                 "len": secs, "lk": kind, "plays": self.stats.count(item), "fav": self.stats.is_fav(item),
+                "blk": self.stats.is_blocked(item),
                 "src": item.get("src", ""), "path": item.get("path", ""), "cur": i == cur,
                 "sfit": self.sidaddr.fit(item.get("sids")) if item.get("sids") else None}
 
@@ -1918,6 +2272,41 @@ class Jukebox:
             return drop
         return await self.player.remove_where(pick)
 
+    async def with_md5(self, it):
+        """a list entry with its MD5 if it can be read (star and block belong to the file, like in the PC program)"""
+        self.fill_meta(it)
+        if not it.get("md5"):
+            try:
+                await self.info(it["src"], it["path"])
+                it.pop("_nc", None)
+                self.fill_meta(it)
+            except (SourceError, OSError):
+                pass
+        return it
+
+    async def block(self, i=None):
+        """'nicht mehr spielen': on the blocked list; the playing tune is left at once"""
+        p = self.player
+        cur = p.current_index()
+        i = cur if i is None else i
+        if not 0 <= i < len(p.items):
+            raise ValueError("Kein Titel gewählt")
+        it = await self.with_md5(p.items[i])
+        self.stats.block_item(it)
+        self.stats.save(force=True)
+        p.lver += 1
+        events.log("gesperrt: %s" % (it.get("title") or it.get("name")))
+        if i == cur and p.cur:
+            await p.next()
+        return it
+
+    def unblock(self, key):
+        ok = self.stats.unblock(key)
+        if ok:
+            self.stats.save(force=True)
+            self.player.lver += 1
+        return ok
+
     def statistics(self):
         """like the PC program's statistics: starts, listening time, top composers, SID chips (of the list)"""
         items = self.player.items
@@ -1935,7 +2324,7 @@ class Jukebox:
                 listened += s * n
         top = sorted(per_author.items(), key=lambda x: -x[1])[:10]
         return {"plays": sum(self.stats.plays.values()), "tunes": len(self.stats.plays), "favs": len(self.stats.fav),
-                "listened": listened, "top": top, "chips": chips, "list": len(items)}
+                "listened": listened, "top": top, "chips": chips, "list": len(items), "blocked": len(self.stats.block)}
 
     async def check_list(self, job):
         """like "Check Lengths": read the header of every entry not known yet"""
@@ -2219,9 +2608,12 @@ class Jukebox:
             "pico_news": {"n": len(self.notifier.news_body.split(b"\n")) if self.notifier.news_body else 0},
             "pwdefault": self.config.password_default(),
             "sl": dict(self.songlengths.counts(), stil=len(self.stil.db)),
+            "hvsc": dict(zip(("src", "path"), self.hvsc_root())) if self.hvsc_root() else None,
             "opts": self.config["player"],
             "sidaddr": self.sidaddr.msg,
             "name": self.config["name"],
             "version": VERSION,
+            "update": self.update["ver"] if self.update and self.update["newer"] and self.config.data.get("updates", True)
+            else None,
             "display": self.display.msg,
         }

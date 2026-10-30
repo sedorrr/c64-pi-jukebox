@@ -5,7 +5,7 @@ import errno
 import os
 import struct
 
-from c64jukebox import cec
+from c64jukebox import cec, events
 from c64jukebox.cec import CecLink, CecProtocol
 from c64jukebox.core import Jukebox
 from fakes import FakeUltimate, make_sid
@@ -224,3 +224,107 @@ def test_link_and_jukebox(tmp_path, monkeypatch):
             await jb.close()
             await u64.stop()
     asyncio.run(t())
+
+
+def test_protocol_tv_power():
+    p = CecProtocol()
+    assert p.tv_power is None
+    assert p.handle(0, 15, bytes([cec.ROUTING_CHANGE, 0x10, 0, 0x20, 0]))[0] is None and p.tv_power == "on"
+    assert p.handle(0, 15, bytes([cec.STANDBY])) == (None, []) and p.tv_power == "standby" and not p.active
+    p.handle(0, 4, bytes([cec.REPORT_POWER_STATUS, 0x02]))                 # going on
+    assert p.tv_power == "on"
+    p.handle(0, 4, bytes([cec.REPORT_POWER_STATUS, 0x01]))
+    assert p.tv_power == "standby"
+    p.handle(5, 15, bytes([cec.ACTIVE_SOURCE, 0x30, 0]))                    # another device: says nothing about the TV
+    assert p.tv_power == "standby"
+    assert p.ask_tv_power() == [(cec.TV, bytes([cec.GIVE_DEVICE_POWER_STATUS]))]
+
+
+def test_pi_off_when_the_tv_goes_off(tmp_path, monkeypatch):
+    """the TV on, then standby: a minute later the Pi goes off (the plug's timer first); on again in between keeps it;
+    a Pi that never saw the TV on stays on (started by the plug for music without the TV); headphones keep it on"""
+    from test_plug import ID, setup
+    dev = FakeCecDevice()
+    monkeypatch.setattr("c64jukebox.core.CecLink", lambda proto: CecLink(proto, ioctl=dev.ioctl, opener=dev.open))
+
+    async def t():
+        jb = Jukebox(str(tmp_path / "data"), stream_port=0, dev_port=0, bcast="127.0.0.1", run_dir=str(tmp_path))
+        fake, mark = setup(jb, tmp_path)
+        jb.config.data["plug"].update(ip=fake.ip, id=ID, key=fake.key)
+        await jb.start()
+        now = [1000.0]
+        jb.clock = lambda: now[0]
+        try:
+            jb.cec_set({"on": True, "pi_off": True})
+            jb._cec_tick()
+            assert dev.sent[-1] == bytes([0x40, cec.GIVE_DEVICE_POWER_STATUS])     # asked at once, then every 30 s
+
+            async def tv(power):
+                dev.put(0, 15 if power == "standby" else 4,
+                        bytes([cec.STANDBY]) if power == "standby" else bytes([cec.REPORT_POWER_STATUS, 0]))
+                await asyncio.sleep(0.05)
+                jb._cec_tick()
+
+            await tv("standby")                         # off from the start: never seen on -> nothing
+            now[0] += 120
+            jb._cec_tick()
+            assert jb.tv_off_at is None and not jb.powering_off
+            await tv("on")
+            await tv("standby")
+            assert jb.cec_status()["pi_off_in"] == 60
+            now[0] += 30
+            await tv("on")                              # on again within the minute: stays on
+            now[0] += 60
+            jb._cec_tick()
+            assert not jb.powering_off and any("wieder an" in x[1] for x in events._log)
+            # headphones connected: stays on
+            jb.bt_conn = True
+            jb.config.data["bt"].update(on=True, mac="12:34:56:78:9A:BC")
+            await tv("standby")
+            now[0] += 61
+            jb._cec_tick()
+            assert not jb.powering_off and any("Kopfhörer verbunden" in x[1] for x in events._log)
+            jb.bt_conn = False
+            await tv("on")
+            await tv("standby")
+            now[0] += 61
+            jb._cec_tick()
+            for _ in range(40):
+                if jb.powering_off:
+                    break
+                await asyncio.sleep(0.05)
+            assert jb.powering_off and fake.dps["9"] == 30
+        finally:
+            jb.powering_off = True                      # no real shutdown command left pending
+            await jb.close()
+    asyncio.run(t())
+
+
+def test_tv_on_when_the_pi_starts(tmp_path, monkeypatch):
+    """tv_on_boot: the first time the Pi is ready on the HDMI cable after its start -> TV on + to the Pi, once;
+    ready only after TV_BOOT_S (the TV was off and is switched on by someone later): not pulled to the Pi"""
+    from c64jukebox import core as core_mod
+
+    async def run_start(ready_after):
+        dev = FakeCecDevice()
+        monkeypatch.setattr("c64jukebox.core.CecLink", lambda proto: CecLink(proto, ioctl=dev.ioctl, opener=dev.open))
+        jb = Jukebox(str(tmp_path / ("data%d" % ready_after)), stream_port=0, dev_port=0, bcast="127.0.0.1",
+                     run_dir=str(tmp_path))
+        jb.config.data["cec"].update(on=True, tv_on_boot=True, claim=False)
+        now = [500.0]
+        jb.clock = lambda: now[0]
+        await jb.start()
+        try:
+            dev.la = None                               # the TV is off: no address on the bus yet
+            jb._cec_tick()
+            assert not jb.cec_ready
+            now[0] += ready_after
+            dev.la = 4                                  # the TV gives the Pi its address
+            jb._cec_tick()
+            jb._cec_tick()
+            return [m for m in dev.sent if m[1:2] == bytes([cec.IMAGE_VIEW_ON])]
+        finally:
+            await jb.close()
+
+    assert len(asyncio.run(run_start(5))) == 1                          # once
+    assert asyncio.run(run_start(core_mod.TV_BOOT_S + 10)) == []        # too late after the start

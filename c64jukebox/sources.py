@@ -59,6 +59,10 @@ class Source:
     async def read(self, path, limit=SID_MAX):
         raise NotImplementedError
 
+    async def head(self, path, n):
+        """the first n bytes (a SID header) - where the source cannot stop early, the whole file"""
+        return (await self.read(path))[:n]
+
     def close(self):
         pass
 
@@ -107,6 +111,16 @@ class LocalSource(Source):
 
     async def read(self, path, limit=SID_MAX):
         return await asyncio.get_running_loop().run_in_executor(None, self._read, path, limit)
+
+    def _head(self, path, n):
+        try:
+            with open(self._abs(path), "rb") as f:
+                return f.read(n)
+        except OSError:
+            raise SourceError("Datei nicht lesbar: " + norm(path))
+
+    async def head(self, path, n):
+        return await asyncio.get_running_loop().run_in_executor(None, self._head, path, n)
 
 
 class _Threaded(Source):
@@ -314,6 +328,15 @@ class PysmbClient:
             raise SourceError("Datei nicht gefunden oder kein Zugriff: " + norm(path))
         return None if buf.tell() > limit else buf.getvalue()
 
+    def head(self, share, path, n):
+        from smb.smb_structs import OperationFailure
+        buf = io.BytesIO()
+        try:
+            self.c.retrieveFileFromOffset(share, path, buf, 0, n, timeout=30)
+        except OperationFailure:
+            raise SourceError("Datei nicht gefunden oder kein Zugriff: " + norm(path))
+        return buf.getvalue()
+
     def shares(self):
         return [(s.name, s.type, s.comments or "") for s in self.c.listShares(timeout=15)]
 
@@ -355,6 +378,14 @@ class Smb2Client:
     def read(self, share, path, limit):
         try:
             return self.c.read(share, path, limit)
+        except Exception as e:
+            if _smb_missing(e):
+                raise SourceError("Datei nicht gefunden oder kein Zugriff: " + norm(path))
+            raise
+
+    def head(self, share, path, n):
+        try:
+            return self.c.head(share, path, n)
         except Exception as e:
             if _smb_missing(e):
                 raise SourceError("Datei nicht gefunden oder kein Zugriff: " + norm(path))
@@ -423,6 +454,9 @@ class SmbSource(_Threaded):
 
     async def read(self, path, limit=SID_MAX):
         return await self._run(self._read, path, limit)
+
+    async def head(self, path, n):
+        return await self._run(lambda c, p: c.head(self.share, join(self.root, p), n), path)
 
 
 # ------------------------------------------------------------------ the set of sources from the settings

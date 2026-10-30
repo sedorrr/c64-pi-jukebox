@@ -412,10 +412,11 @@ def test_sound_over_hdmi(tmp_path):
     app.compose(clock.t)
     assert app.sound is None
     for _ in range(100):
-        if out.exists() and out.stat().st_size == 10 * 768:
+        if out.exists() and out.stat().st_size >= 10 * 768:
             break
         time.sleep(0.02)
-    assert out.read_bytes() == b"".join(audio_packet(k)[2:] for k in range(10))
+    data, sent = out.read_bytes(), b"".join(audio_packet(k)[2:] for k in range(10))
+    assert data[:len(sent)] == sent and not data[len(sent):].strip(b"\0")     # then only silence (keeps the card fed)
     app.stop()
 
 
@@ -689,3 +690,92 @@ def test_receivers_take_only_the_ultimates():
     finally:
         v.close()
         sd.close()
+
+
+def test_sound_notes_silence_in_the_stream(monkeypatch):
+    """a pause in what the Ultimate sends (against a gap behind aplay): noted with its length - not at the start"""
+    from c64jukebox.hdmi import soundproc
+    now = [100.0]
+    monkeypatch.setattr(soundproc.time, "monotonic", lambda: now[0])
+    s = soundproc.Sound(cmd=["true"])
+    loud = (np.sin(np.arange(384) / 3) * 8000).astype("<i2").tobytes()
+    quiet = (np.full(384, 300)).astype("<i2").tobytes()            # the SID's DC offset: silence too
+
+    def play(frames, secs):
+        for _ in range(int(secs * 250)):
+            s.feed(frames)
+            now[0] += 0.004
+    play(quiet, 2)                                                  # silence before the first sound: no note
+    play(loud, 1)
+    play(quiet, 0.5)                                                # short: no note
+    play(loud, 1)
+    play(quiet, 2.4)
+    play(loud, 0.1)
+    s.close()
+    notes = [g for g in s.gaps if "Stille" in g]
+    assert len(notes) == 1 and "2.4 s" in notes[0]
+
+
+def test_sound_restarts_a_hanging_aplay():
+    """aplay takes nothing any more (the HDMI sound hung for seconds): ended after 0.5 s and started again"""
+    import sys
+    from c64jukebox.hdmi import soundproc
+    hang = [sys.executable, "-c", "import sys, time; sys.stdin.buffer.read(4000); time.sleep(30)"]
+    s = soundproc.Sound(cmd=hang)
+    first = None
+    loud = (np.sin(np.arange(384) / 3) * 8000).astype("<i2").tobytes()
+    t0 = time.monotonic()
+    while time.monotonic() - t0 < 3 and not s.restarts:
+        s.feed(loud)
+        if first is None and s.proc:
+            first = s.proc
+        time.sleep(0.004)
+    for _ in range(50):                                 # the next packets open a new one
+        s.feed(loud)
+        time.sleep(0.004)
+    assert s.restarts == 1 and any("neu gestartet" in g for g in s.gaps)
+    assert first.poll() is not None and s.proc is not first
+    s.close()
+
+
+def test_sound_keeps_the_card_fed(tmp_path):
+    """a pause between packets: silence goes to aplay meanwhile (an underrun would make the TV mute for seconds);
+    after 2 s without packets it stops (the stream has ended)"""
+    import sys
+    from c64jukebox.hdmi import soundproc
+    out = tmp_path / "ton.raw"
+    s = soundproc.Sound(cmd=[sys.executable, "-c", "import sys; open(%r, 'wb').write(sys.stdin.buffer.read())" % str(out)])
+    loud = (np.sin(np.arange(384) / 3) * 8000).astype("<i2").tobytes()
+    for _ in range(20):
+        s.feed(loud)
+        time.sleep(0.004)
+    time.sleep(0.3)                                       # the stream stutters: silence fills in
+    n = s.filled
+    assert n >= 3
+    s.feed(loud)
+    time.sleep(2.6)                                       # the stream stops: after 2 s no more silence
+    m = s.filled
+    time.sleep(0.5)
+    assert s.filled == m and m > n
+    s.close()
+    for _ in range(50):
+        if out.exists() and out.stat().st_size >= (21 + 10 * m) * 768:
+            break
+        time.sleep(0.02)
+    assert out.stat().st_size == (21 + 10 * m) * 768                  # each fill: 40 ms, as long as the wait
+
+
+def test_sound_device_pi3_and_pi4(tmp_path):
+    """the HDMI card: "vc4hdmi" on the Pi 3, "vc4hdmi0" (port next to the power socket) on the Pi 4"""
+    from c64jukebox.hdmi import soundproc
+    pi3 = tmp_path / "pi3"
+    pi3.write_text(" 0 [Headphones     ]: bcm2835_headpho - bcm2835 Headphones\n"
+                   "                      bcm2835 Headphones\n"
+                   " 1 [vc4hdmi        ]: vc4-hdmi - vc4-hdmi\n                      vc4-hdmi\n")
+    pi4 = tmp_path / "pi4"
+    pi4.write_text(" 0 [vc4hdmi0       ]: vc4-hdmi - vc4-hdmi-0\n                      vc4-hdmi-0\n"
+                   " 1 [vc4hdmi1       ]: vc4-hdmi - vc4-hdmi-1\n                      vc4-hdmi-1\n"
+                   " 2 [Headphones     ]: bcm2835_headpho - bcm2835 Headphones\n")
+    assert soundproc.sound_device(str(pi3)) == "default:CARD=vc4hdmi"
+    assert soundproc.sound_device(str(pi4)) == "default:CARD=vc4hdmi0"
+    assert soundproc.sound_device(str(tmp_path / "none")) == soundproc.SOUND_DEVICE

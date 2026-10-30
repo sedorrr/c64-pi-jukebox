@@ -13,7 +13,7 @@ import time
 
 from aiohttp import web
 
-from . import events, wol
+from . import VERSION, bt, events, plug, wol
 from .config import MASK, unmask_list
 from .hdmi.modes import MODES as HDMI_MODES
 from .markdown import to_html
@@ -26,6 +26,8 @@ MANUAL = os.path.join(os.path.dirname(HERE), "docs", "HANDBUCH.md")
 COOKIE = "c64pi"
 COOKIE_DAYS = 30
 OPEN = {"/api/login", "/api/logout", "/api/hello"}
+# the page's files (no login: the login form needs them; the icons + manifest for "Zum Home-Bildschirm")
+STATIC = ("app.js", "style.css", "icon.svg", "apple-touch-icon.png", "icon-192.png", "icon-512.png", "manifest.json")
 
 
 def _sign(secret, exp):
@@ -90,7 +92,7 @@ def make_app(jb, trust_local=False):
 
     async def static(req):
         name = req.match_info["name"]
-        if name not in ("app.js", "style.css", "icon.svg"):
+        if name not in STATIC:
             raise web.HTTPNotFound()
         return web.FileResponse(os.path.join(WEB_DIR, name), headers={"Cache-Control": "no-cache"})
 
@@ -215,6 +217,72 @@ def make_app(jb, trust_local=False):
     async def statistics(req):
         return web.json_response(dict(j.statistics(), ok=True))
 
+    async def hvsc_titles_get(req):
+        await j.hvsc_hay()
+        run = next((x.id for x in j.jobs.values() if x.kind == "hvsctitles" and not x.done), None)
+        return web.json_response(dict(j.hvsc_titles_state(), ok=True, job=run))
+
+    async def hvsc_titles_post(req):
+        if not j.hvsc_root():
+            return fail("Dafür zuerst die Songlängen der HVSC aus einer Quelle laden (Tab „Dateien“)")
+        return ok(job=j.start_job("hvsctitles", j.hvsc_titles).id)
+
+    async def update_post(req):
+        u = await j.update_check()
+        if not u:
+            return fail("GitHub nicht erreichbar")
+        return ok(ver=u["ver"], newer=u["newer"], installed=VERSION)
+
+    async def power_get(req):
+        return ok(**await j.power_state())
+
+    async def power_off_post(req):
+        d = await body(req)
+        try:
+            return ok(**await j.power_off(force=bool(d.get("force"))))
+        except ValueError as e:
+            return fail(str(e))
+
+    async def plug_check_post(req):
+        if not plug.configured(j.config["plug"]):
+            return fail("Geräte-ID und Schlüssel der Steckdose fehlen")
+        return ok(job=j.start_job("plug", j.plug_check).id)
+
+    async def bt_get(req):
+        out = dict(j.bt_status(), ok=True)
+        if req.query.get("devices") == "1":
+            out["devices"] = await j.bt_devices()
+        return web.json_response(out)
+
+    async def bt_post(req):
+        d = await body(req)
+        act, mac = str(d.get("act", "")), str(d.get("mac", "")).upper()
+        if act not in ("scan", "on") and not bt.MAC_RE.match(mac):
+            return fail("Gerät fehlt")
+        if not j.bt.present:
+            return fail("Bluetooth fehlt auf dem Pi (Pakete bluez und bluez-alsa-utils)")
+        try:
+            if act == "scan":
+                return ok(job=j.start_job("btscan", j.bt_scan).id)
+            if act == "pair":
+                return ok(job=j.start_job("btpair", lambda job: j.bt_pair(job, mac)).id)
+            if act == "connect":
+                await j.bt_connect(mac)
+            elif act == "disconnect":
+                await j.bt_disconnect(mac)
+            elif act == "forget":
+                await j.bt_forget(mac)
+            elif act == "on":
+                j.bt_set(bool(d.get("on")))
+            else:
+                return fail("unbekannte Aktion")
+        except ValueError as e:
+            return fail(str(e))
+        return ok(**j.bt_status())
+
+    async def blocked(req):
+        return web.json_response({"ok": True, "items": j.stats.blocked_list()})
+
     async def wlan_get(req):
         return web.json_response(dict(j.net_state(), ok=True))
 
@@ -239,7 +307,7 @@ def make_app(jb, trust_local=False):
         d = await body(req)
         c, p = d.get("c"), j.player
         # commands naming entries by index: refuse when the page's numbering is out of date
-        if c in ("remove", "nextup", "fav", "setlen", "setsong", "move", "goto") and d.get("over") is not None \
+        if c in ("remove", "nextup", "fav", "block", "unblock", "setlen", "setsong", "move", "goto") and d.get("over") is not None \
                 and int(d["over"]) != p.over:
             return fail("Die Liste hat sich inzwischen geändert – bitte noch einmal", 409)
         if c == "play":
@@ -267,17 +335,24 @@ def make_app(jb, trust_local=False):
             i = int(d.get("i", -1))
             if not 0 <= i < len(p.items):
                 return fail("Eintrag fehlt")
-            it = j.fill_meta(p.items[i])
-            if not it.get("md5"):                      # the star belongs to the file (MD5), like in the PC program
-                try:
-                    await j.info(it["src"], it["path"])
-                    it.pop("_nc", None)
-                    j.fill_meta(it)
-                except (SourceError, OSError):
-                    pass
-            on = j.stats.toggle_fav(it)
+            on = j.stats.toggle_fav(await j.with_md5(p.items[i]))
             p.lver += 1
             return ok(fav=on, player=p.state_json())
+        elif c == "block":
+            try:
+                it = await j.block(int(d["i"]) if d.get("i") is not None else None)
+            except ValueError as e:
+                return fail(str(e))
+            return ok(title=it.get("title") or it.get("name", ""), player=p.state_json())
+        elif c == "unblock":
+            key = str(d.get("key", ""))
+            if d.get("i") is not None:                 # a list entry instead of a key of the blocked list
+                i = int(d["i"])
+                if not 0 <= i < len(p.items):
+                    return fail("Eintrag fehlt")
+                key = next((k for k in j.stats.keys_of(p.items[i]) if k in j.stats.block), "")
+            if not j.unblock(key):
+                return fail("Nicht (mehr) gesperrt")
         elif c == "setlen":
             i = int(d.get("i", -1))
             if not 0 <= i < len(p.items):
@@ -562,6 +637,19 @@ def make_app(jb, trust_local=False):
             await j.hub.resolve_all()
         if "pico_news" in d:
             c["pico_news"] = bool(d["pico_news"])
+        if "updates" in d:
+            c["updates"] = bool(d["updates"])
+        if "plug" in d and isinstance(d["plug"], dict):
+            pg, n = c["plug"], d["plug"]
+            for k, size in (("ip", 64), ("id", 40)):
+                if k in n:
+                    pg[k] = str(n[k]).strip()[:size]
+            if n.get("key") not in (None, MASK):
+                pg["key"] = str(n["key"]).strip()[:64]
+            if str(n.get("ver")) in plug.VERSIONS:
+                pg["ver"] = str(n["ver"])
+            if "off_s" in n:
+                pg["off_s"] = max(20, min(int(n["off_s"] or 30), 600))
         if "player" in d and isinstance(d["player"], dict):
             pl = c["player"]
             for k, typ in (("limit_min", float), ("silence", bool), ("silence_s", float), ("repeat", bool),
@@ -718,7 +806,7 @@ def make_app(jb, trust_local=False):
 
     r.add_get("/", page)
     r.add_get("/hilfe", manual)
-    r.add_get("/{name:[a-z]+\\.(?:js|css|svg)}", static)
+    r.add_get("/{name:[a-z0-9-]+\\.(?:js|css|svg|png|json)}", static)
     r.add_get("/api/hello", hello)
     r.add_post("/api/login", login)
     r.add_post("/api/logout", logout)
@@ -730,7 +818,16 @@ def make_app(jb, trust_local=False):
     r.add_get("/api/wlan", wlan_get)
     r.add_get("/api/statistics", statistics)
     r.add_get("/api/history", history)
+    r.add_get("/api/blocked", blocked)
+    r.add_get("/api/bt", bt_get)
+    r.add_post("/api/bt", bt_post)
+    r.add_post("/api/update/check", update_post)
+    r.add_get("/api/hvsc/titles", hvsc_titles_get)
+    r.add_post("/api/hvsc/titles", hvsc_titles_post)
     r.add_post("/api/cec", cec_post)
+    r.add_get("/api/power", power_get)
+    r.add_post("/api/power/off", power_off_post)
+    r.add_post("/api/plug/check", plug_check_post)
     r.add_get("/api/schedule", schedule_get)
     r.add_get("/api/smart", smart_get)
     r.add_get("/api/party", party_get)

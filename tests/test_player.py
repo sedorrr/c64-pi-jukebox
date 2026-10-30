@@ -270,3 +270,49 @@ def test_the_tv_sound_gets_the_stream(tmp_path):
         jb.apply_targets()
         assert ("127.0.0.1", jb.hdmi_sound_port) not in jb.hub.local
     run(tmp_path, t)
+
+
+def test_blocked_tunes_are_skipped(tmp_path):
+    async def t(e):
+        p, jb = e.jb.player, e.jb
+        await p.set_items(e.items("a.sid", "b.sid", "sub/c.sid"))
+        assert p.cur["info"]["title"] == "Alpha"
+        await p.next()                                   # Beta known by MD5 now
+        await jb.block()                                 # the playing tune: blocked, the next one starts
+        assert p.cur["info"]["title"] == "Gamma" and jb.stats.is_blocked(p.items[1])
+        assert jb.row(1, p.items[1], -1)["blk"] and not jb.row(0, p.items[0], -1)["blk"]
+        await p.next()                                   # Alpha, Beta skipped on the next round
+        await p.next()
+        assert p.cur["info"]["title"] == "Gamma"
+        await p.play_index(1)                            # chosen by hand: it plays
+        assert p.cur["info"]["title"] == "Beta"
+        # blocked before the MD5 was known in this list: found when read, skipped
+        await p.set_items(e.items("b.sid", "a.sid"), start=1)
+        await p.next()
+        assert p.cur["info"]["title"] == "Alpha"
+        # a star takes it off the list again; the list survives a restart
+        key = jb.stats.blocked_list()[0]["key"]
+        assert key.startswith("md5:") and jb.stats.blocked_md5s() == {key[4:]}
+        jb.stats.save(force=True)
+        from c64jukebox.stats import Stats
+        assert Stats(jb.stats.path).block.keys() == {key}
+        jb.stats.toggle_fav(p.items[0])
+        assert not jb.stats.block
+        # all blocked: the player stops instead of going round
+        jb.stats.block_item(p.items[0])
+        jb.stats.block_item(p.items[1])
+        await p.next()
+        assert p.state == "stop" and "gesperrt" in p.msg
+    run(tmp_path, t)
+
+
+def test_blocked_out_of_discover(tmp_path):
+    async def t(e):
+        p, jb = e.jb.player, e.jb
+        await p.set_items(e.items("a.sid", "b.sid"), play=False)
+        await p.play_index(0)
+        jb.stats.block_item(p.items[0])
+        for _ in range(5):
+            await p.discover()
+            assert p.cur["info"]["title"] == "Beta"
+    run(tmp_path, t)

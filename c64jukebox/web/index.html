@@ -6,6 +6,12 @@
 <meta name="theme-color" content="#352879">
 <title>C64-Jukebox</title>
 <link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Jukebox">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -26,6 +32,9 @@
 </header>
 <div id="pwwarn" class="warnbar" hidden>Das Web-Passwort ist noch das Standardpasswort – bitte unter
   <a href="#" onclick="tab('set');return false">Einstellungen</a> ändern.</div>
+<div id="updbar" class="warnbar info" hidden><span id="updtxt"></span>
+  <a href="#" onclick="help('aktualisieren');return false">So geht das Update</a>
+  <button id="updx" type="button" aria-label="Hinweis ausblenden">✕</button></div>
 <nav class="tabs" id="tabs">
   <button data-t="play" aria-label="Wiedergabe"><span class="tl">Wiedergabe</span><span class="ti">&#9654;&#xFE0E;</span></button>
   <button data-t="files">Dateien</button>
@@ -73,6 +82,7 @@
       <label><input type="checkbox" id="oshuf"> Zufall</label>
       <label><input type="checkbox" id="orep"> Liste wiederholen</label>
       <label class="u64sel">Ultimate <select id="ou64"></select></label>
+      <button id="bblock" type="button" class="small" hidden title="Diesen Titel überspringen und künftig nicht mehr von selbst spielen">&#8856; Nicht mehr spielen</button>
     </div>
     <div class="msg" id="pmsg"></div>
   </div>
@@ -120,6 +130,7 @@
     <div class="row search">
       <input id="ffilter" type="search" placeholder="Filtern: Name, Titel, Komponist, Jahr" aria-label="Filtern">
       <button id="fsearch" title="Auch alle Unterordner durchsuchen" aria-label="In Unterordnern suchen">&#128269; Unterordner</button>
+      <button id="fhvsc" hidden title="In der ganzen HVSC suchen – sofort, ohne Ordner zu lesen" aria-label="In der ganzen HVSC suchen">&#128269; HVSC</button>
     </div>
     <div class="row folderacts">
       <button id="fplay" class="primary">&#9654; Ordner abspielen</button>
@@ -174,6 +185,12 @@
   <div class="card">
     <h3>Statistik</h3>
     <div id="statbox" class="hint"></div>
+  </div>
+  <div class="card">
+    <div class="row"><h3>Gesperrte Titel</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('gesperrte-titel');return false" title="Hilfe">?</a></div>
+    <ul id="blocked" class="pls"></ul>
+    <div id="blockhint" class="hint">Titel, die nicht mehr von selbst kommen sollen: beim laufenden Titel „&#8856; Nicht mehr spielen“ oder im Menü ⋯ einer Zeile.</div>
   </div>
 </section>
 
@@ -303,6 +320,19 @@
   </div>
 
   <div class="card">
+    <div class="row"><h3>Bluetooth-Kopfhörer</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('bluetooth-kopfhoerer');return false" title="Hilfe">?</a></div>
+    <div id="btstate" class="hint"></div>
+    <label><input type="checkbox" id="bton"> Ton über die Kopfhörer, solange sie verbunden sind (statt über den Fernseher)</label>
+    <ul id="btdevs" class="pls"></ul>
+    <div class="row"><button id="btscan" type="button">Kopfhörer suchen</button><span class="grow"></span></div>
+    <ul id="btfound" class="pls"></ul>
+    <p class="hint">Zum ersten Koppeln den Kopfhörer in den Kopplungsmodus bringen (meist die Ein-Taste lange halten),
+      dann „Kopfhörer suchen“. Danach verbindet er sich beim Einschalten von selbst. Der Ton kommt über Bluetooth
+      etwa 0,2 s später; die Bilder am Fernseher laufen ihm dann ein wenig voraus.</p>
+  </div>
+
+  <div class="card">
     <div class="row"><h3>TV-Fernbedienung (HDMI-CEC)</h3><span class="grow"></span>
       <a class="hl" href="#" onclick="help('fernbedienung-des-fernsehers-hdmi-cec');return false" title="Hilfe">?</a></div>
     <label><input type="checkbox" id="con"> Jukebox mit der Fernbedienung des Fernsehers bedienen</label>
@@ -310,8 +340,13 @@
       <label><input type="checkbox" id="cclaim"> beim Abspielen als aktives Gerät melden, damit die Tasten sofort ankommen
         <span class="hint">(manche Fernseher schalten dabei auf den Pi um)</span></label>
       <label><input type="checkbox" id="ctvon"> Fernseher einschalten und auf den Pi umschalten, wenn die Wiedergabe beginnt</label>
+      <label><input type="checkbox" id="ctvboot"> Fernseher einschalten und auf den Pi umschalten, wenn der Pi startet
+        <span class="hint">(z. B. nach „Alexa, schalte Jukebox ein“)</span></label>
       <label>Fernseher ausschalten, wenn nichts mehr läuft – nach
         <input type="number" id="ctvoff" min="0" max="240" class="num"> min <span class="hint">(0 = nie)</span></label>
+      <label><input type="checkbox" id="cpioff"> Pi ausschalten, wenn der Fernseher ausgeht
+        <span class="hint">(eine Minute später, mit der <a href="#" onclick="help('ausschalten-und-steckdose');return false">Steckdose</a>
+        auch den Strom; nicht, solange Kopfhörer verbunden sind)</span></label>
       <div class="row"><button id="ctvnow" type="button">Fernseher jetzt auf den Pi umschalten</button>
         <button id="ctvsb" type="button">Fernseher ausschalten</button></div>
       <div id="cecstate" class="hint"></div>
@@ -372,6 +407,10 @@
     <div class="row"><h3>Songlängen</h3><span class="grow"></span>
       <a class="hl" href="#" onclick="help('songlaengen');return false" title="Hilfe">?</a></div>
     <div id="slstate"></div>
+    <div class="row" id="hvtrow" hidden>
+      <span class="grow" id="hvtstate"></span>
+      <button id="hvtgo" type="button" title="Titel, Komponist und Veröffentlichung jeder HVSC-Datei einmal lesen (nur die ersten 124 Byte): danach findet die Suche auch diese">Titel für die Suche einlesen</button>
+    </div>
     <p class="hint">Am einfachsten: im Tab „Dateien“ die Datei <code>Songlengths.md5</code> der HVSC antippen
       (liegt in <code>C64Music/DOCUMENTS</code>). Oder hier vom Handy/PC hochladen:</p>
     <div class="row">
@@ -437,6 +476,24 @@
   </div>
 
   <div class="card">
+    <div class="row"><h3>Ausschalten und Steckdose</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('ausschalten-und-steckdose');return false" title="Hilfe">?</a></div>
+    <p class="hint">Hängt der Pi an einer smarten Tuya-Steckdose (z. B. Antela, App „Smart Life“), stellt er vor dem
+      Herunterfahren ihren Ausschalt-Timer: Der Strom geht aus, wenn der Pi aus ist. Eingeschaltet wird über die App
+      oder per Sprache (Alexa). Ohne Steckdose fährt der Pi nur herunter.</p>
+    <div class="grid2">
+      <label>Adresse <input id="plip" placeholder="leer = im Netz suchen" autocapitalize="off"></label>
+      <label>Geräte-ID <input id="plid" autocapitalize="off" spellcheck="false"></label>
+      <label>Lokaler Schlüssel <input id="plkey" type="password" autocomplete="off" spellcheck="false"></label>
+      <label>Version <select id="plver"><option>3.5</option><option>3.4</option><option>3.3</option><option>3.1</option></select></label>
+      <label>Strom aus nach <input id="ploff" type="number" min="20" max="600" step="5"> s</label>
+    </div>
+    <div class="row"><span id="plstate" class="hint grow"></span><button id="plchk" type="button">Prüfen</button>
+      <button id="plsave" type="button" class="primary">Speichern</button></div>
+    <div class="row"><span id="pwrstate" class="hint grow"></span><button id="pwroff" type="button" class="danger">Pi ausschalten</button></div>
+  </div>
+
+  <div class="card">
     <div class="row"><h3>Sicherung</h3><span class="grow"></span>
       <a class="hl" href="#" onclick="help('sicherung');return false" title="Hilfe">?</a></div>
     <p class="hint">Eine Datei mit allen Einstellungen (auch Passwörtern), Quellen, Wiedergabelisten und eigenen Songlängen.</p>
@@ -444,6 +501,13 @@
       <a class="btn" href="/api/backup" download id="bkdl">Sicherung herunterladen</a>
       <label class="filebtn">Sicherung einspielen<input type="file" id="bkup" accept=".json"></label>
     </div>
+  </div>
+
+  <div class="card">
+    <div class="row"><h3>Updates</h3><span class="grow"></span>
+      <a class="hl" href="#" onclick="help('aktualisieren');return false" title="Hilfe">?</a></div>
+    <label><input type="checkbox" id="updon"> Einmal am Tag auf GitHub nach einer neuen Version sehen (nur ein Hinweis, installiert wird nichts)</label>
+    <div class="row"><span id="updstate" class="hint grow"></span><button id="updchk" type="button">Jetzt prüfen</button></div>
   </div>
 
   <div class="card">

@@ -335,3 +335,62 @@ def test_stale_numbering_and_early_star(tmp_path):
         await post(c, "/api/queue", {"mode": "replace", "items": [{"src": "pi", "path": "/b.sid"}], "start": 0})
         assert "path:pi:/b.sid" not in jb.stats.plays and max(jb.stats.plays.values()) == 4
     run(tmp_path, t)
+
+
+def test_update_hint(tmp_path, monkeypatch):
+    """the published VERSION once a day: newer -> a hint in the state; switched off -> none"""
+    from aiohttp import web as aweb
+    from c64jukebox import VERSION, core
+    published = {"v": "99.1"}
+
+    async def init_py(req):
+        return aweb.Response(text='"""doc"""\n\nVERSION = "%s"\n' % published["v"])
+
+    async def t(c, jb, u64):
+        gh = aweb.Application()
+        gh.router.add_get("/c64jukebox/__init__.py", init_py)
+        srv = TestServer(gh)
+        await srv.start_server()
+        monkeypatch.setattr(core, "UPDATE_URL", str(srv.make_url("/c64jukebox/__init__.py")))
+        try:
+            await login(c)
+            s, st = await get(c, "/api/state")
+            assert st["update"] is None
+            s, r = await post(c, "/api/update/check")
+            assert r == {"ok": True, "ver": "99.1", "newer": True, "installed": VERSION}
+            assert (await get(c, "/api/state"))[1]["update"] == "99.1"
+            await post(c, "/api/config", {"updates": False})                 # switched off: no hint
+            assert (await get(c, "/api/state"))[1]["update"] is None and (await get(c, "/api/config"))[1]["updates"] is False
+            await post(c, "/api/config", {"updates": True})
+            published["v"] = VERSION                                        # the same as ours: no hint
+            await post(c, "/api/update/check")
+            assert (await get(c, "/api/state"))[1]["update"] is None
+            jb._update_at -= core.UPDATE_EVERY_S                             # the daily look from the clock
+            published["v"] = "99.2"
+            for _ in range(40):
+                await asyncio.sleep(0.1)
+                if jb.update["ver"] == "99.2":
+                    break
+            assert jb.update["newer"] and jb.update["ver"] == "99.2"
+            monkeypatch.setattr(core, "UPDATE_URL", "http://127.0.0.1:%d/x" % free_port(1))  # GitHub away
+            s, r = await post(c, "/api/update/check")
+            assert not r["ok"] and "nicht erreichbar" in r["msg"]
+        finally:
+            await srv.close()
+    run(tmp_path, t)
+    assert core.version_key("1.10") > core.version_key("1.9") > core.version_key("1.0")
+
+
+def test_home_screen_icons(tmp_path):
+    """iPhone/Android "Zum Home-Bildschirm": icon + manifest without a login (the page's head points to them)"""
+    async def t(c, jb, u64):
+        page = await (await c.get("/")).text()
+        for name in ("apple-touch-icon.png", "manifest.json"):
+            assert 'href="%s"' % name in page
+        for name in ("apple-touch-icon.png", "icon-192.png", "icon-512.png"):
+            r = await c.get("/" + name)
+            assert r.status == 200 and (await r.read())[:8] == b"\x89PNG\r\n\x1a\n"
+        m = await (await c.get("/manifest.json")).json(content_type=None)
+        assert m["display"] == "standalone" and [i["src"] for i in m["icons"]] == ["icon-192.png", "icon-512.png"]
+        assert (await c.get("/nope.png")).status == 404
+    run(tmp_path, t)

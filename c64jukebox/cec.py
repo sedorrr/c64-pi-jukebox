@@ -77,6 +77,7 @@ class CecProtocol:
         self.last = ""                # the last command, for the page
         self.recent = deque(maxlen=8)   # the last commands (finding out what a remote sends)
         self.on_key = None              # callback(code, command or None) for every accepted key press
+        self.tv_power = None            # what the TV said last: "on", "standby" or None (not heard yet)
 
     def _addr(self):
         return bytes([self.phys >> 8, self.phys & 0xFF])
@@ -93,11 +94,24 @@ class CecProtocol:
         self.active = False
         return [(TV, bytes([STANDBY]))]
 
+    def ask_tv_power(self):
+        """the TV answers with Report Power Status - not every TV announces its standby by itself"""
+        return [(TV, bytes([GIVE_DEVICE_POWER_STATUS]))]
+
     def handle(self, frm, to, data):
         if not data:
             return None, []
         op, arg = data[0], data[1:]
         cmd, out = None, []
+        if frm == TV:                   # the TV's power: its Standby (mostly to all), its answer, else it talks: on
+            if op == STANDBY:
+                self.tv_power, self.active = "standby", False
+                return None, []
+            if op == REPORT_POWER_STATUS and arg:
+                self.tv_power = "on" if arg[0] in (0x00, 0x02) else "standby"   # 2 = going on, 3 = going to standby
+                return None, []
+            if op != FEATURE_ABORT:
+                self.tv_power = "on"
         if op == USER_CONTROL_PRESSED and arg:
             now = self.clock()
             k = arg[0]

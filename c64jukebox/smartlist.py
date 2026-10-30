@@ -47,8 +47,9 @@ def item(src, root, path):
     return {"src": src, "path": root.rstrip("/") + path, "name": path.rsplit("/", 1)[-1]}
 
 
-def pick(hvsc, root, f, plays, favs, stil=None, rnd=random):
-    """hvsc: parse_hvsc(); root: (src, folder); f: filters; plays: {md5: count}; favs: set of md5 -> items.
+def pick(hvsc, root, f, plays, favs, stil=None, blocked=None, rnd=random):
+    """hvsc: parse_hvsc(); root: (src, folder); f: filters; plays: {md5: count}; favs: set of md5; blocked: set of
+    md5 never picked -> items.
     Filters: area (one of AREAS or ""), text (in the path), min_s / max_s (length of the first sub-tune),
     sids ("" | "multi"), stil (bool: only with STIL background), never (bool), sort ("random" | "top" | "path"), n."""
     area = str(f.get("area") or "").upper()
@@ -56,6 +57,8 @@ def pick(hvsc, root, f, plays, favs, stil=None, rnd=random):
     lo, hi = float(f.get("min_s") or 0), float(f.get("max_s") or 0)
     out = []
     for path, md5, secs in hvsc:
+        if blocked and md5 in blocked:
+            continue
         up = path.upper()
         if area and not up.startswith("/" + area + "/"):
             continue

@@ -30,6 +30,13 @@ controlled entirely through a **web page** (German) – on the phone as well as 
   played, never played, random, short, multi-SID tunes, own choice by area, composer, length, STIL
 - **Timer:** on chosen weekdays at a chosen time play a list or stop, the TV with it if wanted (HDMI-CEC)
 - **Recently played:** the last 100 tunes with their time, play again or take them over as a new list
+- **Search the whole HVSC:** instantly from `Songlengths.md5` (paths) plus titles and composers read once – on the
+  page (🔍 HVSC) and on the TV with the on-screen keyboard
+- **As an app on the phone:** "Add to Home Screen" (iPhone/Android) gives the page its own icon and full screen
+- **Bluetooth headphones:** search, pair, connect on the page; the TV sound goes to them while they are connected
+- **Switching off:** "Pi ausschalten" on the page or the TV shuts the Pi down cleanly; on a Tuya smart plug (e.g. Antela, app "Smart Life") it sets the plug's timer first, so the power goes once the Pi is down - back on by app or voice assistant
+- **Never play again:** a blocked list per file (MD5) – moving on, shuffle, discover and generated lists skip blocked
+  tunes; chosen by hand they still play
 - **HVSC STIL:** background of the running tune ("covered from", sub-tune names, remarks) on the page and on the TV;
   tunes outside the HVSC are found by their MD5
 - **Play list as a table window like the PC program** (Ultimate64 SID Player): file name, title, composer, sub-song,

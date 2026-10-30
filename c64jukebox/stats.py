@@ -1,6 +1,7 @@
-"""Play counts and favorites, keyed like the PC program Ultimate64 SID Player: "md5:<lowercase md5>" for a file
+"""Play counts, favorites and blocked tunes, keyed like the PC program Ultimate64 SID Player: "md5:<lowercase md5>" for a file
 whose MD5 is known, otherwise "path:<source>:<path>". The PC program's play_counts.json ({key: n}) and
-favorites.json ({key: {path, title, author}}) can be merged in."""
+favorites.json ({key: {path, title, author}}) can be merged in. A blocked tune ("nicht mehr spielen") is skipped when
+the list moves on by itself, in shuffle, discover and the lists put together from the HVSC; chosen by hand it plays."""
 import json
 import os
 import time
@@ -16,6 +17,7 @@ class Stats:
         self.path = path
         self.plays = {}
         self.fav = {}
+        self.block = {}
         self._dirty = False
         self._saved = 0.0
         try:
@@ -23,6 +25,7 @@ class Stats:
                 d = json.load(f)
             self.plays = {k: int(v) for k, v in (d.get("plays") or {}).items()}
             self.fav = dict(d.get("fav") or {})
+            self.block = dict(d.get("block") or {})
         except (OSError, ValueError):
             pass
 
@@ -31,7 +34,7 @@ class Stats:
             return
         tmp = self.path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump({"plays": self.plays, "fav": self.fav}, f, ensure_ascii=False)
+            json.dump({"plays": self.plays, "fav": self.fav, "block": self.block}, f, ensure_ascii=False)
         os.replace(tmp, self.path)
         self._dirty = False
         self._saved = time.monotonic()
@@ -47,15 +50,55 @@ class Stats:
     def is_fav(self, item):
         return item_key(item) in self.fav
 
+    @staticmethod
+    def _entry(item):
+        return {"src": item.get("src", ""), "path": item.get("path", ""), "title": item.get("title", ""),
+                "author": item.get("author", ""), "name": item.get("name", "")}
+
     def toggle_fav(self, item):
         k = item_key(item)
         if k in self.fav:
             del self.fav[k]
         else:
-            self.fav[k] = {"src": item.get("src", ""), "path": item.get("path", ""), "title": item.get("title", ""),
-                           "author": item.get("author", ""), "name": item.get("name", "")}
+            self.fav[k] = self._entry(item)
+            self._unblock_item(item)                  # a star takes the tune off the blocked list
         self._dirty = True
         return k in self.fav
+
+    def keys_of(self, item):
+        ks = [item_key(item)]
+        if item.get("md5") and item.get("path"):      # blocked before its MD5 was known
+            ks.append("path:%s:%s" % (item.get("src", ""), item.get("path", "")))
+        return ks
+
+    def is_blocked(self, item):
+        return bool(self.block) and any(k in self.block for k in self.keys_of(item))
+
+    def block_item(self, item):
+        """never again on its own; a favourite loses its star"""
+        k = item_key(item)
+        self.block[k] = dict(self._entry(item), at=int(time.time()))
+        self.fav.pop(k, None)
+        self._dirty = True
+        return k
+
+    def _unblock_item(self, item):
+        for k in self.keys_of(item):
+            if self.block.pop(k, None) is not None:
+                self._dirty = True
+
+    def unblock(self, key):
+        if self.block.pop(key, None) is None:
+            return False
+        self._dirty = True
+        return True
+
+    def blocked_md5s(self):
+        return {k[4:] for k in self.block if k.startswith("md5:")}
+
+    def blocked_list(self):
+        """newest first, for the page"""
+        return [dict(v, key=k) for k, v in sorted(self.block.items(), key=lambda x: -int(x[1].get("at") or 0))]
 
     def merge_pc(self, plays=None, favorites=None):
         """the PC program's files: counts are added up, favorites joined (their PC paths only for the titles)"""
@@ -89,14 +132,18 @@ class Stats:
         if old_key in self.fav:
             self.fav.setdefault(new, self.fav.pop(old_key))
             self._dirty = True
+        if old_key in self.block:
+            self.block.setdefault(new, self.block.pop(old_key))
+            self._dirty = True
 
     def backup(self):
-        return {"plays": self.plays, "fav": self.fav}
+        return {"plays": self.plays, "fav": self.fav, "block": self.block}
 
     def restore(self, d):
         if isinstance(d, dict):
             self.plays = {k: int(v) for k, v in (d.get("plays") or {}).items()}
             self.fav = dict(d.get("fav") or {})
+            self.block = dict(d.get("block") or {})
             self._dirty = True
             self.save(force=True)
 

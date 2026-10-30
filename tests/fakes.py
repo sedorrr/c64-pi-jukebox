@@ -358,6 +358,12 @@ class FakeSmb2:
             raise IsADirectoryError("FileIsADirectory " + path)
         return None if len(f) > limit else f
 
+    def head(self, share, path, n):
+        f = self._node(share, path)
+        if not isinstance(f, bytes):
+            raise IsADirectoryError("FileIsADirectory " + path)
+        return f[:n]
+
     def shares(self):
         return [(n, 0, "Musik" if n == "Musik" else "") for n in self.srv.shares] + [("IPC$", 3, "IPC"), ("C$", 0x80000000, "")]
 

@@ -24,6 +24,12 @@ DEFAULTS = {
     "picos": [],                      # {"addr", "pw", "np": "udp"|"http"|"off", "stream": bool}
     "stream": {"on": False},
     "pico_news": False,               # retro news headlines to the Picos (idle texts), nowplaying.Notifier.news
+    # Bluetooth headphones (bt.py): on = the TV sound goes to them while they are connected; mac/name = the chosen pair
+    "bt": {"on": False, "mac": "", "name": ""},
+    # the Tuya smart plug the Pi hangs on (plug.py): before shutting down, its timer cuts the power after off_s seconds;
+    # ip empty = found in the network by id; key = the plug's local key
+    "plug": {"ip": "", "id": "", "key": "", "ver": "3.5", "off_s": 30},
+    "updates": True,                  # once a day: is there a newer VERSION on GitHub? (core.update_check, only a hint)
     "player": {"limit_min": 5, "silence": True, "silence_s": 5, "subsongs": "start", "repeat": True,
                "shuffle": False, "sidauto": True,      # sidauto: switch a SID socket if a tune needs it (sidaddr.py)
                "loopfind": "suggest",                  # repeat of a tune without a length: off | suggest | auto
@@ -43,10 +49,13 @@ DEFAULTS = {
     # the TV's remote control over HDMI-CEC (cec.py); claim: announce the Pi as the active source when playing starts
     # (TVs send the remote's keys only to it - also behind a Fire TV Cube); tv_on: TV on + to the Pi when playing starts,
     # tv_off_min: TV to standby after so many minutes without playing (0 = never)
-    "cec": {"on": False, "claim": True, "tv_on": False, "tv_off_min": 0},
+    # pi_off: the TV went to standby (by its remote, the jukebox or the page) -> shut the Pi down a minute later
+    # (core.PI_OFF_S; with the smart plug, plug.py, the power goes too)
+    # tv_on_boot: TV on + to the Pi when the Pi has started (the plug switched on, e.g. by voice)
+    "cec": {"on": False, "claim": True, "tv_on": False, "tv_off_min": 0, "pi_off": False, "tv_on_boot": False},
 }
 
-SECRET_KEYS = ("pw", "ap_pw")
+SECRET_KEYS = ("pw", "ap_pw", "key")
 
 
 def _merge(base, over):

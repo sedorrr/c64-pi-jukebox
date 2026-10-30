@@ -204,6 +204,13 @@ class Smb2:
         finally:
             f.close()
 
+    def head(self, share, path, n):
+        f = self._open(share, path, False)
+        try:
+            return f.read(0, min(n, f.end_of_file)) if f.end_of_file else b""
+        finally:
+            f.close()
+
     def shares(self):
         """[(name, type, comment)] through \\PIPE\\srvsvc"""
         from smbprotocol.open import (CreateDisposition, CreateOptions, FilePipePrinterAccessMask, ImpersonationLevel,

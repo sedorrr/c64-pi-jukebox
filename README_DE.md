@@ -33,6 +33,13 @@ und wird komplett über eine **Weboberfläche** gesteuert – am Handy wie am PC
 - **Zeitplan:** an gewählten Wochentagen zur gewählten Uhrzeit eine Liste abspielen oder stoppen, auf Wunsch mit dem
   Fernseher (HDMI-CEC)
 - **Zuletzt gespielt:** die letzten 100 Titel mit Uhrzeit, erneut abspielen oder als neue Liste übernehmen
+- **Suche über die ganze HVSC:** sofort aus `Songlengths.md5` (Pfade) plus einmal eingelesenen Titeln und
+  Komponisten – auf der Seite (🔍 HVSC) und am Fernseher mit der Bildschirmtastatur
+- **Als App auf dem Handy:** „Zum Home-Bildschirm“ (iPhone/Android) gibt der Seite ein eigenes Symbol und Vollbild
+- **Bluetooth-Kopfhörer:** suchen, koppeln, verbinden auf der Seite; der Fernsehton läuft über sie, solange sie verbunden sind
+- **Ausschalten:** „Pi ausschalten“ auf der Seite oder am Fernseher fährt den Pi sauber herunter; an einer Tuya-Steckdose (z. B. Antela, App „Smart Life“) stellt er vorher ihren Timer, der Strom geht aus, wenn der Pi aus ist – wieder an per App oder Sprachassistent
+- **Nicht mehr spielen:** Sperrliste je Datei (MD5) – Weiterschalten, Zufall, Entdecken und Zusammenstellungen
+  überspringen gesperrte Stücke; von Hand gewählt spielen sie trotzdem
 - **STIL der HVSC:** Hintergründe zum laufenden Stück („Original von“, Namen der Unterlieder, Anmerkungen) auf der
   Seite und am Fernseher; Stücke außerhalb der HVSC über ihre MD5
 - **Wiedergabeliste als Tabellenfenster wie in der PC-Jukebox** (Ultimate64 SID Player): Dateiname, Titel, Komponist,

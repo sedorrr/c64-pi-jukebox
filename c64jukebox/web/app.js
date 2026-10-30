@@ -96,6 +96,8 @@ let S = null;
 async function poll() {
   if (document.visibilityState === 'hidden') return;
   try { S = await api('state'); } catch (e) { return; }
+  $('fhvsc').hidden = !S.hvsc;
+  updShow();
   nowShow();
   lTick();
 }
@@ -124,6 +126,7 @@ function nowShow() {
     const len = n.secs || S.opts.limit_min * 60;
     $('pbar').style.width = len ? Math.min(100, 100 * p.el / len) + '%' : '0';
     $('songsel').hidden = !(n.songs > 1);
+    $('bblock').hidden = false;
     $('endrow').hidden = !(p.state === 'play' && !n.secs) || !!n.loop || !!n.hvsc;
     $('looprow').hidden = !n.loop;
     $('namerow').hidden = !n.hvsc;
@@ -136,7 +139,7 @@ function nowShow() {
     $('na').textContent = p.total ? p.total + ' Titel in der Liste' : '';
     $('nstil').hidden = true;
     $('nb').innerHTML = ''; $('tel').textContent = ''; $('tlen').textContent = ''; $('pbar').style.width = '0';
-    $('songsel').hidden = true; $('topnow').textContent = ''; $('endrow').hidden = true; $('looprow').hidden = true; $('namerow').hidden = true;
+    $('songsel').hidden = true; $('bblock').hidden = true; $('topnow').textContent = ''; $('endrow').hidden = true; $('looprow').hidden = true; $('namerow').hidden = true;
   }
   $('pmsg').textContent = [p.msg, S.sidaddr].filter(Boolean).join(' · ');
   $('oshuf').checked = !!S.opts.shuffle; $('orep').checked = S.opts.repeat !== false;
@@ -153,6 +156,17 @@ $('bloopok').onclick = () => { const n = S.player.now; api('ctl', {c: 'looptake'
 $('bloopno').onclick = () => ctl('loopno');
 $('bnameok').onclick = () => { const n = S.player.now; api('ctl', {c: 'nametake'}).then(() => { toast('Länge ' + fmt(n && n.hvsc && n.hvsc.len) + '* übernommen'); poll(); }).catch(errToast); };
 $('bnameno').onclick = () => ctl('nameno');
+$('bblock').onclick = () => {
+  const n = S.player.now;
+  if (n) menu((n.title || n.name) + ' – nicht mehr spielen?', [{label: '⊘ Überspringen und nicht mehr von selbst spielen', danger: true, fn: () => block(null)}]);
+};
+function block(i) {
+  api('ctl', i === null ? {c: 'block'} : {c: 'block', i, over: LS.over})
+    .then(r => { toast('⊘ „' + r.title + '“ gesperrt'); LS.rows.clear(); lFetch(Math.floor($('lwin').scrollTop / RH()) - 50); poll(); }).catch(lStale);
+}
+function unblock(d) {
+  return api('ctl', Object.assign({c: 'unblock'}, d)).then(() => { toast('Wird wieder gespielt'); LS.rows.clear(); lFetch(Math.floor($('lwin').scrollTop / RH()) - 50); });
+}
 $('bend').onclick = () => api('ctl', {c: 'endhere'}).then(() => { toast('Länge ' + fmt(Math.round(S.player.el)) + '* gemerkt'); poll(); }).catch(errToast);
 $('bprev').onclick = () => ctl('prev');
 $('sdown').onclick = () => { const n = S.player.now; if (n && n.song > 1) ctl('song', {n: n.song - 1}); };
@@ -222,7 +236,7 @@ function fmtLong(s) {
 }
 function lRow(pos, r) {
   if (!r) return '<div class=lrow data-p=' + pos + '><span class=c-no>' + (pos + 1) + '</span><span class=c-name>…</span></div>';
-  const cls = 'lrow' + (LS.sel.has(r.i) ? ' sel' : '') + (r.i === LS.cur ? ' cur' : '');
+  const cls = 'lrow' + (LS.sel.has(r.i) ? ' sel' : '') + (r.i === LS.cur ? ' cur' : '') + (r.blk ? ' blk' : '');
   const song = r.songs > 1 ? (r.song || 1) + '/' + r.songs : '';
   const sw = sidWarn(r);
   const t2 = [r.author, song ? 'Stück ' + song : '', r.chips > 1 || sw ? (sw ? '⚠ ' : '') + r.chips + (r.chips > 1 ? ' SIDs' : ' SID') : ''].filter(Boolean).join(' · ');
@@ -384,7 +398,9 @@ function lRowMenu(x) {
   const items = [{label: '▶ Abspielen', fn: () => lPlay(x.i)},
     {label: many.length > 1 ? many.length + ' Titel als Nächstes' : 'Als Nächstes spielen', fn: () => lNext(many)}];
   if (r.songs > 1) items.push({label: 'Stück wählen … (' + (r.song || 1) + '/' + r.songs + ')', fn: () => lAskSong(x)});
-  items.push({label: 'Eigene Länge …', fn: () => lAskLen(x)}, {label: r.fav ? '☆ kein Favorit mehr' : '★ Favorit', fn: () => lFav(x.i)});
+  items.push({label: 'Eigene Länge …', fn: () => lAskLen(x)}, {label: r.fav ? '☆ kein Favorit mehr' : '★ Favorit', fn: () => lFav(x.i)},
+    r.blk ? {label: 'Wieder spielen (nicht mehr gesperrt)', fn: () => unblock({i: x.i, over: LS.over}).catch(lStale)}
+      : {label: '⊘ Nicht mehr spielen', fn: () => block(x.i)});
   if (r.src) items.push({label: 'Im Tab Dateien zeigen', fn: () => { tab('files'); F.items = []; openDir(r.src, r.path.replace(/\/[^/]*$/, '') || '/'); }});
   items.push({label: many.length > 1 ? many.length + ' Titel entfernen' : 'Aus der Liste nehmen', danger: true, fn: () => lRemove(many)});
   menu(r.title || r.name || 'Titel', items);
@@ -651,9 +667,12 @@ async function folderGo(mode) {
 }
 $('fplay').onclick = () => folderGo('replace');
 $('fadd').onclick = () => folderGo('add');
-$('fsearch').onclick = async () => {
+$('fsearch').onclick = () => fSearch(false);
+$('fhvsc').onclick = () => fSearch(true);
+async function fSearch(hvsc) {
   const q = $('ffilter').value.trim();
   if (q.length < 2) { toast('Erst oben ins Filterfeld schreiben, wonach gesucht wird'); $('ffilter').focus(); return; }
+  if (hvsc && S && S.hvsc) { F.src = S.hvsc.src; F.path = S.hvsc.path; srcBar(); }   /* results belong to that source */
   const token = ++F.token;
   $('fstatus').textContent = 'Suche …'; $('flist').innerHTML = '';
   try {
@@ -663,7 +682,7 @@ $('fsearch').onclick = async () => {
     F.search = q; F.items = res; $('ffilter').value = '';
     crumbs(); filesRender(); fetchInfo(token);
   } catch (e) { $('fstatus').innerHTML = '<span class=bad>' + H(e.message) + '</span>'; }
-};
+}
 async function stilLoad(e) {
   $('fstatus').textContent = 'Lese STIL …';
   try {
@@ -784,13 +803,28 @@ async function statsLoad() {
   try {
     const s = await api('statistics');
     const max = s.top.length ? s.top[0][1] : 1;
-    $('statbox').innerHTML = '<p>' + s.plays + ' Starts von ' + s.tunes + ' verschiedenen Titeln · ' + s.favs + ' Favoriten · gehört etwa ' +
+    $('statbox').innerHTML = '<p>' + s.plays + ' Starts von ' + s.tunes + ' verschiedenen Titeln · ' + s.favs + ' Favoriten · ' +
+      (s.blocked ? s.blocked + ' gesperrt · ' : '') + 'gehört etwa ' +
       fmtLong(s.listened) + ' (Titel der Liste mit bekannter Länge)</p>' +
       (s.top.length ? '<h4>Meistgespielte Komponisten</h4>' + s.top.map(([a, n]) => '<div class=bar><span>' + H(a) + '</span><i style="width:' +
         Math.max(4, 100 * n / max) + '%"></i><b>' + n + '</b></div>').join('') : '<p class=hint>Noch nichts gespielt.</p>') +
       '<h4>Titel der Liste nach SIDs</h4><p>1 SID: ' + s.chips[1] + ' · 2 SIDs: ' + s.chips[2] + ' · 3 SIDs: ' + s.chips[3] + '</p>';
   } catch (e) { $('statbox').textContent = e.message; }
 }
+/* tunes that never come on their own again */
+let BLK = [];
+async function blockedLoad() {
+  try {
+    BLK = (await api('blocked')).items;
+    $('blocked').innerHTML = BLK.map((e, k) => '<li data-k=' + k + '><div class=meta><div class=t>' + H(e.title || e.name || e.path) + '</div>' +
+      '<div class=s>' + H(e.author || '') + '</div></div><button data-a=un title="Wieder von selbst spielen">Wieder spielen</button></li>').join('');
+    $('blockhint').hidden = BLK.length > 0;
+  } catch (e) { errToast(e); }
+}
+$('blocked').onclick = ev => {
+  const b = ev.target.closest('button'), li = ev.target.closest('li[data-k]');
+  if (b && li) unblock({key: BLK[+li.dataset.k].key}).then(() => { blockedLoad(); statsLoad(); }).catch(errToast);
+};
 /* the last tunes played (newest first): again at the end of the list, as the next one, or all as a new list */
 let HIST = [];
 function histWhen(t, now) {
@@ -861,7 +895,7 @@ $('smsave').onclick = async () => {
   if (name) smRun(smFilter(), 'save', name);
 };
 async function plsLoad() {
-  statsLoad(); histLoad(); smLoad();
+  statsLoad(); histLoad(); smLoad(); blockedLoad();
   try {
     const r = await api('playlists');
     $('pls').innerHTML = r.lists.map(p => '<li data-n="' + H(p.name) + '"><div class=meta><div class=t>' + H(p.name) + '</div><div class=s>' + p.n + ' Titel' +
@@ -899,8 +933,55 @@ async function devShow() {
 /* tab "Anzeige": the TV (HDMI) and the small display on the Pi */
 async function showShow() {
   try { CFG = await api('config'); } catch (e) { errToast(e); return; }
-  dispShow(); hdmiShow();
+  dispShow(); hdmiShow(); btShow();
 }
+/* Bluetooth headphones for the TV sound */
+let BT = {devices: []};
+async function btShow() {
+  try { BT = await api('bt?devices=1'); } catch (e) { $('btstate').textContent = e.message; return; }
+  if (!BT.present) { $('btstate').textContent = 'Bluetooth fehlt auf dem Pi (Pakete bluez und bluez-alsa-utils).'; $('btscan').disabled = $('bton').disabled = true; return; }
+  $('bton').checked = BT.on; $('bton').disabled = !BT.mac;
+  $('btstate').textContent = !BT.mac ? 'Noch keine Kopfhörer gekoppelt.'
+    : (BT.name || BT.mac) + ': ' + (BT.connected ? 'verbunden' : 'nicht verbunden') + (BT.active ? ' – der Ton läuft über die Kopfhörer' : BT.on ? ' – der Ton läuft über den Fernseher, bis sie verbunden sind' : '');
+  $('btdevs').innerHTML = BT.devices.map((d, k) => '<li data-k=' + k + '><div class=meta><div class=t>' + (d.mac === BT.mac ? '● ' : '') + H(d.name || d.mac) + '</div>' +
+    '<div class=s>' + (d.connected ? 'verbunden' : 'gekoppelt') + '</div></div>' +
+    (d.connected ? '<button data-a=disconnect>Trennen</button>' : '<button data-a=connect>Verbinden</button>') +
+    '<button data-a=forget class=danger title="Kopplung löschen">✕</button></li>').join('');
+}
+async function btAct(act, mac, extra) {
+  try { await api('bt', Object.assign({act, mac}, extra || {})); } catch (e) { errToast(e); }
+  btShow();
+}
+$('bton').onchange = () => btAct('on', '', {on: $('bton').checked});
+$('btdevs').onclick = ev => {
+  const b = ev.target.closest('button'), li = ev.target.closest('li[data-k]');
+  if (!b || !li) return;
+  const d = BT.devices[+li.dataset.k];
+  if (b.dataset.a === 'forget' && !confirm('Kopplung mit „' + (d.name || d.mac) + '“ löschen?')) return;
+  b.disabled = true; b.textContent = '…';
+  btAct(b.dataset.a, d.mac);
+};
+$('btscan').onclick = async () => {
+  $('btscan').disabled = true; $('btfound').innerHTML = '';
+  try {
+    const r = await api('bt', {act: 'scan'});
+    const found = await waitJob(r.job, p => { $('btstate').textContent = p; });
+    $('btfound').innerHTML = found.length ? found.map(d => '<li data-mac="' + H(d.mac) + '"><div class=meta><div class=t>' + H(d.name || d.mac) + '</div><div class=s>' + H(d.mac) + '</div></div>' +
+      '<button data-a=pair class=primary>Koppeln</button></li>').join('') : '<li class=hint>Nichts gefunden – ist der Kopfhörer im Kopplungsmodus?</li>';
+  } catch (e) { errToast(e); }
+  $('btscan').disabled = false; btShow();
+};
+$('btfound').onclick = async ev => {
+  const b = ev.target.closest('button'), li = ev.target.closest('li[data-mac]');
+  if (!b || !li) return;
+  b.disabled = true; b.textContent = 'Kopple …';
+  try {
+    const r = await api('bt', {act: 'pair', mac: li.dataset.mac});
+    const d = await waitJob(r.job, p => { $('btstate').textContent = p; });
+    toast('„' + (d.name || li.dataset.mac) + '“ gekoppelt und verbunden'); li.remove();
+  } catch (e) { errToast(e); b.disabled = false; b.textContent = 'Koppeln'; }
+  btShow();
+};
 /* the HDMI output (service c64pi-hdmi): every change is taken over at once */
 let HD = null;
 async function hdmiShow() {
@@ -939,7 +1020,7 @@ async function hdmiShow() {
 function cecShow() {
   const c = HD.cec || {}, s = c.status || {};
   $('con').checked = !!c.on; $('cecbox').hidden = !c.on;
-  $('ctvon').checked = !!c.tv_on; $('cclaim').checked = c.claim !== false;
+  $('ctvon').checked = !!c.tv_on; $('cclaim').checked = c.claim !== false; $('cpioff').checked = !!c.pi_off; $('ctvboot').checked = !!c.tv_on_boot;
   if (document.activeElement !== $('ctvoff')) $('ctvoff').value = c.tv_off_min || 0;
   $('ctvnow').disabled = $('ctvsb').disabled = !s.ready;
   let t = '';
@@ -947,7 +1028,9 @@ function cecShow() {
     if (s.err) t = '<span class=warn>' + H(s.err) + '</span>';
     else if (!s.ready) t = 'Warte auf den Fernseher … (eingeschaltet und am HDMI-Kabel?)';
     else t = '<span class=okc>bereit</span> · Adresse ' + H(s.phys || '?') + (s.active ? ' · der Fernseher zeigt den Pi' : '') +
-      ((s.recent || []).length ? ' · zuletzt: ' + H(s.recent.slice(-4).join(', ')) : '');
+      ((s.recent || []).length ? ' · zuletzt: ' + H(s.recent.slice(-4).join(', ')) : '') +
+      (c.pi_off && s.tv ? ' · Fernseher ' + (s.tv === 'on' ? 'an' : 'aus') : '') +
+      (s.pi_off_in != null ? ' · <span class=warn>Pi geht in ' + s.pi_off_in + ' s aus</span>' : '');
   }
   $('cecstate').innerHTML = t;
 }
@@ -958,6 +1041,8 @@ $('con').onchange = () => cecSave({on: $('con').checked});
 $('ctvon').onchange = () => cecSave({tv_on: $('ctvon').checked});
 $('cclaim').onchange = () => cecSave({claim: $('cclaim').checked});
 $('ctvoff').onchange = () => cecSave({tv_off_min: +$('ctvoff').value || 0});
+$('cpioff').onchange = () => cecSave({pi_off: $('cpioff').checked});
+$('ctvboot').onchange = () => cecSave({tv_on_boot: $('ctvboot').checked});
 $('ctvnow').onclick = () => cecSave({tv: 'on'});
 $('ctvsb').onclick = () => cecSave({tv: 'standby'});
 function hdmiState() {
@@ -1407,14 +1492,96 @@ async function setShow() {
   $('plim').value = p.limit_min; $('psil').checked = p.silence; $('psils').value = p.silence_s; $('psub').value = p.subsongs; $('psid').checked = p.sidauto !== false;
   $('ploop').value = p.loopfind || 'suggest'; $('pname').value = p.hvsc_name || 'suggest';
   $('ver').textContent = 'C64-Jukebox ' + (S ? S.version : '');
-  slShow(); netShow();
+  $('updon').checked = !CFG || CFG.updates !== false;
+  slShow(); netShow(); plShow();
 }
 function slShow() {
   const c = S ? S.sl : {hvsc: 0, custom: 0}, o = CFG ? CFG.songlengths : {};
   const line = (k, title) => '<div class=row><span><b>' + title + ':</b> ' + (c[k] ? c[k] + ' Einträge' + (o[k] && o[k].label ? ' <span class=hint>(' + H(o[k].label) + ')</span>' : '') : '<span class=hint>keine</span>') +
     '</span><span class=grow></span>' + (c[k] ? '<button data-slc=' + k + '>Entfernen</button>' : '') + '</div>';
   $('slstate').innerHTML = line('hvsc', 'HVSC') + line('custom', 'Eigene Längen (Vorrang)') + line('stil', 'STIL (Hintergründe)');
+  hvtShow();
 }
+/* a newer version on GitHub: a hint (hidden per version once closed) */
+function updSeen() { try { return localStorage.getItem('c64upd') || ''; } catch (e) { return ''; } }
+function updShow() {
+  const v = S && S.update;
+  $('updbar').hidden = !v || updSeen() === v;
+  if (v) $('updtxt').textContent = 'Version ' + v + ' der Jukebox ist auf GitHub erschienen (installiert: ' + S.version + ').';
+}
+$('updx').onclick = () => { try { localStorage.setItem('c64upd', S.update || ''); } catch (e) { /* private mode */ } $('updbar').hidden = true; };
+$('updon').onchange = () => api('config', {updates: $('updon').checked}).catch(errToast);
+$('updchk').onclick = async () => {
+  $('updstate').textContent = 'Frage GitHub …';
+  try {
+    const r = await api('update/check', {});
+    $('updstate').textContent = r.newer ? 'Version ' + r.ver + ' ist erschienen (installiert: ' + r.installed + ')' : 'Aktuell – auf GitHub ist ' + r.ver + ', installiert ' + r.installed;
+    poll();
+  } catch (e) { $('updstate').textContent = e.message; }
+};
+/* switching the Pi off, the smart plug's timer cuts the power afterwards */
+async function plShow() {
+  const g = CFG.plug || {};
+  $('plip').value = g.ip || ''; $('plid').value = g.id || ''; $('plkey').value = g.key || '';
+  $('plver').value = g.ver || '3.5'; $('ploff').value = g.off_s || 30;
+  try {
+    const r = await api('power');
+    $('pwrstate').textContent = !r.can ? 'Der Pi darf sich noch nicht selbst ausschalten – Installationsskript noch einmal ausführen.' :
+      r.plug ? 'Fährt den Pi herunter; die Steckdose schaltet ' + r.off_s + ' s später ab.' : 'Fährt den Pi herunter (ohne Steckdose: Netzteil danach selbst ausstecken).';
+    $('pwroff').disabled = !r.can;
+  } catch (e) { $('pwrstate').textContent = e.message; }
+}
+function plCollect() {
+  return {ip: $('plip').value.trim(), id: $('plid').value.trim(), key: $('plkey').value.trim(), ver: $('plver').value, off_s: +$('ploff').value || 30};
+}
+$('plsave').onclick = async () => {
+  try { CFG = (await api('config', {plug: plCollect()})).config; toast('Steckdose gespeichert'); plShow(); } catch (e) { errToast(e); }
+};
+$('plchk').onclick = async () => {
+  $('plstate').textContent = 'Frage die Steckdose …';
+  try {
+    CFG = (await api('config', {plug: plCollect()})).config;
+    const r = await waitJob((await api('plug/check', {})).job);
+    $('plstate').textContent = 'Steckdose ' + (r.on ? 'an' : 'aus') + ' (' + r.ip + ', Version ' + r.ver + ')' + (r.watt != null ? ', ' + r.watt + ' W' : '') +
+      (r.timer ? '' : ' – sie hat keinen Ausschalt-Timer, der Strom bleibt nach dem Herunterfahren an');
+    CFG = await api('config'); $('plip').value = CFG.plug.ip || '';
+  } catch (e) { $('plstate').textContent = e.message; }
+};
+$('pwroff').onclick = async () => {
+  if (!confirm('Den Pi jetzt ausschalten?' + (CFG.plug && CFG.plug.id ? ' Die Steckdose schaltet danach ab.' : ''))) return;
+  try {
+    let r;
+    try { r = await api('power/off', {}); } catch (e) {
+      if (!/Steckdose/.test(e.message) || !confirm(e.message + '\n\nTrotzdem herunterfahren? (Der Strom bleibt dann an.)')) throw e;
+      r = await api('power/off', {force: true});
+    }
+    $('pwrstate').textContent = 'Der Pi fährt herunter' + (r.timer ? ', die Steckdose schaltet in ' + r.secs + ' s ab.' : '.');
+    $('pwroff').disabled = true;
+  } catch (e) { errToast(e); }
+};
+/* titles of the whole HVSC for the search: read once in the background */
+async function hvtShow() {
+  $('hvtrow').hidden = !(S && S.hvsc);
+  if ($('hvtrow').hidden) return;
+  try {
+    const r = await api('hvsc/titles');
+    if (r.job) { hvtWait(r.job); return; }
+    $('hvtstate').innerHTML = '<span class=hint>Suche über die ganze HVSC: ' + (r.n || 0).toLocaleString('de-DE') + ' von ' + r.of.toLocaleString('de-DE') +
+      ' Titeln mit Titel und Komponist' + (r.n < r.of ? ' (die übrigen nur über Dateiname und Ordner)' : '') + '</span>';
+    $('hvtgo').hidden = r.n >= r.of;
+  } catch (e) { $('hvtstate').textContent = e.message; }
+}
+async function hvtWait(id) {
+  $('hvtgo').hidden = true;
+  try {
+    const res = await waitJob(id, (p, j) => { $('hvtstate').innerHTML = '<span class=hint>Lese HVSC-Titel … ' + H(p) + '</span>'; });
+    toast(res.n.toLocaleString('de-DE') + ' HVSC-Titel eingelesen');
+  } catch (e) { errToast(e); }
+  hvtShow();
+}
+$('hvtgo').onclick = async () => {
+  try { hvtWait((await api('hvsc/titles', {})).job); } catch (e) { errToast(e); }
+};
 $('slstate').onclick = async ev => {
   const b = ev.target.closest('[data-slc]'); if (!b || !confirm(b.dataset.slc === 'stil' ? 'STIL entfernen?' : 'Songlängen entfernen?')) return;
   try { await api(b.dataset.slc === 'stil' ? 'stil/clear' : 'songlengths/clear', {kind: b.dataset.slc}); await poll(); slShow(); } catch (e) { errToast(e); }

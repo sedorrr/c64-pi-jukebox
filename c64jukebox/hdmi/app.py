@@ -368,17 +368,25 @@ class MenuView:
         s.blit(hint, ((self.W - hint.get_width()) // 2, y))
         return s
 
+    TITLE_LINE, NOTE_LINE = 54, 40
+
     def _render(self, m):
+        """a long title (the questions name the tune) and note wrap onto more lines, the box grows with them"""
         if m.get("kind") == "kbd":
             return self._render_kbd(m)
         n = len(m.get("items") or [])
-        h = 150 + n * self.LINE + (50 if m.get("note") else 0) + 70
+        width = self.W - 100
+        titles = wrap(m.get("title", ""), self.f_title, width, 3) or [""]
+        notes = wrap(m.get("note", ""), self.f_small, width, 2)
+        extra = (len(titles) - 1) * self.TITLE_LINE
+        h = 150 + extra + n * self.LINE + (10 + self.NOTE_LINE * len(notes) if notes else 0) + 70
         s = pygame.Surface((self.W, h), pygame.SRCALPHA)
         pygame.draw.rect(s, self.BG, s.get_rect(), border_radius=18)
         pygame.draw.rect(s, self.BORDER, s.get_rect(), 6, border_radius=18)
-        t = self.f_title.render(m.get("title", ""), True, self.TEXT)
-        s.blit(t, ((self.W - t.get_width()) // 2, 34))
-        y = 120
+        for k, line in enumerate(titles):
+            t = _fit_surface(self.f_title.render(line, True, self.TEXT), width)
+            s.blit(t, ((self.W - t.get_width()) // 2, 34 + k * self.TITLE_LINE))
+        y = 120 + extra
         if m.get("more_up"):
             u = self.f_small.render("▲", True, self.HINT)
             s.blit(u, ((self.W - u.get_width()) // 2, y - 30))
@@ -386,20 +394,23 @@ class MenuView:
             chosen = i == m.get("sel")
             if chosen:
                 pygame.draw.rect(s, self.BORDER, (36, y, self.W - 72, self.LINE - 6), border_radius=8)
-            label = self.f_item.render(it.get("l", ""), True, self.TEXT)
+            v = self.f_item.render(it["v"], True, self.TEXT if chosen else self.VALUE) if it.get("v") else None
+            room = self.W - 120 - (v.get_width() + 30 if v else 0)
+            label = self.f_item.render(_shorten(it.get("l", ""), self.f_item, room), True, self.TEXT)
             s.blit(label, (60, y + (self.LINE - 6 - label.get_height()) // 2))
-            if it.get("v"):
-                v = self.f_item.render(it["v"], True, self.TEXT if chosen else self.VALUE)
+            if v:
                 s.blit(v, (self.W - 60 - v.get_width(), y + (self.LINE - 6 - v.get_height()) // 2))
             y += self.LINE
         if m.get("more_down"):
             d = self.f_small.render("▼", True, self.HINT)
             s.blit(d, ((self.W - d.get_width()) // 2, y - 6))
         y += 24
-        if m.get("note"):
-            nt = self.f_small.render(m["note"], True, self.VALUE)
+        for line in notes:
+            nt = _fit_surface(self.f_small.render(line, True, self.VALUE), width)
             s.blit(nt, ((self.W - nt.get_width()) // 2, y))
-            y += 50
+            y += self.NOTE_LINE
+        if notes:
+            y += 10
         hint = self.f_small.render(m.get("hint", ""), True, self.HINT)
         s.blit(hint, ((self.W - hint.get_width()) // 2, y))
         return s
@@ -415,6 +426,22 @@ class MenuView:
         s = self.surf
         return [Item("menu", s, self.ver, ((SIZE[0] - s.get_width()) // 2, (SIZE[1] - s.get_height()) // 2)
                      + s.get_size(), 255)]
+
+
+def _shorten(text, f, width):
+    """one line that fits `width` pixels, shortened with …"""
+    if f.size(text)[0] <= width:
+        return text
+    while text and f.size(text + "…")[0] > width:
+        text = text[:-1]
+    return text.rstrip() + "…"
+
+
+def _fit_surface(surf, width):
+    """a rendered line wider than `width` (one long word) scaled down to it"""
+    if surf.get_width() <= width:
+        return surf
+    return pygame.transform.smoothscale(surf, (width, max(1, surf.get_height() * width // surf.get_width())))
 
 
 def wrap(text, f, width, lines):
@@ -631,6 +658,8 @@ class HdmiApp:
              "pictures": len(self.slides.files) if self.slides else 0,
              "sound": bool(self.sound and self.sound.alive()),
              "sound_dropped": self.sound.dropped if self.sound else 0,
+             "sound_filled": self.sound.filled if self.sound else 0,
+             "sound_restarts": self.sound.restarts if self.sound else 0,
              "sound_msg": self.sound.msg if self.sound else "", "fades": list(self.fade_log),
              "in_gap": round(self.in_gap, 1),
              "sound_gaps": list(self.sound.gaps) if self.sound else [], "slow": list(self.slow),
@@ -783,6 +812,7 @@ class HdmiApp:
         self._video(bg == "video")
         self._sound(bool(cfg.get("sound")))
         if self.sound:
+            self.sound.device = cfg.get("sound_dev") or ""          # Bluetooth headphones (bt.py) or the TV
             v = max(0, min(100, int(cfg.get("volume", 100)))) / 100.0
             self.sound.volume = v * v                  # the ear hears it roughly squared: 50 % sounds like half
             self.fade(now)

@@ -27,6 +27,35 @@ echo "== Pakete (Python, mDNS)"
 apt-get update -qq
 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 python3-venv avahi-daemon libnss-mdns \
     dnsmasq-base fonts-dejavu-core python3-pygame python3-numpy libegl1 libegl-mesa0 libgles2 >/dev/null
+# Bluetooth headphones for the TV sound (bt.py): bluetoothctl + bluez-alsa
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq bluez bluez-alsa-utils >/dev/null || \
+    echo "   (bluez-alsa-utils nicht installiert – ohne Bluetooth-Kopfhörer weiter)"
+# Raspberry Pi OS blocks the radios at first (rfkill default_state=0): Bluetooth free for the headphones; systemd-rfkill
+# keeps that over a restart. The WLAN stays as it is - netwatch.py switches it.
+for r in /sys/class/rfkill/rfkill*; do
+    [ "$(cat "$r/type" 2>/dev/null)" = bluetooth ] && echo 0 > "$r/soft" || true
+done
+# Apple/Beats headphones also advertise over Bluetooth LE: BlueZ then pairs over LE and fails - classic Bluetooth only
+# (A2DP needs nothing else)
+if [ -f /etc/bluetooth/main.conf ] && ! grep -q '^ControllerMode = bredr' /etc/bluetooth/main.conf; then
+    sed -i 's/^#\?ControllerMode *=.*/ControllerMode = bredr/' /etc/bluetooth/main.conf
+    grep -q '^ControllerMode = bredr' /etc/bluetooth/main.conf || \
+        sed -i 's/^\[General\]$/[General]\nControllerMode = bredr/' /etc/bluetooth/main.conf
+    systemctl restart bluetooth || true
+fi
+# "Pi ausschalten" on the page and the TV: the service (no root, NoNewPrivileges) asks logind - polkit lets it
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq polkitd >/dev/null || true
+if [ -d /etc/polkit-1/rules.d ]; then
+    cat > /etc/polkit-1/rules.d/50-c64jukebox.rules <<'RULE'
+// C64-Jukebox: the service may switch the Pi off (page / TV menu "Pi ausschalten", plug.py)
+polkit.addRule(function(action, subject) {
+    if (action.id.indexOf("org.freedesktop.login1.power-off") == 0 && subject.user == "c64jukebox")
+        return polkit.Result.YES;
+});
+RULE
+else
+    echo "   (polkit fehlt – „Pi ausschalten“ geht dann nicht)"
+fi
 # (EGL/GLES from Mesa: SDL draws through them on KMS/DRM - Raspberry Pi OS Lite comes without)
 # I2C for the small OLED, SPI for the 2.8" touch display (both take effect completely after the next restart)
 if command -v raspi-config >/dev/null; then
