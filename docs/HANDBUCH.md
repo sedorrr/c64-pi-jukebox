@@ -132,7 +132,10 @@ Tipp fürs Handy: die Seite im Browser „Zum Home-Bildschirm“ hinzufügen, da
 
 ## Die Weboberfläche
 
-Oben steht immer der laufende Titel. Darunter die Tabs:
+Oben steht immer der laufende Titel, rechts daneben der Knopf **⏻ (Ein / Aus)**: von jedem Tab aus **Fernseher
+einschalten** / **ausschalten** (über [HDMI-CEC](#fernbedienung-des-fernsehers-hdmi-cec)), das gewählte **Ultimate**
+ein- / ausschalten und **Jukebox ausschalten** (siehe [Ausschalten und Steckdose](#ausschalten-und-steckdose)).
+Darunter die Tabs:
 
 | Tab | Inhalt |
 |---|---|
@@ -140,7 +143,7 @@ Oben steht immer der laufende Titel. Darunter die Tabs:
 | Dateien | Quellen, Ordner, Filter, Suche, Abspielen |
 | Listen | gespeicherte Wiedergabelisten, Statistik |
 | Geräte | Ultimates, Picos und Stream-Verteiler, Geräte im Netz (mit dem Namen des Pi) |
-| Anzeige | Fernseher (HDMI): Effekte, Hintergrund, Ton – und das kleine Display am Pi |
+| Anzeige | *Bild am Fernseher* (HDMI, Hintergrund, Retro-News) · *Ton* (Ton am Fernseher, Bluetooth-Kopfhörer) · *Bedienung* (TV-Fernbedienung, Display am Pi) |
 | Einstellungen | *Abspielen* (Wiedergabe, Songlängen, Daten der PC-Jukebox) · *Netzwerk des Pi* (WLAN, eigenes WLAN) · *System* (Passwort, Sicherung, Updates) |
 | Hilfe | dieses Handbuch |
 
@@ -772,7 +775,12 @@ gültig.
 **Was es zeigt** – in den Farben des C64:
 
 - **Wiedergabe:** Spielzeit und Länge, Stück, Titel (zwei Zeilen), Komponist, Jahr, „2 SIDs“, Fortschritt, Stream; unten
-  drei Tasten **⏮ ■ ⏭** (vorheriger Titel, Stopp – bzw. ▶ Abspielen, wenn nichts läuft –, nächster Titel). Eine gedrückte Taste blinkt kurz auf.
+  vier Tasten **⏮ ■ ⏭ ⏻** (vorheriger Titel, Stopp – bzw. ▶ Abspielen, wenn nichts läuft –, nächster Titel, Ein / Aus).
+  Eine gedrückte Taste blinkt kurz auf.
+- **Ein / Aus** (Taste ⏻): **Fernseher an**, **Fernseher aus** (über [HDMI-CEC](#fernbedienung-des-fernsehers-hdmi-cec);
+  ist die TV-Fernbedienung ausgeschaltet, sind die beiden Tasten dunkel), **Jukebox ausschalten** (rot – erst ein
+  zweiter Tipp innerhalb von 5 s schaltet aus, die Taste sagt dann „Nochmal tippen“) und **Zurück**. Oben rechts steht,
+  ob der Fernseher an ist, darunter, was der letzte Tipp bewirkt hat. Nach 30 s ohne Tipp geht es zurück zur Wiedergabe.
 - **Pegel:** zwei Balken für links und rechts mit Spitzenhalter (grün, gelb, orange, rot wie die Farben des C64), darunter
   die letzten 15 Sekunden als Säulen, oben der Titel, unten die Spielzeit. Gemessen wird der Audio-Stream des Ultimate,
   viermal pro Sekunde – nur solange die Seite zu sehen ist. Ohne Stream bleiben die Balken leer.
@@ -951,23 +959,23 @@ obersten: schließen). Nach 30 s ohne Taste schließt es von selbst. Darin:
 - **Titel nicht mehr spielen** – fragt nach und setzt den laufenden Titel auf die Sperrliste (siehe
   [Gesperrte Titel](#gesperrte-titel)), dann kommt der nächste.
 - **Zufall**, **Wiederholen** – an/aus.
+- **Effekt** – alle Effekte zur Auswahl (der laufende ist markiert); eine Wahl schaltet den automatischen Wechsel aus.
+- **Bild und Ton** (rechts die Lautstärke) – **Effekte automatisch wechseln**, **Titel einblenden**, **Ton am
+  Fernseher** (an/aus), **Ton über Kopfhörer** (nur mit gekoppelten [Bluetooth-Kopfhörern](#bluetooth-kopfhoerer)) und
+  **Lautstärke am Fernseher** (jedes OK eine Stufe leiser: 100 → 90 … 10, dann wieder 100).
+- **Ultimate** – welches Ultimate spielt: alle eingetragenen (das aktive mit ●), ein anderes wählen (läuft gerade
+  Musik, fragt das Menü vorher: sie wird dabei gestoppt). Darunter **Einschalten** / **Ausschalten** für das gewählte
+  (über sein WLAN wecken bzw. ausschalten, Ausschalten fragt nach, siehe [Ultimates](#ultimates)). **Im Netzwerk
+  suchen** sucht wie im Tab **Geräte** (Fortschritt in der Hinweiszeile); neue Ultimates erscheinen darunter als
+  „+ Name“ – OK trägt eins ein und wählt es. Ein Netzwerk-Passwort trägt man auf der Webseite nach.
 - **Längen prüfen** – wie auf der Webseite (Fortschritt in der Hinweiszeile des Menüs); danach erscheint
   **22 HVSC-Längen übernehmen**.
-- **Effekt** – alle Effekte zur Auswahl (der laufende ist markiert); eine Wahl schaltet den automatischen Wechsel aus.
-- **Effekte automatisch wechseln**, **Ton am Fernseher**, **Titel einblenden** – an/aus.
-- **Ton über Kopfhörer** – nur mit gekoppelten [Bluetooth-Kopfhörern](#bluetooth-kopfhoerer): an/aus.
-- **Lautstärke am Fernseher** – jedes OK eine Stufe leiser (100 → 90 … 10, dann wieder 100).
-- **Ultimate** – welches Ultimate spielt: alle eingetragenen (das aktive mit ●), ein anderes wählen (läuft gerade
-  Musik, fragt das Menü vorher: sie wird dabei gestoppt). **Im Netzwerk suchen** sucht wie im Tab **Geräte**
-  (Fortschritt in der Hinweiszeile); neue Ultimates erscheinen darunter als „+ Name“ – OK trägt eins ein und wählt es.
-  Ein Netzwerk-Passwort trägt man auf der Webseite nach.
-- **Ultimate einschalten / ausschalten** – das gewählte Ultimate über sein WLAN wecken bzw. ausschalten (Ausschalten
-  fragt nach, siehe [Ultimates](#ultimates)).
 - **Nach Update sehen** – fragt GitHub nach einer neuen Version (rechts steht die installierte). Gibt es eine, heißt
   die Zeile **Update auf … installieren**: OK fragt nach und installiert sie, die Jukebox startet dabei neu (siehe
   [Aktualisieren](#aktualisieren)).
-- **Pi ausschalten** – fragt nach und fährt den Pi herunter; mit eingerichteter Steckdose geht danach auch der Strom aus
-  (siehe [Ausschalten und Steckdose](#ausschalten-und-steckdose)).
+- **Ausschalten** – steht unten, direkt nach dem Öffnen also mit zweimal ↑ erreichbar: **Fernseher ausschalten**
+  (sofort), **Jukebox ausschalten** (fragt nach; mit eingerichteter Steckdose geht danach auch der Strom aus, siehe
+  [Ausschalten und Steckdose](#ausschalten-und-steckdose)) und **Ultimate ausschalten** (fragt nach).
 - Eine **gespeicherte Liste** in „Musik wählen“ öffnet ein kleines Menü: **Abspielen**, **Hinten anhängen**,
   **Umbenennen** (eine Tastatur am Bildschirm: Pfeile wählen, OK tippt, Zurück löscht das letzte Zeichen, „Fertig“
   übernimmt) und **Löschen** (fragt nach, „Nein“ ist vorgewählt).
@@ -992,7 +1000,7 @@ kommen die Tasten der Fernseher-Fernbedienung an. Die Fernbedienung des Fire TV 
   ein“ über die [Steckdose](#ausschalten-und-steckdose)) am HDMI-Kabel bereit ist, geht der Fernseher an und zeigt den
   Pi – nur in den ersten 90 s nach dem Start, damit ein später eingeschalteter Fernseher nicht auf den Pi springt.
   Später schaltet **Fernseher jetzt auf den Pi umschalten** den Fernseher jederzeit ein.
-- **Pi ausschalten, wenn der Fernseher ausgeht:** eine Minute nach dem Standby des Fernsehers fährt der Pi herunter
+- **Jukebox ausschalten, wenn der Fernseher ausgeht:** eine Minute nach dem Standby des Fernsehers fährt der Pi herunter
   (mit Steckdose auch der Strom), siehe [Ausschalten und Steckdose](#ausschalten-und-steckdose).
 
 Die Zeile darunter zeigt den Zustand: „Warte auf den Fernseher …“ heißt, der Pi hat noch keine Adresse am HDMI-Kabel
@@ -1055,7 +1063,9 @@ Die Karte **Geräte im Netz** im Tab „Geräte“ zeigt alle Picos und Pis mit 
 
 ## Ausschalten und Steckdose
 
-*Einstellungen → Ausschalten und Steckdose → **Pi ausschalten*** (oder **Pi ausschalten** im Menü am Fernseher)
+*Einstellungen → Ausschalten und Steckdose → **Jukebox ausschalten***, oben rechts auf jeder Seite der Knopf ⏻ →
+**Jukebox ausschalten**, im Menü am Fernseher **Ausschalten → Jukebox ausschalten** oder am
+[Touch-Display](#das-2-8-display-mit-touch) ⏻ → **Jukebox ausschalten**
 stoppt die Musik und fährt den Pi sauber herunter. Einfach den Strom wegnehmen sollte man nicht: Das kann die
 SD-Karte beschädigen.
 
@@ -1081,7 +1091,7 @@ Konto, einmalig etwa 15 Minuten):
 4. In der Karte **Geräte-ID** und **Lokaler Schlüssel** eintragen, **Prüfen** tippen: Die Jukebox sucht die Steckdose im
    Netz (die Adresse darf leer bleiben), zeigt ob sie an ist, ihre Leistung und ob sie einen Ausschalt-Timer hat.
 
-**Mit dem Fernseher aus.** *Anzeige → TV-Fernbedienung → Pi ausschalten, wenn der Fernseher ausgeht*: Geht der
+**Mit dem Fernseher aus.** *Anzeige → TV-Fernbedienung → Jukebox ausschalten, wenn der Fernseher ausgeht*: Geht der
 Fernseher in Standby – mit seiner Fernbedienung, durch die Jukebox (*Fernseher ausschalten, wenn nichts mehr läuft*) oder
 über die Seite –, fährt der Pi eine Minute später herunter, mit eingerichteter Steckdose geht danach der Strom aus.
 Kommt der Fernseher in dieser Minute wieder, bleibt der Pi an. Die Jukebox hört dafür auf die Standby-Meldung des

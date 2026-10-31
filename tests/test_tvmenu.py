@@ -36,16 +36,24 @@ def test_menu(tmp_path):
         await jb._cec_cmd("down")
         await jb._cec_cmd("right")
         assert jb.config["player"]["repeat"] is (not rep)
-        # volume steps down, sound on
-        for _ in range(4):
-            await jb._cec_cmd("down")                       # Effekt, automatisch, Ton, Lautstärke
+        # "Bild und Ton": volume steps down, sound on
+        for _ in range(2):
+            await jb._cec_cmd("down")                       # Effekt, Bild und Ton
+        await jb._cec_cmd("select")
+        v = jb.menu.view()
+        assert v["title"] == "Bild und Ton" and [x["l"] for x in v["items"]] == \
+            ["Effekte automatisch wechseln", "Titel einblenden", "Ton am Fernseher", "Lautstärke am Fernseher"]
+        for _ in range(3):
+            await jb._cec_cmd("down")
         await jb._cec_cmd("select")
         assert jb.config["hdmi"]["volume"] == 90
         await jb._cec_cmd("up")
         await jb._cec_cmd("select")
         assert jb.config["hdmi"]["sound"] is True
+        await jb._cec_cmd("back")
+        v = jb.menu.view()
+        assert v["title"] == "C64-Jukebox" and v["items"][v["sel"]] == {"l": "Bild und Ton", "v": "90 % ›"}
         # effect: the effects level starts at the current one; choosing switches the automatic change off
-        await jb._cec_cmd("up")
         await jb._cec_cmd("up")
         await jb._cec_cmd("select")
         v = jb.menu.view()
@@ -78,6 +86,19 @@ def test_menu(tmp_path):
         await e.step(1)
         assert jb.menu.view() is None and p.source == "Liste „Feierabend“" and len(p.items) == 2
         assert p.state in ("play", "load")
+        # "Ausschalten" one key up from the top (after "Schließen")
+        await jb._cec_cmd("menu")
+        await jb._cec_cmd("up")
+        await jb._cec_cmd("up")
+        v = jb.menu.view()
+        assert v["items"][v["sel"]]["l"] == "Ausschalten"
+        await jb._cec_cmd("select")
+        v = jb.menu.view()
+        assert v["title"] == "Ausschalten" and [x["l"] for x in v["items"]] == \
+            ["Fernseher ausschalten", "Jukebox ausschalten", "Ultimate ausschalten"]
+        await jb._cec_cmd("select")                         # no HDMI-CEC here: the reason
+        assert "HDMI-CEC" in jb.menu.view()["note"]
+        await jb._cec_cmd("menu")
         # back closes; 30 s without a key closes too
         await jb._cec_cmd("menu")
         await jb._cec_cmd("back")
@@ -205,19 +226,23 @@ def test_ultimate_on_and_off_from_the_tv(tmp_path, monkeypatch):
         monkeypatch.setattr(wol, "send", lambda mac, towards="", opener=None: sent.append(mac) or ["x:9"])
         await jb._cec_cmd("select")
         names = [e[0] for e in jb.menu.entries()]          # (the window shows 9 of them)
-        i_on = names.index("Ultimate einschalten")
-        jb.menu.sel["main"] = i_on
+        jb.menu.sel["main"] = names.index("Ultimate")
+        await jb._cec_cmd("select")                         # on / off in the Ultimate's own menu
+        names = [e[0] for e in jb.menu.entries()]
+        i_on = names.index("Einschalten")
+        jb.menu.sel["ultimates"] = i_on
         await jb._cec_cmd("select")                         # no WLAN MAC known yet
         assert "WLAN-MAC" in jb.menu.view()["note"] and not sent
-        jb.menu.sel["main"] = i_on + 1
+        jb.menu.sel["ultimates"] = i_on + 1
         await jb._cec_cmd("select")                         # Ausschalten: asks first
         v = jb.menu.view()
         assert v["title"] == "\u201eElite\u201c ausschalten?"
         await jb._cec_cmd("down")
         await jb._cec_cmd("select")
         assert e.u64.find("PUT", "/v1/machine:poweroff") and "ausgeschaltet" in jb.menu.view()["note"]
+        assert jb.menu.view()["title"] == "Welches Ultimate spielt"       # back where it was asked
         jb.config.data["ultimates"][0]["wmac"] = "12:34:56:78:9A:BC"
-        jb.menu.sel["main"] = i_on
+        jb.menu.sel["ultimates"] = i_on
         await jb._cec_cmd("select")
         assert sent == ["12:34:56:78:9A:BC"] and "Weckruf" in jb.menu.view()["note"]
         for _ in range(20):                                 # the fake answers at once: awake
@@ -307,11 +332,12 @@ def test_choose_the_ultimate_on_the_tv(tmp_path, monkeypatch):
         await jb._cec_cmd("select")
         v = m.view()
         assert v["title"] == "Welches Ultimate spielt" and [(x["l"], x["v"]) for x in v["items"]] == \
-            [("Elite", "●"), ("Zweiter", "127.0.0.2"), ("Im Netzwerk suchen", "›")]
+            [("Elite", "●"), ("Zweiter", "127.0.0.2"), ("Einschalten", "Elite"), ("Ausschalten", "Elite ›"),
+             ("Im Netzwerk suchen", "›")]
         await jb._cec_cmd("down")
         await jb._cec_cmd("select")                          # nothing plays: switched at once
         assert jb.config["u64_sel"] == 1 and "Zweiter" in m.view()["note"]
-        assert ("Ultimate einschalten", "Zweiter") == [x for x in m.entries_of("main") if x[0] == "Ultimate einschalten"][0][:2]
+        assert ("Einschalten", "Zweiter") == [x for x in m.entries_of("ultimates") if x[0] == "Einschalten"][0][:2]
         # music plays: asks first
         jb.config.data["u64_sel"] = 0
         await p.set_items(e.items("a.sid"))
@@ -329,7 +355,7 @@ def test_choose_the_ultimate_on_the_tv(tmp_path, monkeypatch):
             return [{"ip": "127.0.0.3", "name": "u64", "u64": {"product": "C64 Ultimate"}, "alt": ""},
                     {"ip": "127.0.0.2", "name": "zwei", "u64": {"product": "Ultimate 64"}, "alt": ""}]
         monkeypatch.setattr(jb, "find_ultimates", fake_find)
-        m.sel["ultimates"] = 2
+        m.sel["ultimates"] = 4
         await jb._cec_cmd("select")
         await m.scan_job.task
         v = m.view()

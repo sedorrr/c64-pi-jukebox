@@ -134,9 +134,21 @@ def test_switch_off_from_the_tv(tmp_path):
     async def t(c, jb, u64):
         fake, mark = setup(jb, tmp_path, timer=True)
         jb.config["plug"].update(ip=fake.ip, id=ID, key=fake.key)
-        entry = next(e for e in jb.menu.entries_of("main") if e[0] == "Pi ausschalten")
+        entry = next(e for e in jb.menu.entries_of("power") if e[0] == "Jukebox ausschalten")
         assert "Steckdose" in entry[2][1]
         await jb.menu._do(entry[2])                     # the question first ...
         await jb.menu._do(entry[2][3])                  # ... then "Ja, ausschalten"
         assert "Strom aus in 30 s" in jb.menu.note and fake.dps["9"] == 30
+    run(tmp_path, t)
+
+
+def test_switch_off_from_the_touch_display(tmp_path):
+    async def t(c, jb, u64):
+        fake, mark = setup(jb, tmp_path)
+        jb.config["plug"].update(ip=fake.ip, id=ID, key=fake.key)
+        await jb.touch_cmd("tvoff")                     # no HDMI-CEC here: the reason on the page "Ein / Aus"
+        jb.display.page = "power"
+        assert "HDMI-CEC" in jb.display_state()["pnote"] and jb.display_state()["tvctl"]["ready"] is False
+        await jb.touch_cmd("pioff")
+        assert jb.powering_off and fake.dps["9"] == 30 and "Strom aus in 30 s" in jb.display_state()["pnote"]
     run(tmp_path, t)

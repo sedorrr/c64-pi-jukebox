@@ -234,9 +234,22 @@ def test_display_with_touch():
     assert d.page == "play"
     preview(hw, "tft_play.png")
     hw.emu._end()
-    assert d.touch_raw(*raw_for(160, 200)) == "stop" and cmds == ["stop"]         # middle button
-    assert d.touch_raw(*raw_for(300, 200)) == "next"
+    assert d.touch_raw(*raw_for(120, 200)) == "stop" and cmds == ["stop"]         # second button
+    assert d.touch_raw(*raw_for(200, 200)) == "next"
     assert d.touch_raw(*raw_for(20, 200)) == "prev"
+    # the power button: a page with TV on / off and "Jukebox ausschalten" (a second tap within 5 s)
+    assert d.touch_raw(*raw_for(280, 200)) == "power" and d.page == "power" and cmds == ["stop", "next", "prev"]
+    d.tick(dict(PLAY, tvctl={"ready": True, "tv": "on"}))
+    preview(hw, "tft_power.png")
+    assert d.touch_raw(*raw_for(240, 80)) == "tvoff" and cmds[-1] == "tvoff" and d.page == "power"
+    assert d.touch_raw(*raw_for(160, 40)) is None and d.page == "power"       # beside the buttons: stays
+    assert d.touch_raw(*raw_for(160, 140)) == "arm" and cmds[-1] == "tvoff"
+    t[0] += 6                                                                   # too late: asks again
+    assert d.touch_raw(*raw_for(160, 140)) == "arm"
+    t[0] += 1
+    assert d.touch_raw(*raw_for(160, 140)) == "pioff" and cmds[-1] == "pioff"
+    assert d.touch_raw(*raw_for(160, 205)) == "back" and d.page == "play"
+    del cmds[3:]
     assert d.touch_raw(*raw_for(160, 60)) == "page" and d.page == "level"         # elsewhere: the next page
     d.tick(dict(PLAY, level={"now": [0.55, 0.83], "peak": [0.7, 0.95],
                              "hist": [abs(((i * 7) % 23) - 11) / 11 for i in range(60)]}))

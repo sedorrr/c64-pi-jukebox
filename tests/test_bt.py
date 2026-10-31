@@ -119,7 +119,7 @@ def test_pair_and_sound_to_the_headphones(tmp_path):
         jb._hdmi_write()
         cfg = json.load(open(os.path.join(jb.run_dir, "hdmi-in.json")))["cfg"]
         assert cfg["sound"] is True and cfg["sound_dev"] == bt.alsa_device(MAC)
-        assert ("Ton über Kopfhörer", "an") in [x[:2] for x in jb.menu.entries_of("main")]
+        assert ("Ton über Kopfhörer", "an") in [x[:2] for x in jb.menu.entries_of("sound")]
         # switched off on the TV: the TV again (its sound switch is off: no sound process)
         await jb.menu._do(("btout",))
         assert not jb.config["bt"]["on"] and "Fernseher" in jb.menu.note

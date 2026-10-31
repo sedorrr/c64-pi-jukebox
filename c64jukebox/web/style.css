@@ -47,6 +47,8 @@ label:has(> input.num) > input.num { display: inline-block; width: 5.5em; margin
 .top { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #40318d; }
 .logo { font-weight: 700; letter-spacing: .5px; color: var(--hi); white-space: nowrap; }
 .topnow { color: var(--dim); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.topbtn { margin-left: auto; flex: none; display: flex; align-items: center; justify-content: center; width: 40px; height: 36px;
+  padding: 0; background: transparent; border: 1px solid #7869c4; border-radius: 8px; color: var(--hi); }
 .warnbar { background: #6a3d1a; color: #ffe0c0; padding: 8px 16px; font-size: 14px; }
 .warnbar.info { background: #1d4566; color: #d8ecff; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .warnbar.info a { color: #9fd3ff; }

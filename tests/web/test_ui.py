@@ -729,3 +729,21 @@ def test_update_on_request(browser, demo):
     os.remove(path)
     demo.jb.menu.close()
     assert not page.errors
+
+
+def test_power_from_every_tab(browser, demo):
+    """the button at the top: TV on / off, the Ultimate, "Jukebox ausschalten" - from every tab, also on the phone"""
+    page = new_page(browser, demo, PHONE)
+    page.on("dialog", lambda d: d.accept())
+    page.click("#tabs button[data-t=lists]")
+    page.click("#topoff")
+    page.wait_for_selector("#menudlg[open]")
+    labels = page.eval_on_selector_all("#menubtns button", "bs => bs.map(b => b.textContent)")
+    assert labels[0] == "Fernseher einschalten" and labels[1] == "Fernseher ausschalten" and labels[-1] == "Jukebox ausschalten"
+    assert "einschalten" in labels[2] and "ausschalten" in labels[3]
+    no_overflow(page)
+    page.screenshot(path=os.path.join(HERE, "power_menu.png"))
+    page.click("#menubtns button >> nth=4")
+    until(lambda: demo.jb.powering_off)
+    demo.jb.powering_off = False
+    assert not page.errors

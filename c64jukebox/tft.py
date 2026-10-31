@@ -347,7 +347,11 @@ def map_touch(cal, raw, flipped=False):
 # ---- what the colour display shows ----
 BLUE, LIGHT, WHITE, DARK = (64, 49, 141), (120, 105, 196), (255, 255, 255), (40, 30, 95)    # C64 blue / light blue
 SOFT = (175, 165, 240)                    # secondary text: light blue, a little brighter for the small screen
-BUTTONS = [((8, 166, 104, 232), "prev"), ((112, 166, 208, 232), "stop"), ((216, 166, 312, 232), "next")]
+BUTTONS = [((8, 166, 76, 232), "prev"), ((84, 166, 156, 232), "stop"), ((164, 166, 236, 232), "next"),
+           ((244, 166, 312, 232), "power")]
+POWER_BUTTONS = [((8, 50, 156, 108), "tvon"), ((164, 50, 312, 108), "tvoff"), ((8, 116, 312, 170), "pioff"),
+                 ((8, 178, 312, 232), "back")]
+RED = (136, 0, 0)                         # C64 red: the button that switches the jukebox off
 BOLD = ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/System/Library/Fonts/Supplemental/Arial Bold.ttf")
 
 
@@ -361,7 +365,8 @@ def bold(size):
 
 
 class TftScreen:
-    """320 x 240 pages in C64 colours: "play" (with three touch buttons), "level" (meters), "net", "cal" (crosses)"""
+    """320 x 240 pages in C64 colours: "play" (with four touch buttons), "level" (meters), "net", "power" (TV on/off,
+    jukebox off), "cal" (crosses)"""
 
     def __init__(self):
         from .display import font
@@ -399,6 +404,8 @@ class TftScreen:
             self._net(d, st.get("net") or {}, st)
         elif page == "level":
             self._level(d, st)
+        elif page == "power":
+            self._power(d, st)
         else:
             self._play(d, st)
         return img
@@ -445,7 +452,24 @@ class TftScreen:
         d.text((W - 10 - d.textlength(t, font=self.small), 226), t, font=self.small, fill=SOFT)
 
     def buttons(self, page):
-        return BUTTONS if page == "play" else []
+        return BUTTONS if page == "play" else POWER_BUTTONS if page == "power" else []
+
+    def _power(self, d, st):
+        """TV on / off (HDMI-CEC), the jukebox off - a second tap within a few seconds (st["armed"])"""
+        tv = st.get("tvctl") or {}
+        state = {"on": "Fernseher an", "standby": "Fernseher aus"}.get(tv.get("tv"), "") if tv.get("ready") else ""
+        self._bar(d, "Ein / Aus", state)
+        note = st.get("pnote") or ("" if tv.get("ready") else "TV-Fernbedienung (HDMI-CEC) ist aus")
+        d.text((8, 30), self._fit(d, note, self.small, W - 16), font=self.small, fill=SOFT)
+        labels = {"tvon": "Fernseher an", "tvoff": "Fernseher aus", "back": "Zurück",
+                  "pioff": "Nochmal tippen: ausschalten" if st.get("armed") else "Jukebox ausschalten"}
+        for (x0, y0, x1, y1), what in POWER_BUTTONS:
+            off = what in ("tvon", "tvoff") and not tv.get("ready")
+            fill = RED if what == "pioff" else (56, 44, 118) if off else LIGHT
+            text = WHITE if what == "pioff" else (105, 92, 170) if off else DARK
+            d.rounded_rectangle((x0, y0, x1, y1), radius=10, fill=fill)
+            t = self._fit(d, labels[what], self.head, x1 - x0 - 12)
+            d.text(((x0 + x1 - d.textlength(t, font=self.head)) // 2, (y0 + y1) // 2 - 9), t, font=self.head, fill=text)
 
     def _bar(self, d, left, right=""):
         d.rectangle((0, 0, W - 1, 25), fill=LIGHT)
@@ -490,6 +514,10 @@ class TftScreen:
     @staticmethod
     def _icon(d, what, cx, cy, state):
         c = BLUE
+        if what == "power":                           # the power sign: an open ring and a bar
+            d.arc((cx - 15, cy - 13, cx + 15, cy + 17), 300, 240, fill=c, width=4)
+            d.rectangle((cx - 2, cy - 18, cx + 2, cy + 2), fill=c)
+            return
         if what == "stop":                            # stop while a tune plays (or pauses), else play
             if state in ("play", "load", "pause"):
                 d.rectangle((cx - 14, cy - 14, cx + 14, cy + 14), fill=c)

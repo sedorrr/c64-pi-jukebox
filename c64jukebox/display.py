@@ -197,6 +197,8 @@ class Screen:
         d.text((ox, 52 + oy), self._fit(d, foot, self.small, W), font=self.small, fill=1)
 
 
+ARM_S = 5                                      # "Jukebox ausschalten": the second tap within this
+
 class Display:
     """the jukebox's side: finds the display (OLED on I2C or the 2.8" TFT on SPI), chooses the page, sends only changed
     pictures; on the TFT also the touch (buttons, page change, calibration). tick() runs in a worker thread about once a
@@ -226,6 +228,7 @@ class Display:
         self.page = None
         self.dark = False
         self.override = None                           # (page, until): chosen by a tap
+        self.armed = 0.0                               # "Jukebox ausschalten" tapped once: a second tap until then
         self.cal_step = None                           # 0..2 while the crosses are shown
         self.cal_raw = []
         self.cal_note = ""
@@ -311,6 +314,8 @@ class Display:
             return None
         page = self.page_for(st)
         if self.tft:
+            if page == "power" and now < self.armed:
+                st = dict(st, armed=True)
             return self.screen.render(st, page), page
         return self.screen.render(st, page, shift=int((now - self.t0) / 60)), page
 
@@ -396,8 +401,23 @@ class Display:
         for (x0, y0, x1, y1), what in self.screen.buttons(self.page):
             if x0 <= x <= x1 and y0 <= y <= y1:
                 self._flash((x0, y0, x1 + 1, y1 + 1))
+                if what in ("power", "back"):             # the page with TV on/off and "Jukebox ausschalten"
+                    self.override = ("power", self.clock() + 30) if what == "power" else None
+                    self.armed = 0.0
+                    self.redraw()
+                    return what
+                if what == "pioff" and self.clock() >= self.armed:      # the first tap only asks
+                    self.armed = self.clock() + ARM_S
+                    self.override = ("power", self.clock() + 30)
+                    self.redraw()
+                    return "arm"
+                if self.page == "power":                 # stays a while after a tap there
+                    self.override = ("power", self.clock() + 30)
+                self.armed = 0.0
                 self.on_touch(what)
                 return what
+        if self.page == "power":                          # beside the buttons: nothing (not by mistake away)
+            return None
         order = ["play", "level", "net"]                  # a tap elsewhere: the next page, 30 s long
         other = order[(order.index(self.page) + 1) % len(order)] if self.page in order else "play"
         self.override = (other, self.clock() + 30)

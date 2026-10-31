@@ -1564,17 +1564,35 @@ $('plchk').onclick = async () => {
     CFG = await api('config'); $('plip').value = CFG.plug.ip || '';
   } catch (e) { $('plstate').textContent = e.message; }
 };
-$('pwroff').onclick = async () => {
-  if (!confirm('Den Pi jetzt ausschalten?' + (CFG.plug && CFG.plug.id ? ' Die Steckdose schaltet danach ab.' : ''))) return;
+/* "Jukebox ausschalten": the card in the settings and the button at the top */
+async function piOff() {
+  const plug = (CFG && CFG.plug && CFG.plug.id) || (S && S.plug);
+  if (!confirm('Die Jukebox jetzt ausschalten?' + (plug ? ' Die Steckdose schaltet danach ab.' : ''))) return;
   try {
     let r;
     try { r = await api('power/off', {}); } catch (e) {
       if (!/Steckdose/.test(e.message) || !confirm(e.message + '\n\nTrotzdem herunterfahren? (Der Strom bleibt dann an.)')) throw e;
       r = await api('power/off', {force: true});
     }
-    $('pwrstate').textContent = 'Der Pi fährt herunter' + (r.timer ? ', die Steckdose schaltet in ' + r.secs + ' s ab.' : '.');
+    const t = 'Die Jukebox fährt herunter' + (r.timer ? ', die Steckdose schaltet in ' + r.secs + ' s ab.' : '.');
+    $('pwrstate').textContent = t; toast(t);
     $('pwroff').disabled = true;
   } catch (e) { errToast(e); }
+}
+$('pwroff').onclick = piOff;
+/* the button at the top: TV, Ultimate and jukebox on / off - from every tab */
+$('topoff').onclick = () => {
+  const i = S ? S.sel : 0, u = S && S.ultimates[i], name = u ? (u.label || u.addr) : 'Ultimate';
+  const tv = what => api('cec', {tv: what}).then(r => { if (HD) HD.cec = r.cec; toast(what === 'on' ? 'Fernseher wird eingeschaltet' : 'Fernseher wird ausgeschaltet'); })
+    .catch(e => errToast(e.message === 'HDMI-CEC ist nicht bereit' ? new Error('Fernseher: zuerst im Tab „Anzeige“ die TV-Fernbedienung (HDMI-CEC) einschalten') : e));
+  const u64 = on => api('u64/power', {i, on}).then(r => { toast(r.msg); poll(); }).catch(errToast);
+  menu('Ein / Aus', [
+    {label: 'Fernseher einschalten', fn: () => tv('on')},
+    {label: 'Fernseher ausschalten', fn: () => tv('standby')},
+    {label: '\u201e' + H(name) + '\u201c einschalten', fn: () => u64(true)},
+    {label: '\u201e' + H(name) + '\u201c ausschalten', fn: () => { if (confirm('\u201e' + name + '\u201c ausschalten? Die Wiedergabe stoppt.')) u64(false); }},
+    {label: 'Jukebox ausschalten', danger: true, fn: piOff},
+  ]);
 };
 /* titles of the whole HVSC for the search: read once in the background */
 async function hvtShow() {

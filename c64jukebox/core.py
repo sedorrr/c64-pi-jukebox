@@ -2146,6 +2146,11 @@ class Jukebox:
             self.hub.want_levels = False
         d["net"] = self.net_state()
         d["ip"] = local_ip()
+        if self.display.page == "power" or self.display.override:
+            d["tvctl"] = {"ready": bool(self.cec and self.cec_ready),
+                          "tv": self.cec.proto.tv_power if self.cec and self.cec_ready else None}
+            note = getattr(self, "touch_note", None)
+            d["pnote"] = note[0] if note and self.clock() < note[1] else ""
         return d
 
     def _display_tick(self):
@@ -2179,6 +2184,23 @@ class Jukebox:
             await p.next()
         elif what == "prev":
             await p.prev()
+        elif what in ("tvon", "tvoff"):                   # the page "Ein / Aus"
+            try:
+                self.cec_tv("on" if what == "tvon" else "standby")
+                self._touch_note("Fernseher wird eingeschaltet" if what == "tvon" else "Fernseher wird ausgeschaltet")
+            except ValueError as e:
+                self._touch_note(str(e))
+        elif what == "pioff":
+            try:
+                r = await self.power_off()
+                self._touch_note("Jukebox wird ausgeschaltet" + (" – Strom aus in %d s" % r["secs"] if r["timer"] else ""))
+            except ValueError as e:
+                self._touch_note(str(e))
+
+    def _touch_note(self, text):
+        """one line on the touch display's page "Ein / Aus" for a while"""
+        self.touch_note = (text, self.clock() + 10)
+        self._display_tick()
 
     # ------------------------------------------------------------ the network of the Pi (netwatch.py, as root)
     def net_state(self):
@@ -2696,5 +2718,6 @@ class Jukebox:
             "update": self.update["ver"] if self.update and self.update["newer"] and self.config.data.get("updates", True)
             else None,
             "upd": self.update_state(),
+            "plug": plug.configured(self.config["plug"]),
             "display": self.display.msg,
         }

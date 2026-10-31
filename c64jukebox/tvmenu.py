@@ -2,8 +2,8 @@
 does it, back or left goes back. Choose the music: a source and its folders (play a folder, with sub-folders, add it,
 play from a file on), the presets of "Listen zusammenstellen", the saved lists (which can also be renamed, with a
 keyboard on the screen, and deleted); shuffle, repeat, the effect and its automatic change, sound over HDMI and its
-volume, the title card; which Ultimate plays (a network search adds more) and that one on (over its WLAN) and off;
-a newer version on GitHub (looked for here too) installed on request.
+volume, the title card ("Bild und Ton"); which Ultimate plays (a network search adds more); a newer version on GitHub
+(looked for here too) installed on request; "Ausschalten": the TV, the jukebox, the Ultimate (off and on again).
 Closed after 30 s without a key (60 s at the keyboard). Only the logic - the HDMI service draws what view() returns
 (hdmi-in.json "menu")."""
 from . import VERSION, plug, sidfile, smartlist
@@ -31,12 +31,13 @@ def onoff(v):
 
 class TvMenu:
     TITLES = {"main": "C64-Jukebox", "lists": "Musik wählen", "effects": "Effekt am Fernseher",
-              "ultimates": "Welches Ultimate spielt"}
+              "ultimates": "Welches Ultimate spielt", "sound": "Bild und Ton", "power": "Ausschalten"}
 
     def __init__(self, core, clock):
         self.core, self.clock = core, clock
         self.level = None                        # None = closed, "main", "lists", "effects", "list", "confirm", "kbd"
-        self.sel = {"main": 0, "lists": 0, "effects": 0, "list": 0, "confirm": 0, "dir": 0, "ultimates": 0}
+        self.sel = {"main": 0, "lists": 0, "effects": 0, "list": 0, "confirm": 0, "dir": 0, "ultimates": 0, "sound": 0,
+                    "power": 0}
         self.at = 0.0
         self.note = ""                           # one line under the items (what just happened, or why not)
         self.version = 0
@@ -124,11 +125,33 @@ class TvMenu:
             sel = c["u64_sel"]
             out = [(self._u64_name(u), "●" if i == sel else u.get("addr", ""), ("u64sel", i))
                    for i, u in enumerate(c["ultimates"]) if u.get("addr")]
+            name = self._u64_name()
+            out += [("Einschalten", name, ("power", True)),
+                    ("Ausschalten", name + " ›", ("ask", "„%s“ ausschalten?" % name, "Ja, ausschalten",
+                                                 ("power", False), "ultimates"))]
             out.append(("Im Netzwerk suchen", "%d %%" % (self.scan_job.pct or 0) if self._busy(self.scan_job) else "›",
                         ("u64scan",)))
             out += [("+ " + f["name"], f["ip"], ("u64add", k)) for k, f in enumerate(self.found)]
             return out
+        if self.level == "sound":
+            return [
+                ("Effekte automatisch wechseln", onoff(h.get("auto")), ("auto",)),
+                ("Titel einblenden", onoff(h.get("osd", True)), ("osd",)),
+                ("Ton am Fernseher", onoff(h.get("sound")), ("sound",)),
+                *([("Ton über Kopfhörer", onoff(c["bt"].get("on")) + ("" if self.core.bt_conn else " (nicht verbunden)"),
+                    ("btout",))] if c["bt"].get("mac") else []),
+                ("Lautstärke am Fernseher", "%d %%" % int(h.get("volume", 100)), ("volume",)),
+            ]
         name = self._u64_name()
+        if self.level == "power":
+            return [
+                ("Fernseher ausschalten", "", ("tvoff",)),
+                ("Jukebox ausschalten", "›", ("ask", "Jukebox ausschalten?" + (" Die Steckdose schaltet danach ab."
+                                                                              if plug.configured(c["plug"]) else ""),
+                                              "Ja, ausschalten", ("pioff",), "power")),
+                ("Ultimate ausschalten", name + " ›", ("ask", "„%s“ ausschalten?" % name, "Ja, ausschalten",
+                                                          ("power", False), "power")),
+            ]
         p = self.core.player
         lh = getattr(self.core, "loop_hint", None)
         p_loop = lh["len"] if lh and lh["cur"] is p.cur else 0
@@ -146,23 +169,13 @@ class TvMenu:
             ("Zufall", onoff(pl.get("shuffle")), ("shuffle",)),
             ("Wiederholen", onoff(pl.get("repeat")), ("repeat",)),
             ("Effekt", MODES.get(h.get("mode"), "?") + " ›", ("go", "effects")),
-            ("Effekte automatisch wechseln", onoff(h.get("auto")), ("auto",)),
-            ("Ton am Fernseher", onoff(h.get("sound")), ("sound",)),
-            *([("Ton über Kopfhörer", onoff(c["bt"].get("on")) + ("" if self.core.bt_conn else " (nicht verbunden)"),
-                ("btout",))] if c["bt"].get("mac") else []),
-            ("Lautstärke am Fernseher", "%d %%" % int(h.get("volume", 100)), ("volume",)),
-            ("Titel einblenden", onoff(h.get("osd", True)), ("osd",)),
+            ("Bild und Ton", "%d %% ›" % int(h.get("volume", 100)), ("go", "sound")),
+            ("Ultimate", name + " ›", ("go", "ultimates")),
             ("Längen prüfen", self._check_value(), ("checklens",)),
             *([("%d HVSC-Längen übernehmen" % len(self.core.list_hits), "", ("listnames",))]
               if getattr(self.core, "list_hits", None) else []),
-            ("Ultimate", name + " ›", ("go", "ultimates")),
-            ("Ultimate einschalten", name, ("power", True)),
-            ("Ultimate ausschalten", name + " ›", ("ask", "„%s“ ausschalten?" % name, "Ja, ausschalten",
-                                                      ("power", False), "main")),
             self._update_entry(),
-            ("Pi ausschalten", "›", ("ask", "Jukebox-Pi ausschalten?" + (" Die Steckdose schaltet danach ab."
-                                                                          if plug.configured(c["plug"]) else ""),
-                                     "Ja, ausschalten", ("pioff",), "main")),
+            ("Ausschalten", "›", ("go", "power")),          # one "up" from the top (after "Schließen")
             ("Schließen", "", ("close",)),
         ]
 
@@ -534,19 +547,32 @@ class TvMenu:
             except ValueError as e:
                 self.note = str(e)
             self.level, self.confirm = "main", None
+        elif kind == "tvoff":
+            try:
+                core.cec_tv("standby")
+                self.note = "Fernseher wird ausgeschaltet"
+                self.close_at = self.clock() + DONE_S
+            except ValueError as e:
+                self.note = str(e)
         elif kind == "pioff":
             try:
                 r = await core.power_off()
-                self.note = "Pi wird ausgeschaltet" + (" – Strom aus in %d s" % r["secs"] if r["timer"] else "")
+                self.note = "Jukebox wird ausgeschaltet" + (" – Strom aus in %d s" % r["secs"] if r["timer"] else "")
             except ValueError as e:
                 self.note = str(e)
-            self.level, self.confirm = "main", None
+            self._answered()
         elif kind == "power":
             try:
                 self.note = await core.u64_power(core.config["u64_sel"], a[1])
             except ValueError as e:
                 self.note = str(e)
-            self.level, self.confirm = "main", None
+            self._answered()
+
+    def _answered(self):
+        """after a question was answered: back to the level it was asked on"""
+        if self.level == "confirm":
+            self.level = self.confirm[3]
+        self.confirm = None
 
     async def _kbd_key(self, cmd):
         k = self.kbd
