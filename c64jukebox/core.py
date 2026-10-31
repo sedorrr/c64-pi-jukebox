@@ -47,7 +47,9 @@ TV_ASK_S = 30               # how often the TV is asked whether it is on (some d
 
 
 def version_key(v):
-    return tuple(int(x) for x in re.findall(r"\d+", v or ""))
+    """versions as decimal numbers: 1.1 < 1.11 < 1.12 < 1.2 (small steps get another digit, not a higher number)"""
+    parts = re.findall(r"\d+", v or "")
+    return (int(parts[0]) if parts else 0, ".".join(parts[1:]).ljust(12, "0"))
 INFO_SONGS_MAX = 64
 HDMI_IMAGES_MAX = 300
 HDMI_IMAGE_SIZE = (1920, 1080)

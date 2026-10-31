@@ -378,7 +378,8 @@ def test_update_hint(tmp_path, monkeypatch):
         finally:
             await srv.close()
     run(tmp_path, t)
-    assert core.version_key("1.10") > core.version_key("1.9") > core.version_key("1.0")
+    k = core.version_key                     # decimal: a small step gets another digit (1.1, 1.11, 1.12, then 1.2)
+    assert k("1.2") > k("1.12") > k("1.11") > k("1.1") > k("1.0") and k("2.0") > k("1.99") and k("1.10") == k("1.1")
 
 
 def test_home_screen_icons(tmp_path):
