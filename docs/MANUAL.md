@@ -997,6 +997,9 @@ the buttons of the TV remote arrive. The Fire TV's remote keeps controlling the 
 - **Announce as active device when playing** (on): at every start of playback the Pi announces itself to the TV as
   the device it is showing – then the buttons arrive without having to tap anything first, even after a
   restart of the Pi. Some TVs switch to the Pi's input when this happens; if that bothers you, untick it.
+  While the jukebox is stopped it never takes the picture by itself: when the TV asks which device is being shown
+  (some ask often, e.g. after changing the channel), the Pi only answers while music is playing. Every such question
+  and every switch is in the event log ("HDMI-CEC: …").
 
 - **Switch TV on … when playback starts:** if you start the music on your phone, the TV comes on and
   switches to the Pi. Caution: even if someone is watching TV at the time.

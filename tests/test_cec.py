@@ -47,10 +47,22 @@ def test_protocol_keys_and_answers():
     # the TV switches to the Pi's input -> we are the active source; to another input -> not any more
     assert p.handle(0, 15, bytes([cec.SET_STREAM_PATH, 0x10, 0x00]))[1] == [(15, bytes([cec.ACTIVE_SOURCE, 0x10, 0]))]
     assert p.active
+    routes = []
+    p.on_route = lambda what, frm, path: routes.append((what, frm, path))
+    p.playing = True                                               # music plays: the Pi answers the TV's question
     assert p.handle(0, 15, bytes([cec.REQUEST_ACTIVE_SOURCE]))[1] == [(15, bytes([cec.ACTIVE_SOURCE, 0x10, 0]))]
     p.handle(0, 15, bytes([cec.ROUTING_CHANGE, 0x10, 0x00, 0x20, 0x00]))
     assert not p.active and p.handle(0, 15, bytes([cec.REQUEST_ACTIVE_SOURCE]))[1] == []
+    assert routes == [("answer", 0, "1.0.0.0"), ("away", 0, "2.0.0.0")]
     assert p.tv_on() == [(0, bytes([cec.IMAGE_VIEW_ON])), (15, bytes([cec.ACTIVE_SOURCE, 0x10, 0]))] and p.active
+    # nothing plays: the TV (switched to its tuner without telling) asks - the Pi stays silent and no longer thinks
+    # it is shown, so it does not take the picture away
+    p.playing = False
+    assert p.handle(0, 15, bytes([cec.REQUEST_ACTIVE_SOURCE]))[1] == [] and not p.active
+    assert p.handle(0, 15, bytes([cec.REQUEST_ACTIVE_SOURCE]))[1] == []
+    assert routes[-1] == ("silent", 0, "1.0.0.0") and len(routes) == 3
+    p.handle(8, 15, bytes([cec.ACTIVE_SOURCE, 0x20, 0x00]))
+    assert routes[-1] == ("other", 8, "2.0.0.0")
 
 
 class FakeCecDevice:
@@ -198,6 +210,14 @@ def test_link_and_jukebox(tmp_path, monkeypatch):
             dev.put(0, 15, bytes([cec.SET_STREAM_PATH, 0x20, 0x00]))
             await asyncio.sleep(0.1)
             assert dev.sent[-1] == bytes([0x4F, cec.ACTIVE_SOURCE, 0x20, 0])
+            # stopped, the TV asks who is shown: the Pi stays silent (it would take the picture away), the log says so
+            await jb.player.stop()
+            jb._cec_tick()
+            n = len(dev.sent)
+            dev.put(0, 15, bytes([cec.REQUEST_ACTIVE_SOURCE]))
+            await asyncio.sleep(0.1)
+            assert dev.sent[n:] == [] and not jb.cec.proto.active
+            assert "bleibt still" in events._log[-1][1]
             # music starts while the TV gives no address; when it comes later, the TV is NOT switched on then
             dev.la = None
             jb._cec_tick()

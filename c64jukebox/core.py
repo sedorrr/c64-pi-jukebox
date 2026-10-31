@@ -489,12 +489,27 @@ class Jukebox:
             link = CecLink(CecProtocol("C64-Jukebox", clock=self.clock))
             link.proto.on_key = lambda k, cmd: events.log(tr("Fernbedienung: Taste 0x%02X (%s) -> %s") % (
                 k, tr(KEY_NAMES.get(k, "?")), cmd or tr("nicht belegt")))
+            link.proto.on_route = self._cec_route
             self.cec, self.cec_ready = link, False
             self.cec_retry_at = self.clock()
             if link.open():
                 asyncio.get_running_loop().add_reader(link.fd, self._cec_read)
         elif not on and self.cec:
             self._cec_close()
+
+    @staticmethod
+    def _cec_route(what, frm, path):
+        """who is shown on the TV, in the event log - to find out which device switched the input"""
+        if what == "to_pi":
+            events.log(tr("HDMI-CEC: Fernseher schaltet auf den Pi (%s)") % path)
+        elif what == "away":
+            events.log(tr("HDMI-CEC: Fernseher schaltet auf %s um") % path)
+        elif what == "other":
+            events.log(tr("HDMI-CEC: Gerät %d meldet sich als aktive Quelle (%s)") % (frm, path))
+        elif what == "answer":
+            events.log(tr("HDMI-CEC: Fernseher fragt nach der aktiven Quelle – Pi meldet sich (Musik läuft)"))
+        else:
+            events.log(tr("HDMI-CEC: Fernseher fragt nach der aktiven Quelle – Pi bleibt still (keine Musik)"))
 
     def _cec_close(self):
         if self.cec and self.cec.fd is not None:

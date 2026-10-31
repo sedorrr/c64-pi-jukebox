@@ -998,6 +998,9 @@ kommen die Tasten der Fernseher-Fernbedienung an. Die Fernbedienung des Fire TV 
 - **Beim Abspielen als aktives Gerät melden** (an): Bei jedem Start der Wiedergabe meldet sich der Pi beim Fernseher als
   das Gerät, das er zeigt – dann kommen die Tasten an, ohne dass man vorher etwas antippen muss, auch nach einem
   Neustart des Pi. Manche Fernseher schalten dabei auf den Eingang des Pi um; wen das stört, nimmt den Haken heraus.
+  Steht die Jukebox, holt sie sich das Bild nie von selbst: Fragt der Fernseher, welches Gerät gerade gezeigt wird
+  (manche tun das oft, etwa nach dem Senderwechsel), antwortet der Pi nur, solange Musik läuft. Jede solche Frage und
+  jedes Umschalten steht im Ereignisprotokoll („HDMI-CEC: …“).
 
 - **Fernseher einschalten …, wenn die Wiedergabe beginnt:** startet man die Musik am Handy, geht der Fernseher an und
   schaltet auf den Pi. Achtung: auch, wenn gerade jemand fernsieht.

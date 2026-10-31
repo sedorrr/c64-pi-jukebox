@@ -82,6 +82,7 @@ class CecProtocol:
         self.recent = deque(maxlen=8)   # the last commands (finding out what a remote sends)
         self.on_key = None              # callback(code, command or None) for every accepted key press
         self.tv_power = None            # what the TV said last: "on", "standby" or None (not heard yet)
+        self.on_route = None            # callback(what, frm, path) for who-is-shown messages (the event log)
 
     def _addr(self):
         return bytes([self.phys >> 8, self.phys & 0xFF])
@@ -89,6 +90,11 @@ class CecProtocol:
     def active_source(self):
         self.active = True
         return (BROADCAST, bytes([ACTIVE_SOURCE]) + self._addr())
+
+    def _route(self, what, frm, path):
+        if self.on_route:
+            self.on_route(what, frm, "%d.%d.%d.%d" % (path[0] >> 4, path[0] & 15, path[1] >> 4, path[1] & 15)
+                          if len(path) >= 2 else "?")
 
     def tv_on(self):
         """switch the TV on and to the Pi"""
@@ -144,12 +150,22 @@ class CecProtocol:
             path = arg[-2:]                                                # Routing Change: new address last
             if self.phys != 0xFFFF and path == self._addr():
                 out.append(self.active_source())                           # the TV switched to the Pi
+                self._route("to_pi", frm, path)
             else:
                 self.active = False
+                self._route("away", frm, path)
         elif op == ACTIVE_SOURCE and frm != self.la:
             self.active = False                                            # another device took over
+            self._route("other", frm, arg[:2])
         elif op == REQUEST_ACTIVE_SOURCE and self.active:
-            out.append((BROADCAST, bytes([ACTIVE_SOURCE]) + self._addr()))
+            # only while music plays: a TV switched to its own tuner mostly tells nobody, the Pi still thinks it is
+            # shown - answering then took the picture away every time the TV asked (Hisense asks often)
+            if self.playing:
+                out.append((BROADCAST, bytes([ACTIVE_SOURCE]) + self._addr()))
+                self._route("answer", frm, self._addr())
+            else:
+                self.active = False                                        # unknown now; a start of playing claims
+                self._route("silent", frm, self._addr())
         if cmd:
             self.last = cmd
             self.recent.append(cmd)
