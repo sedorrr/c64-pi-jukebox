@@ -447,3 +447,27 @@ def test_menu_in_english(tmp_path):
     finally:
         i18n.set_lang("de")
         i18n._tables.clear()
+
+
+def test_language_on_the_tv(tmp_path):
+    """"Sprache / Language" (in both languages, whichever is on): OK switches German <-> English, saved for all"""
+    from c64jukebox import i18n
+
+    async def t(e):
+        jb = e.jb
+        jb.config.data["hdmi"]["on"] = True
+        try:
+            await jb._cec_cmd("select")
+            names = [x[0] for x in jb.menu.entries()]
+            jb.menu.sel["main"] = names.index("Sprache / Language")
+            assert jb.menu.entries()[jb.menu.sel["main"]][1] == "Deutsch"
+            await jb._cec_cmd("select")
+            v = jb.menu.view()
+            assert i18n.lang() == "en" and jb.config["lang"] == "en" and v["items"][v["sel"]]["v"] == "English"
+            assert any(x["l"] == "Switch off" for x in v["items"]) and jb.state()["lang"] == "en"
+            assert '"lang": "en"' in open(os.path.join(jb.data_dir, "config.json")).read()
+            await jb._cec_cmd("select")
+            assert i18n.lang() == "de" and jb.config["lang"] == "de"
+        finally:
+            i18n.set_lang("de")
+    run(tmp_path, t)

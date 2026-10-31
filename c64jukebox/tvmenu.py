@@ -6,12 +6,13 @@ volume, the title card ("Bild und Ton"); which Ultimate plays (a network search 
 (looked for here too) installed on request; "Ausschalten": the TV, the jukebox, the Ultimate (off and on again).
 Closed after 30 s without a key (60 s at the keyboard). Only the logic - the HDMI service draws what view() returns
 (hdmi-in.json "menu")."""
-from . import VERSION, plug, sidfile, smartlist
+from . import VERSION, i18n, plug, sidfile, smartlist
 from .hdmi.modes import MODES
 from .i18n import tr
 from .sources import SourceError
 
 TIMEOUT_S = 30
+LANG_NAMES = {"de": "Deutsch", "en": "English"}  # each in its own language
 KBD_TIMEOUT_S = 60
 WINDOW = 9                                       # lines shown at once
 VOLUMES = (100, 90, 80, 70, 60, 50, 40, 30, 20, 10)
@@ -178,6 +179,8 @@ class TvMenu:
             *([(tr("%d HVSC-Längen übernehmen") % len(self.core.list_hits), "", ("listnames",))]
               if getattr(self.core, "list_hits", None) else []),
             self._update_entry(),
+            # in both languages, whichever is on: found also by someone who cannot read the other
+            ("Sprache / Language", LANG_NAMES.get(i18n.lang(), i18n.lang()), ("lang",)),
             (tr("Ausschalten"), "›", ("go", "power")),          # one "up" from the top (after "Schließen")
             (tr("Schließen"), "", ("close",)),
         ]
@@ -535,6 +538,12 @@ class TvMenu:
             except ValueError as e:
                 self.note = str(e)
             self.level, self.confirm = "main", None
+        elif kind == "lang":                             # OK switches to the next language
+            langs = list(i18n.LANGS)
+            new = langs[(langs.index(i18n.lang()) + 1) % len(langs)]
+            core.config.data["lang"] = new
+            core.config.save()
+            i18n.set_lang(new)
         elif kind == "updcheck":
             if self.core.update_running():
                 self.note = tr("Das Update läuft – die Jukebox startet gleich neu")

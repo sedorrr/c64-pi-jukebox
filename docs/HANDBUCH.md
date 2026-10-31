@@ -151,7 +151,8 @@ Am Handy stehen „Wiedergabe“, „Anzeige“, „Einstellungen“ und „Hilf
 Tab-Leiste. Die runden **?**-Knöpfe in
 den Tabs springen an die passende Stelle des Handbuchs.
 
-Die Sprache (Deutsch / Englisch) wählt man unter **Einstellungen → System → Sprache / Language**; sie gilt für die Seite,
+Die Sprache (Deutsch / Englisch) wählt man unter **Einstellungen → System → Sprache / Language** oder im Menü am
+Fernseher unter **Sprache / Language**; sie gilt für die Seite,
 das Menü am Fernseher, die Displays und dieses Handbuch.
 
 **Als App auf dem Startbildschirm:** Am iPhone/iPad in Safari **Teilen → Zum Home-Bildschirm**, am Android-Handy in
@@ -976,6 +977,8 @@ obersten: schließen). Nach 30 s ohne Taste schließt es von selbst. Darin:
 - **Nach Update sehen** – fragt GitHub nach einer neuen Version (rechts steht die installierte). Gibt es eine, heißt
   die Zeile **Update auf … installieren**: OK fragt nach und installiert sie, die Jukebox startet dabei neu (siehe
   [Aktualisieren](#aktualisieren)).
+- **Sprache / Language** – steht in beiden Sprachen da; OK wechselt zwischen Deutsch und Englisch (für Seite,
+  Fernsehmenü, Displays und Handbuch, wie unter *Einstellungen → System*).
 - **Ausschalten** – steht unten, direkt nach dem Öffnen also mit zweimal ↑ erreichbar: **Fernseher ausschalten**
   (sofort), **Jukebox ausschalten** (fragt nach; mit eingerichteter Steckdose geht danach auch der Strom aus, siehe
   [Ausschalten und Steckdose](#ausschalten-und-steckdose)) und **Ultimate ausschalten** (fragt nach).

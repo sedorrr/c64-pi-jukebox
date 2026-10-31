@@ -134,6 +134,7 @@ async function poll() {
   if (document.visibilityState === 'hidden') return;
   try { S = await api('state'); } catch (e) { return; }
   if (pageVer && S.version !== pageVer) { location.reload(); return; }        // updated: the page of the new version
+  if (S.lang && S.lang !== LANG) { location.reload(); return; }              // switched on the TV menu
   pageVer = S.version;
   $('fhvsc').hidden = !S.hvsc;
   updShow();

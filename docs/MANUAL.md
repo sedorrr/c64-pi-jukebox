@@ -151,7 +151,8 @@ On a phone, “Player”, “Display”, “Settings” and “Help” appear as
 tab bar. The round **?** buttons in
 the tabs jump to the matching place in the manual.
 
-The language (German / English) is chosen under **Settings → System → Language / Sprache**; it applies to the page,
+The language (German / English) is chosen under **Settings → System → Sprache / Language** or in the TV menu under
+**Sprache / Language**; it applies to the page,
 the TV menu, the displays and this manual.
 
 **As an app on the home screen:** on an iPhone/iPad in Safari **Share → Add to Home Screen**, on an Android phone in
@@ -975,6 +976,8 @@ top level: closes). After 30 s without a button press it closes by itself. In it
 - **Check for update** – asks GitHub for a new version (the installed one is shown on the right). If there is one, the line
   reads **Install update …**: OK asks for confirmation and installs it; the jukebox restarts in the process (see
   [Updating](#aktualisieren)).
+- **Sprache / Language** – shown in both languages; OK switches between German and English (for the page, the TV
+  menu, the displays and the manual, as under *Settings → System*).
 - **Switch off** – at the bottom, so right after opening it can be reached with ↑ twice: **Switch TV off**
   (at once), **Switch off jukebox** (asks for confirmation; with a smart plug set up, the power then goes off too, see
   [Switching off and smart plug](#ausschalten-und-steckdose)) and **Switch Ultimate off** (asks for confirmation).

@@ -2733,5 +2733,6 @@ class Jukebox:
             else None,
             "upd": self.update_state(),
             "plug": plug.configured(self.config["plug"]),
+            "lang": i18n.lang(),
             "display": self.display.msg,
         }
