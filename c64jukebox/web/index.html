@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#352879">
-<title>C64-Jukebox</title>
+<title translate="no">C64-Jukebox</title>
 <link rel="icon" href="icon.svg">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
@@ -18,7 +18,7 @@
 
 <div id="login" class="login" hidden>
   <form id="lform">
-    <h1>C64-Jukebox</h1>
+    <h1 translate="no">C64-Jukebox</h1>
     <input type="password" id="lpw" placeholder="Passwort" autocomplete="current-password" aria-label="Passwort">
     <button class="primary">Anmelden</button>
     <p id="lmsg" class="warn"></p>
@@ -27,7 +27,7 @@
 
 <div id="app" hidden>
 <header class="top">
-  <span class="logo">C64-Jukebox</span>
+  <span class="logo" translate="no">C64-Jukebox</span>
   <span id="topnow" class="topnow"></span>
   <button id="topoff" class="topbtn" type="button" title="Ein / Aus: Fernseher, Ultimate, Jukebox" aria-label="Ein / Aus">
     <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M7.5 6.3a8 8 0 1 0 9 0" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
@@ -71,11 +71,11 @@
     </div>
     <div class="row" id="namerow" hidden>
       <span class="grow" id="nametxt"></span>
-      <button id="bnameok" class="primary">Übernehmen</button><button id="bnameno">Nein</button>
+      <button id="bnameok" class="primary" translate="no" data-en="Use HVSC length">Übernehmen</button><button id="bnameno">Nein</button>
     </div>
     <div class="row" id="looprow" hidden>
       <span class="grow" id="looptxt"></span>
-      <button id="bloopok" class="primary">Übernehmen</button><button id="bloopno">Nein</button>
+      <button id="bloopok" class="primary" translate="no" data-en="Use detected length">Übernehmen</button><button id="bloopno">Nein</button>
     </div>
     <div class="songsel" id="songsel" hidden>
       <button id="sdown" aria-label="Voriges Unterlied">&#8249;</button>
@@ -85,7 +85,7 @@
     <div class="opts">
       <label><input type="checkbox" id="oshuf"> Zufall</label>
       <label><input type="checkbox" id="orep"> Liste wiederholen</label>
-      <label class="u64sel">Ultimate <select id="ou64"></select></label>
+      <label class="u64sel" translate="no">Ultimate <select id="ou64"></select></label>
       <button id="bblock" type="button" class="small" hidden title="Diesen Titel überspringen und künftig nicht mehr von selbst spielen">&#8856; Nicht mehr spielen</button>
     </div>
     <div class="msg" id="pmsg"></div>
@@ -116,7 +116,7 @@
       <div class="lrow lhd" id="lhd">
         <span class="c-no">#</span><span class="c-name" data-col="name">Dateiname</span><span class="c-title" data-col="title">Titel</span>
         <span class="c-author" data-col="author">Komponist</span><span class="c-song" data-col="song">Stück</span>
-        <span class="c-sids" data-col="sids">SIDs</span><span class="c-len" data-col="len">Länge</span>
+        <span class="c-sids" data-col="sids" translate="no">SIDs</span><span class="c-len" data-col="len">Länge</span>
         <span class="c-plays" data-col="plays">Gespielt</span><span class="c-fav" data-col="fav">&#9733;</span><span class="c-more"></span>
       </div>
       <div class="lspace" id="lspace"><div class="lrows" id="lrows"></div></div>
@@ -201,7 +201,7 @@
 <!-- ============================================================ devices -->
 <section data-tab="dev" class="off">
   <div class="card">
-    <div class="row"><h3>Ultimates</h3><span class="grow"></span>
+    <div class="row"><h3 translate="no">Ultimates</h3><span class="grow"></span>
       <a class="hl" href="#" onclick="help('ultimates');return false" title="Hilfe">?</a></div>
     <div id="u64rows"></div>
     <div id="u64power" class="hint"></div>
@@ -237,7 +237,7 @@
     <h4>Name des Pi in dieser Liste</h4>
     <div class="row"><input id="pname" maxlength="16" aria-label="Name"><button id="pnsave">Speichern</button></div>
     <p class="hint">Unter diesem Namen zeigen die Picos den Pi in „Geräte im Netz“. Die Adresse im Browser
-      bleibt <code>c64pi.local</code> (der Rechnername, den das Installationsskript setzt).</p>
+      bleibt <code translate="no">c64pi.local</code> (der Rechnername, den das Installationsskript setzt).</p>
   </div>
 </section>
 
@@ -262,7 +262,7 @@
     <h4>Effekt automatisch wechseln</h4>
     <div class="grid2">
       <label><input type="checkbox" id="hauto"> während der Wiedergabe wechseln</label>
-      <label>alle <input type="number" id="hautos" min="10" max="3600" class="num"> s</label>
+      <label><span translate="no" data-en="every">alle</span> <input type="number" id="hautos" min="10" max="3600" class="num"> s</label>
     </div>
     <div id="hautomodes" class="chips"></div>
   </div>
@@ -371,7 +371,7 @@
     </div>
     <div id="dtft" class="row" hidden><label>Touch angeschlossen <select id="dtouch"><option value="own">mit eigenen Kabeln (Pins 35–40)</option>
       <option value="shared">mit Y-Kabeln (Pins 19/21/23/26)</option></select></label>
-      <label>D/C an <select id="ddc"><option value="24">Pin 18</option><option value="23">Pin 16</option><option value="6">Pin 31</option></select></label>
+      <label>D/C an <select id="ddc" translate="no"><option value="24">Pin 18</option><option value="23">Pin 16</option><option value="6">Pin 31</option></select></label>
       <label><input type="checkbox" id="dflip"> Bild um 180° drehen</label>
       <span class="grow"></span><button id="dcal" type="button">Touch einrichten</button></div>
     <div id="dstate" class="hint"></div>
@@ -381,9 +381,9 @@
 
 <!-- ============================================================ settings -->
 <section data-tab="set" class="off">
-  <h2 class="group">Abspielen</h2>
+  <h2 class="group" translate="no" data-en="Playback">Abspielen</h2>
   <div class="card">
-    <h3>Wiedergabe</h3>
+    <h3 translate="no" data-en="Playback">Wiedergabe</h3>
     <label>Nächster Titel ohne bekannte Länge nach <input type="number" id="plim" min="0" max="120" step="0.5" class="num"> Minuten (0 = nie)</label>
     <label><input type="checkbox" id="psil"> oder nach <input type="number" id="psils" min="2" max="60" class="num"> s Stille (braucht den Stream)</label>
     <label>Wiederholung erkennen (Titel ohne Länge, braucht den Stream) <select id="ploop"><option value="suggest">vorschlagen</option>
@@ -418,8 +418,8 @@
       <span class="grow" id="hvtstate"></span>
       <button id="hvtgo" type="button" title="Titel, Komponist und Veröffentlichung jeder HVSC-Datei einmal lesen (nur die ersten 124 Byte): danach findet die Suche auch diese">Titel für die Suche einlesen</button>
     </div>
-    <p class="hint">Am einfachsten: im Tab „Dateien“ die Datei <code>Songlengths.md5</code> der HVSC antippen
-      (liegt in <code>C64Music/DOCUMENTS</code>). Oder hier vom Handy/PC hochladen:</p>
+    <p class="hint">Am einfachsten: im Tab „Dateien“ die Datei <code translate="no">Songlengths.md5</code> der HVSC antippen
+      (liegt in <code translate="no">C64Music/DOCUMENTS</code>). Oder hier vom Handy/PC hochladen:</p>
     <div class="row">
       <label class="filebtn">HVSC-Datei hochladen<input type="file" id="slup" accept=".md5,.txt"></label>
       <label class="filebtn">Eigene Längen hochladen<input type="file" id="slupc" accept=".md5,.txt"></label>
@@ -429,12 +429,12 @@
   <div class="card">
     <div class="row"><h3>Daten der PC-Jukebox übernehmen</h3><span class="grow"></span>
       <a class="hl" href="#" onclick="help('daten-der-pc-jukebox');return false" title="Hilfe">?</a></div>
-    <p class="hint">Aus dem Einstellungsordner des Ultimate64 SID Player (Mac: <code>~/Library/Application Support/Ultimate64SIDPlayer</code>,
-      Windows: <code>%APPDATA%</code>). Zähler werden addiert, Favoriten ergänzt, eigene Längen zusammengeführt.</p>
+    <p class="hint">Aus dem Einstellungsordner des Ultimate64 SID Player (Mac: <code translate="no">~/Library/Application Support/Ultimate64SIDPlayer</code>,
+      Windows: <code translate="no">%APPDATA%</code>). Zähler werden addiert, Favoriten ergänzt, eigene Längen zusammengeführt.</p>
     <div class="row">
-      <label class="filebtn">play_counts.json<input type="file" id="pcplays" accept=".json"></label>
-      <label class="filebtn">favorites.json<input type="file" id="pcfavs" accept=".json"></label>
-      <label class="filebtn">user_songlengths.txt<input type="file" id="pclens" accept=".txt"></label>
+      <label class="filebtn" translate="no">play_counts.json<input type="file" id="pcplays" accept=".json"></label>
+      <label class="filebtn" translate="no">favorites.json<input type="file" id="pcfavs" accept=".json"></label>
+      <label class="filebtn" translate="no">user_songlengths.txt<input type="file" id="pclens" accept=".txt"></label>
     </div>
     <label><input type="checkbox" id="pclensow"> bei abweichenden Längen die aus der Datei nehmen (sonst bleiben meine)</label>
     <div class="row"><a class="btn" href="/api/songlengths/export" download>Eigene Längen herunterladen</a></div>
@@ -453,8 +453,8 @@
     <h4>Eigenes WLAN des Pi (Zugangspunkt)</h4>
     <label><input type="checkbox" id="apon"> öffnen, wenn weder Kabel noch ein bekanntes WLAN da ist</label>
     <div class="grid2">
-      <label>Name <input id="apssid" maxlength="32" placeholder="C64-Jukebox" autocapitalize="off"></label>
-      <label>Passwort <input id="appw" type="password" placeholder="commodore64" autocomplete="new-password"></label>
+      <label>Name <input id="apssid" translate="no" maxlength="32" placeholder="C64-Jukebox" autocapitalize="off"></label>
+      <label>Passwort <input id="appw" translate="no" type="password" placeholder="commodore64" autocomplete="new-password"></label>
     </div>
     <div class="row"><span class="grow"></span><button id="netsave" class="primary">Speichern</button></div>
   </div>
@@ -473,6 +473,11 @@
   </div>
 
   <h2 class="group">System</h2>
+  <div class="card">
+    <div class="row"><h3 translate="no">Sprache / Language</h3><span class="grow"></span>
+      <select id="lang" translate="no" aria-label="Sprache / Language"><option value="de">Deutsch</option><option value="en">English</option></select></div>
+    <p class="hint">Gilt für diese Seite, das Menü am Fernseher, das Display und das Handbuch.</p>
+  </div>
   <div class="card">
     <h3>Web-Passwort</h3>
     <div class="grid2">
@@ -559,7 +564,7 @@
       <div id="sshareres" class="chips"></div>
     </div>
     <div class="k-ftp"><label>Port <input id="sp" type="number" class="num" value="21"></label></div>
-    <div class="k-u64"><label>Ultimate <select id="sx"></select></label></div>
+    <div class="k-u64"><label translate="no">Ultimate <select id="sx"></select></label></div>
     <label class="k-path">Ordner <input id="sd" placeholder="/" autocapitalize="off"></label>
     <div class="row"><button type="button" id="stest">Verbindung testen</button></div>
     <div id="smsg" class="msg"></div>
@@ -585,7 +590,7 @@
 <dialog id="impdlg">
   <form method="dialog" onsubmit="return false">
     <h3>Playlist der PC-Jukebox importieren</h3>
-    <p class="hint">„Export Playlist for Sharing“ (<code>…_u64playlist.json</code>) oder eine <code>.u64pl</code> aus dem
+    <p class="hint">„Export Playlist for Sharing“ (<code translate="no">…_u64playlist.json</code>) oder eine <code translate="no">.u64pl</code> aus dem
       Playlist-Ordner des Ultimate64 SID Player.</p>
     <label class="filebtn">Datei wählen<input type="file" id="impfile" accept=".json,.u64pl,.txt"></label>
     <span id="impname" class="hint"></span>

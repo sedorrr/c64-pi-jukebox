@@ -6,7 +6,11 @@ Format: an entry starts with a line "/MUSICIANS/.../x.sid", then lines "   FIELD
 indented 9 spaces), "(#2)" starts the part for sub-tune 2. Lines starting with "#" are comments."""
 import re
 
-FIELDS = {"TITLE": "Titel", "ARTIST": "Original von", "NAME": "Name", "AUTHOR": "Autor", "COMMENT": ""}
+from .i18n import tr
+
+# the line of each field (German; tr() here only marks them - German at import - shown as tr(FIELDS[field]) % text)
+FIELDS = {"TITLE": tr("Titel: %s"), "ARTIST": tr("Original von: %s"), "NAME": "Name: %s", "AUTHOR": tr("Autor: %s"),
+          "COMMENT": "%s"}
 FIELD_RE = re.compile(r"^ {0,8}([A-Z]+):\s?(.*)$")         # a field's colon is in column 8; a line with 9 spaces continues the field
 
 
@@ -46,8 +50,7 @@ def lines(entries, song):
     for tune, field, text in entries:
         if tune not in (0, song) or not text:
             continue
-        label = FIELDS[field]
-        out.append("%s: %s" % (label, text) if label else text)
+        out.append(tr(FIELDS[field]) % text)
     return out[:6]
 
 

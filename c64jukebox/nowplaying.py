@@ -17,6 +17,8 @@ from urllib.parse import quote
 import aiohttp
 from yarl import URL
 
+from .i18n import tr
+
 NP_PORT = 11001
 HEARTBEAT_S = 30
 NEWS_MAGIC = b"C64NEWS1\n"
@@ -158,7 +160,7 @@ class PicoLink:
             except asyncio.CancelledError:
                 raise
             except Exception as e:                      # never let one Pico end its sender
-                self.status = "Fehler: %s" % type(e).__name__
+                self.status = tr("Fehler: %s") % type(e).__name__
 
     async def send_udp(self, params):
         await self.send_udp_raw(b"C64NP1 " + np_query(params).encode())
@@ -167,7 +169,7 @@ class PicoLink:
         host, _port = host_port(self.addr)
         ip = await self.n.resolve(host)
         if not ip:
-            self.status = "Name nicht gefunden"
+            self.status = tr("Name nicht gefunden")
             return
         self.n.send_udp(data[:767], (ip, self.n.udp_port))
         self.status = "ok (UDP)"
@@ -188,18 +190,18 @@ class PicoLink:
                     www = r.headers.get("WWW-Authenticate", "")
                     refused = h and "stale=true" not in www.lower()
                     if not self.digest.take(www):
-                        self.status = "keine Anmeldung möglich"
+                        self.status = tr("keine Anmeldung möglich")
                         return
                     if refused:                       # our answer was wrong, not just an old nonce
-                        self.status = "Passwort falsch"
+                        self.status = tr("Passwort falsch")
                         return
                     continue
                 if r.status == 409:                   # the previous message not taken over yet
                     await asyncio.sleep(0.15)
                     continue
-                self.status = "ok" if r.status == 200 else "Fehler %d" % r.status
+                self.status = "ok" if r.status == 200 else tr("Fehler %d") % r.status
                 return
-        self.status = "keine Antwort"
+        self.status = tr("keine Antwort")
 
 
 class Notifier:
@@ -233,7 +235,7 @@ class Notifier:
             try:
                 link.q.put_nowait((mode, pw, params if isinstance(params, bytes) else dict(params)))
             except asyncio.QueueFull:
-                link.status = "antwortet nicht"
+                link.status = tr("antwortet nicht")
 
     def playing(self, info, secs, el_fn):
         self.cur, self.el_fn = (info, secs), el_fn

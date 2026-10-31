@@ -1,6 +1,8 @@
 """The manual docs/HANDBUCH.md as HTML for the "Hilfe" tab - a small Markdown subset, as in the Pico projects:
 headings (## / ###), paragraphs, lists (- / 1.), tables, ``` code blocks, `code`, **bold**, *italic*, [links](#x).
-Heading ids are "h-" + slug; a link to an unknown section is an error (the tests check the manual with it)."""
+Heading ids are "h-" + slug, or the id given at the end of the heading: "## Updating {#aktualisieren}" (the English
+manual keeps the German ids, so links and the page's help() work in both); a link to an unknown section is an error
+(the tests check the manual with it)."""
 import html as htmlmod
 import re
 
@@ -32,8 +34,8 @@ def inline(t):
     return re.sub("\0(\\d+)\0", lambda m: codes[int(m.group(1))], t)
 
 
-def to_html(md):
-    """-> (html, set of section ids)"""
+def to_html(md, contents="Inhalt"):
+    """-> (html, set of section ids); contents: the heading of the table of contents"""
     out, toc, ids = [], [], set()
     lines = md.split("\n")
     i, title = 0, ""
@@ -59,7 +61,8 @@ def to_html(md):
             if lvl == 1:
                 title = text
                 continue
-            hid = slug(text)
+            given = re.match(r"(.*?)\s*\{#([a-z0-9-]+)\}$", text)
+            text, hid = (given.group(1), given.group(2)) if given else (text, slug(text))
             if hid in ids:
                 raise ValueError("duplicate heading id " + hid)
             ids.add(hid)
@@ -99,8 +102,8 @@ def to_html(md):
     for h in re.findall(r'data-h="([^"]+)"', body):
         if h not in ids:
             raise ValueError("manual: link to unknown section #" + h)
-    nav = "<nav class=htoc><b>Inhalt</b><ol>%s</ol></nav>" % "".join(
-        '<li><a href="#h-%s" data-h="%s">%s</a></li>' % (h, h, inline(t)) for h, t in toc)
+    nav = "<nav class=htoc><b>%s</b><ol>%s</ol></nav>" % (contents, "".join(
+        '<li><a href="#h-%s" data-h="%s">%s</a></li>' % (h, h, inline(t)) for h, t in toc))
     k = body.find("<h2 id=")
     if k < 0:
         k = len(body)

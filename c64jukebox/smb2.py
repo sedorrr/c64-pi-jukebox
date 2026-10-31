@@ -6,6 +6,8 @@ smbprotocol cannot list the shares of a server, so that is done here by hand: DC
 import struct
 import uuid
 
+from .i18n import tr
+
 SRVSVC = uuid.UUID("4b324fc8-1670-01d3-1278-5a47bf6ee188")
 NDR = uuid.UUID("8a885d04-1ceb-11c9-9fe8-08002b104860")
 FRAG = 4280
@@ -57,9 +59,10 @@ def split_fragments(data):
         if pos + frag_len > len(data):
             break                                                               # rest of this fragment still to come
         if ptype == 3:                                                          # fault
-            raise SmbFailed("Server lehnt die Abfrage der Freigaben ab (Fehler 0x%08x)" % struct.unpack_from("<I", data, pos + 24)[0])
+            raise SmbFailed(tr("Server lehnt die Abfrage der Freigaben ab (Fehler 0x%08x)")
+                            % struct.unpack_from("<I", data, pos + 24)[0])
         if ptype != 2 or frag_len < 24:
-            raise SmbFailed("Unerwartete Antwort beim Abfragen der Freigaben")
+            raise SmbFailed(tr("Unerwartete Antwort beim Abfragen der Freigaben"))
         stub += data[pos + 24:pos + frag_len - (auth_len + 8 if auth_len else 0)]
         last = bool(flags & 0x02)
         pos += frag_len
@@ -92,7 +95,7 @@ def parse_share_enum(stub):
     if not buf_ptr or not count:
         return []
     if u32() != count:
-        raise SmbFailed("Antwort mit den Freigaben ist beschädigt")
+        raise SmbFailed(tr("Antwort mit den Freigaben ist beschädigt"))
     heads = [(u32(), u32(), u32()) for _ in range(count)]
     out = []
     for name_ptr, typ, remark_ptr in heads:
@@ -115,9 +118,9 @@ class Smb2:
         try:
             self.conn.connect(timeout=timeout)
         except OSError as e:
-            raise SmbFailed("SMB-Server %s nicht erreichbar (%s)" % (host, e))
+            raise SmbFailed(tr("SMB-Server %s nicht erreichbar (%s)") % (host, e))
         except (SMBException, ValueError, struct.error) as e:
-            raise SmbFailed("SMB-Server %s spricht kein SMB 2/3 (%s)" % (host, e), smb1=True)
+            raise SmbFailed(tr("SMB-Server %s spricht kein SMB 2/3 (%s)") % (host, e), smb1=True)
         try:
             self.session = Session(self.conn, user or "guest", pw or "", require_encryption=False)
             self.session.connect()
@@ -126,8 +129,8 @@ class Smb2:
             msg = str(e)
             if any(k in msg.lower() for k in ("logon_failure", "logonfailure", "0xc000006d", "0xc000006e",
                                               "account_restriction", "access_denied")):
-                raise SmbFailed("SMB-Anmeldung abgelehnt (Benutzer/Passwort)", login=True)
-            raise SmbFailed("SMB-Anmeldung fehlgeschlagen (%s)" % msg.splitlines()[0][:120])
+                raise SmbFailed(tr("SMB-Anmeldung abgelehnt (Benutzer/Passwort)"), login=True)
+            raise SmbFailed(tr("SMB-Anmeldung fehlgeschlagen (%s)") % msg.splitlines()[0][:120])
 
     def close(self):
         try:
@@ -224,7 +227,7 @@ class Smb2:
             pipe.write(bind_pdu(), 0)
             ack = pipe.read(0, FRAG)
             if len(ack) < 3 or ack[2] != 12:                                    # bind_ack
-                raise SmbFailed("Server lehnt die Abfrage der Freigaben ab")
+                raise SmbFailed(tr("Server lehnt die Abfrage der Freigaben ab"))
             pipe.write(share_enum_pdu(self.host), 0)
             data, last = b"", False
             for _ in range(200):
@@ -232,6 +235,6 @@ class Smb2:
                 stub, last = split_fragments(data)
                 if last:
                     return parse_share_enum(stub)
-            raise SmbFailed("Antwort mit den Freigaben unvollständig")
+            raise SmbFailed(tr("Antwort mit den Freigaben unvollständig"))
         finally:
             pipe.close()

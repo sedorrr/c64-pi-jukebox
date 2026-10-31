@@ -8,6 +8,7 @@ import socket
 import time
 
 from . import events
+from .i18n import tr
 
 DEV_PORT = 11064
 BEACON_S = 10.0
@@ -88,7 +89,7 @@ class Devices(asyncio.DatagramProtocol):
         except (UnicodeDecodeError, ValueError):
             return
         if ip not in self.table:
-            events.log("Gerät da: %s (%s)" % (_name(s), ip))
+            events.log(tr("Gerät da: %s (%s)") % (_name(s), ip))
         if ip not in self.table and len(self.table) >= DEV_MAX:
             oldest = min(self.table, key=lambda k: self.table[k][0])
             del self.table[oldest]
@@ -119,7 +120,7 @@ class Devices(asyncio.DatagramProtocol):
             self.next_beacon = now + BEACON_S - 0.5 + random.random()
             self.beacon()
         for ip in [k for k, v in self.table.items() if now - v[0] > FORGET_S]:
-            events.log("Gerät weg: %s (%s), %.0f s keine Meldung" % (_name(self.table[ip][1]), ip, FORGET_S))
+            events.log(tr("Gerät weg: %s (%s), %d s keine Meldung") % (_name(self.table[ip][1]), ip, round(FORGET_S)))
             del self.table[ip]
 
     async def run(self):

@@ -12,6 +12,7 @@ import re
 import time
 from urllib.parse import quote
 
+from .i18n import tr
 from .ultimate import UltimateError
 
 CATEGORY = "SID Addressing"
@@ -36,7 +37,7 @@ def plan(cfg, needed):
         return None, ""
     spare = [n for n, a in sorted(sockets.items()) if a and a not in need]
     if len(missing) > 1 or len(spare) != 1:
-        return None, "SID-Adressen nicht eindeutig (fehlt %s) – nicht umgestellt" % ", ".join(missing)
+        return None, tr("SID-Adressen nicht eindeutig (fehlt %s) – nicht umgestellt") % ", ".join(missing)
     return (spare[0], missing[0]), ""
 
 
@@ -134,14 +135,14 @@ class SidAddressing:
                 continue
             try:
                 await u_for(a, p.get("pw")).request("PUT", self._put(p["sock"], p["orig"]), timeout=6)
-                self.msg = "Sockel %d zurück auf %s" % (p["sock"], p["orig"])
+                self.msg = tr("Sockel %d zurück auf %s") % (p["sock"], p["orig"])
                 if self.known_addr == a:
                     self.known["SID Socket %d Address" % p["sock"]] = p["orig"]
                 self.failed_at.pop(a, None)
                 self._forget(a)
             except UltimateError as e:
                 self.failed_at[a] = time.monotonic()
-                self.msg = "Zurückstellen fehlgeschlagen: %s" % e
+                self.msg = tr("Zurückstellen fehlgeschlagen: %s") % e
         return addr is None or addr not in self.pending
 
     def rekey(self, old, new, pw):
@@ -174,12 +175,12 @@ class SidAddressing:
         try:
             cfg = await self.read(u)
         except UltimateError as e:
-            self.msg = "SID-Konfiguration nicht lesbar: %s" % e
+            self.msg = tr("SID-Konfiguration nicht lesbar: %s") % e
             return
         key = lambda n: "SID Socket %d Address" % n                   # noqa: E731
         if p:                                 # kept for this tune too - unless the Ultimate was switched off meanwhile
             if norm(cfg.get(key(p["sock"]))) == norm(p["new"]):
-                self.msg = "Sockel %d für dieses Stück auf %s (sonst %s)" % (p["sock"], p["new"], p["orig"])
+                self.msg = tr("Sockel %d für dieses Stück auf %s (sonst %s)") % (p["sock"], p["new"], p["orig"])
                 return
             switch = (p["sock"], p["new"])
             orig = p["orig"]
@@ -193,12 +194,12 @@ class SidAddressing:
         try:                                  # remembered before switching
             self._write(dict(self.pending, **{u.addr: {"addr": u.addr, "pw": u.pw, "sock": sock, "orig": orig, "new": new}}))
         except OSError as e:
-            self.msg = "Nicht umgestellt – Rückstellung nicht speicherbar: %s" % e
+            self.msg = tr("Nicht umgestellt – Rückstellung nicht speicherbar: %s") % e
             return
         try:
             await u.request("PUT", self._put(sock, new), timeout=6)
             self.gen += 1
             self.known[key(sock)] = new
-            self.msg = "Sockel %d für dieses Stück auf %s (sonst %s)" % (sock, new, orig)
+            self.msg = tr("Sockel %d für dieses Stück auf %s (sonst %s)") % (sock, new, orig)
         except UltimateError as e:            # it may have happened anyway: the record stays, a restore is harmless
-            self.msg = "Umstellen fehlgeschlagen: %s" % e
+            self.msg = tr("Umstellen fehlgeschlagen: %s") % e

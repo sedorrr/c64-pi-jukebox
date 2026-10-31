@@ -17,6 +17,7 @@ from collections import deque
 import numpy as np
 import pygame
 
+from ..i18n import set_lang, tr
 from .analyzer import Analyzer
 from .receivers import AUDIO_PORT, SID_PORT, VIC_PALETTE, VIDEO_PORT, AudioReceiver, SidReceiver, VideoReceiver
 from .screen import SIZE, Item
@@ -205,9 +206,9 @@ class Osd:
         mx, my = MARGIN
         if not (now and state in ("play", "pause", "load")) and player and name:
             # nothing plays: say so (silence alone would look like a black screen)
-            s, v = self._block("idle", [("Es läuft gerade nichts", self.f_title),
-                                        ("Bedienen: http://%s.local/" % name, self.f_small)] +
-                               ([("oder den QR-Code mit dem Handy scannen", self.f_small)] if ip else []), "e")
+            s, v = self._block("idle", [(tr("Es läuft gerade nichts"), self.f_title),
+                                        (tr("Bedienen: http://%s.local/") % name, self.f_small)] +
+                               ([(tr("oder den QR-Code mit dem Handy scannen"), self.f_small)] if ip else []), "e")
             out.append(Item("osd_idle", s, v, (SIZE[0] - mx - s.get_width(), my) + s.get_size()))
             if ip:                                            # the address as a number: phones often miss ".local"
                 q, qv = self.qr("http://%s/" % ip)            # left of the text: the news card (y >= 300) stays clear
@@ -223,21 +224,21 @@ class Osd:
             if models and addrs:
                 req = ("%s - %s" % (models[0], "/".join(addrs)) if len(set(models)) == 1 else
                        ", ".join("%s - %s" % p for p in zip(models, addrs)))
-                req = "Benötigt: " + req
+                req = tr("Benötigt: %s") % req
             lines = [(title, self.f_title), (req, self.f_small), (now.get("year") or "", self.f_small)]
             if (now.get("songs") or 1) > 1:
-                lines.append(("Lied %d/%d" % (now.get("song") or 1, now["songs"]), self.f_small))
+                lines.append((tr("Lied %d/%d") % (now.get("song") or 1, now["songs"]), self.f_small))
             s, v = self._block("top", lines, "e")
             out.append(Item("osd_top", s, v, (SIZE[0] - mx - s.get_width(), my) + s.get_size()))
             secs, el = now.get("secs") or 0, player.get("el") or 0
-            t = fmt(el) + (" / " + fmt(secs) if secs else "") + ("  (Pause)" if state == "pause" else "")
+            t = fmt(el) + (" / " + fmt(secs) if secs else "") + ("  (%s)" % tr("Pause") if state == "pause" else "")
             s, v = self._block("time", [(t, self.f_title)], "e")
             out.append(Item("osd_time", s, v, (SIZE[0] - mx - s.get_width(), SIZE[1] - my - lift - s.get_height()) + s.get_size()))
             hint = ""                                         # a length found for this tune: small, above the time
             if now.get("hvsc"):
-                hint = "Länge %s in der HVSC gefunden · OK: übernehmen" % fmt(now["hvsc"]["len"])
+                hint = tr("Länge %s in der HVSC gefunden · OK: übernehmen") % fmt(now["hvsc"]["len"])
             elif now.get("loop"):
-                hint = "Fängt nach %s von vorn an · OK: als Länge übernehmen" % fmt(now["loop"])
+                hint = tr("Fängt nach %s von vorn an · OK: als Länge übernehmen") % fmt(now["loop"])
             if hint:
                 th = s.get_height()
                 s, v = self._block("hint", [(hint, self.f_small)], "e")
@@ -275,7 +276,7 @@ class TitleCard:
             info.append("%d SID%s ($%s)" % (len(addrs), "s" if len(addrs) > 1 else "",
                                             "/$".join(str(a).lstrip("$") for a in addrs)))
         if (now.get("songs") or 1) > 1:
-            info.append("Lied %d/%d" % (now.get("song") or 1, now["songs"]))
+            info.append(tr("Lied %d/%d") % (now.get("song") or 1, now["songs"]))
         stil = wrap(" · ".join(now.get("stil") or []), self.f_info, w - 100, 2)
         s = pygame.Surface((w, h), pygame.SRCALPHA)       # the text first, then the card around it
 
@@ -283,7 +284,7 @@ class TitleCard:
             r = f.render(txt, True, color)
             s.blit(r, ((w - r.get_width()) // 2, y))
             return y + r.get_height()
-        y = put("Jetzt läuft", self.f_head, 34, (175, 165, 240)) + 14
+        y = put(tr("Jetzt läuft"), self.f_head, 34, (175, 165, 240)) + 14
         for line in lines:
             y = put(line, self.f_title, y, (255, 255, 255)) + 4
         y = put(now.get("author") or "", self.f_author, y + 6, (159, 226, 255)) + 10
@@ -341,7 +342,7 @@ class MenuView:
         s = pygame.Surface((self.W, h), pygame.SRCALPHA)
         pygame.draw.rect(s, self.BG, s.get_rect(), border_radius=18)
         pygame.draw.rect(s, self.BORDER, s.get_rect(), 6, border_radius=18)
-        t = self.f_title.render(m.get("title", ""), True, self.TEXT)
+        t = _fit_surface(self.f_title.render(m.get("title", ""), True, self.TEXT), self.W - 100)
         s.blit(t, ((self.W - t.get_width()) // 2, 34))
         box = pygame.Rect(60, 110, self.W - 120, 70)
         pygame.draw.rect(s, (12, 8, 46, 255), box, border_radius=8)
@@ -626,6 +627,7 @@ class HdmiApp:
         except (OSError, ValueError):
             return
         self.cfg = dict(DEFAULTS, **(d.get("cfg") or {}))
+        set_lang(self.cfg.get("lang") or "de")
         self.player = d.get("player") or {}
         self.player_at = now
         self.img_dir = d.get("img_dir") or ""
@@ -686,7 +688,7 @@ class HdmiApp:
                 self.audio = AudioReceiver(self.audio_port)
                 self.audio.start()
             except OSError as e:
-                self.msg = "Ton: %s" % e
+                self.msg = tr("Ton: %s") % e
 
     def _sound(self, want):
         """the TV sound: a process of its own (soundproc.py) - the jukebox sends it the stream directly"""
@@ -718,7 +720,7 @@ class HdmiApp:
                 self.video.allow = self.senders
                 self.video.start()
             except OSError as e:
-                self.msg = "Bild: %s" % e
+                self.msg = tr("Bild: %s") % e
         elif not want and self.video:
             self.video.close()
             self.video = None
@@ -732,7 +734,7 @@ class HdmiApp:
                 self.sid.allow = self.senders
                 self.sid.start()
             except OSError as e:
-                self.msg = "SID-Daten: %s" % e
+                self.msg = tr("SID-Daten: %s") % e
         elif not want and self.sid:
             self.sid.close()
             self.sid = None
@@ -820,7 +822,7 @@ class HdmiApp:
             self.slides.configure(self.img_dir, cfg.get("shuffle"), now)
             items += self.slides.items(now, max(3, float(cfg.get("img_s") or 20)), light)
             if not self.slides.files:
-                note = "Keine Bilder – auf der Webseite hochladen"
+                note = tr("Keine Bilder – auf der Webseite hochladen")
         elif bg == "video" and self.video:
             pic = self.video.picture()
             if pic is not None:                   # 8 bit with the C64 palette: SDL/the graphics chip turn it into colours
@@ -831,7 +833,7 @@ class HdmiApp:
             if self.video_surf is not None and age is not None and age < 2:
                 items.append(Item("video", self.video_surf, self.video_ver, VIDEO_RECT, 255, light))
             else:
-                note = "Warte auf das Bild des C64 …"
+                note = tr("Warte auf das Bild des C64 …")
         mode = self.current_mode(now)
         a = self.audio
         now_info = (self.player or {}).get("now") or {}
@@ -846,7 +848,7 @@ class HdmiApp:
         sid, sid_note = [], ""
         if mode == "sidvoices":
             if bg == "video":
-                sid_note = "Nicht zusammen mit dem C64-Bild als Hintergrund – beides schafft das Netz des Ultimate nicht"
+                sid_note = tr("Nicht zusammen mit dem C64-Bild als Hintergrund – beides schafft das Netz des Ultimate nicht")
             elif self.sid and self.sid.age() is not None and self.sid.age() < 2:
                 sid = self.sid.frames(now_info.get("sids"))
             else:
@@ -897,7 +899,7 @@ class HdmiApp:
             try:
                 self.start()
             except Exception as e:                       # no display, no EGL ...: report, try again in 5 s
-                self.msg = "Anzeige: %s" % e
+                self.msg = tr("Anzeige: %s") % e
                 self.screen = None
                 if pygame.display.get_init():
                     pygame.display.quit()

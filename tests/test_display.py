@@ -95,3 +95,21 @@ def test_no_display():
     d = Display(lambda: cfg, bus_factory=lambda: FakeBus(present=()), clock=lambda: 0)
     d.tick(PLAY)
     assert d.dev is None and d.msg.startswith("nicht gefunden")
+
+
+def test_oled_in_english():
+    """the OLED pages in English (previews tests/web/oled_en_*.png)"""
+    from c64jukebox import i18n
+    i18n._tables.clear()
+    i18n.set_lang("en")
+    try:
+        s = Screen()
+        for st, page, name in ((PLAY, "play", "play"), (PLAY, "net", "net"), (AP, "net", "ap"),
+                               (dict(AP, net={"mode": "none"}), "net", "none")):
+            preview(s.render(st, page), "oled_en_%s.png" % name)
+        idle = s.render({"name": "c64pi", "player": {"state": "stop", "total": 4}, "stream": {"on": False}}, "play")
+        assert idle.size == (128, 64)
+        assert i18n.tr("%d Titel in der Liste") % 4 == "4 tunes in the play list"
+    finally:
+        i18n.set_lang("de")
+        i18n._tables.clear()

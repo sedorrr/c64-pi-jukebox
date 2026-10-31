@@ -2,6 +2,7 @@
 correction level M, versions 1-6 (up to 106 bytes) - enough for an address, and no package to install on the Pi.
 Follows ISO/IEC 18004 like Project Nayuki's reference implementation; the test compares it module by module with
 the "qrcode" package."""
+from ..i18n import tr
 
 # version -> (EC codewords per block, number of blocks, data codewords per block) for level M
 BLOCKS = {1: (10, 1, 16), 2: (16, 1, 28), 3: (26, 1, 44), 4: (18, 2, 32), 5: (24, 2, 43), 6: (16, 4, 27)}
@@ -180,7 +181,7 @@ def encode(text, mask=None):
     data = text.encode("utf-8")
     ver = next((v for v in BLOCKS if len(data) <= BLOCKS[v][1] * BLOCKS[v][2] - 2), None)
     if ver is None:
-        raise ValueError("zu lang für einen QR-Code der Version 1-6")
+        raise ValueError(tr("zu lang für einen QR-Code der Version 1-6"))
     words = _codewords(data, ver)
     best = None
     for k in ([mask] if mask is not None else range(8)):

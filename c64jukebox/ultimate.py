@@ -6,6 +6,8 @@ from urllib.parse import quote
 import aiohttp
 from yarl import URL
 
+from .i18n import tr
+
 STREAM_PORT = 11001
 
 
@@ -17,18 +19,18 @@ def error_text(status, body):
     except (ValueError, AttributeError):
         errs = []
     if any("Resolve" in e for e in errs):
-        return "Ultimate hängt (\u201eNetwork Host Resolve Error\u201c) – Ultimate einmal aus- und wieder einschalten"
-    return "Ultimate antwortet mit Fehler %d" % status + (" (%s)" % "; ".join(errs)[:120] if errs else "")
+        return tr("Ultimate hängt („Network Host Resolve Error“) – Ultimate einmal aus- und wieder einschalten")
+    return tr("Ultimate antwortet mit Fehler %d") % status + (" (%s)" % "; ".join(errs)[:120] if errs else "")
 
 
 class UltimateError(Exception):
-    """message for the page (German)"""
+    """message for the page (in the chosen language: tr() where it is raised)"""
 
 
 def base_url(addr):
     a = (addr or "").strip().rstrip("/")
     if not a:
-        raise UltimateError("Kein Ultimate eingetragen")
+        raise UltimateError(tr("Kein Ultimate eingetragen"))
     return a if "://" in a else "http://" + a
 
 
@@ -45,7 +47,7 @@ class Ultimate:
                                             timeout=aiohttp.ClientTimeout(total=timeout)) as r:
                 body = await r.read()
                 if r.status == 403 or r.status == 401:
-                    raise UltimateError("Ultimate lehnt ab: Netzwerk-Passwort falsch?")
+                    raise UltimateError(tr("Ultimate lehnt ab: Netzwerk-Passwort falsch?"))
                 if r.status >= 300:
                     raise UltimateError(error_text(r.status, body))
                 if want_json:
@@ -55,7 +57,7 @@ class Ultimate:
                         return {}
                 return body
         except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
-            raise UltimateError("Ultimate %s nicht erreichbar (%s)" % (self.addr, type(e).__name__))
+            raise UltimateError(tr("Ultimate %s nicht erreichbar (%s)") % (self.addr, type(e).__name__))
 
     async def play_path(self, path, song=None):
         """the file lies on the Ultimate (its USB stick or SD card)"""

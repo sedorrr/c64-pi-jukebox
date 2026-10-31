@@ -20,6 +20,8 @@ import os
 import threading
 import time
 
+from .i18n import tr
+
 W, H = 320, 240
 PIN_DC, PIN_RESET, PIN_LED, PIN_IRQ = 24, 25, 18, 17
 # D/C: GPIO -> header pin. 23 (pin 16) and 6 (pin 31) for a Pi whose GPIO24 is damaged; pin 31 has only GPIOs as
@@ -415,7 +417,7 @@ class TftScreen:
         p = st.get("player") or {}
         now = p.get("now") or {}
         lv = st.get("level") or {}
-        self._bar(d, "Pegel", self._fit(d, now.get("title") or now.get("name") or "", self.head, 200))
+        self._bar(d, tr("Pegel"), self._fit(d, now.get("title") or now.get("name") or "", self.head, 200))
         cols = [(0, 204, 85), (238, 238, 119), (221, 136, 85), (136, 0, 0)]     # C64 green, yellow, orange, red
         x0, w = 34, W - 34 - 10
         for k, (label, y) in enumerate((("L", 40), ("R", 76))):
@@ -448,7 +450,7 @@ class TftScreen:
         secs, el = now.get("secs") or 0, p.get("el") or 0
         if p.get("state") in ("play", "pause", "load"):
             d.text((10, 226), fmt(el) + (" / " + fmt(secs) if secs else ""), font=self.small, fill=WHITE)
-        t = "Tippen: nächste Seite"
+        t = tr("Tippen: nächste Seite")
         d.text((W - 10 - d.textlength(t, font=self.small), 226), t, font=self.small, fill=SOFT)
 
     def buttons(self, page):
@@ -457,12 +459,12 @@ class TftScreen:
     def _power(self, d, st):
         """TV on / off (HDMI-CEC), the jukebox off - a second tap within a few seconds (st["armed"])"""
         tv = st.get("tvctl") or {}
-        state = {"on": "Fernseher an", "standby": "Fernseher aus"}.get(tv.get("tv"), "") if tv.get("ready") else ""
-        self._bar(d, "Ein / Aus", state)
-        note = st.get("pnote") or ("" if tv.get("ready") else "TV-Fernbedienung (HDMI-CEC) ist aus")
+        state = {"on": tr("Fernseher an"), "standby": tr("Fernseher aus")}.get(tv.get("tv"), "") if tv.get("ready") else ""
+        self._bar(d, tr("Ein / Aus"), state)
+        note = st.get("pnote") or ("" if tv.get("ready") else tr("TV-Fernbedienung (HDMI-CEC) ist aus"))
         d.text((8, 30), self._fit(d, note, self.small, W - 16), font=self.small, fill=SOFT)
-        labels = {"tvon": "Fernseher an", "tvoff": "Fernseher aus", "back": "Zurück",
-                  "pioff": "Nochmal tippen: ausschalten" if st.get("armed") else "Jukebox ausschalten"}
+        labels = {"tvon": tr("Fernseher an"), "tvoff": tr("Fernseher aus"), "back": tr("Zurück"),
+                  "pioff": tr("Nochmal tippen: ausschalten") if st.get("armed") else tr("Jukebox ausschalten")}
         for (x0, y0, x1, y1), what in POWER_BUTTONS:
             off = what in ("tvon", "tvoff") and not tv.get("ready")
             fill = RED if what == "pioff" else (56, 44, 118) if off else LIGHT
@@ -483,12 +485,12 @@ class TftScreen:
         state = p.get("state")
         secs, el = now.get("secs") or 0, p.get("el") or 0
         from .display import fmt
-        head = {"play": "", "load": "lädt … ", "pause": "Pause  ", "stop": "Stopp  "}.get(state, "") + \
+        head = {"play": "", "load": tr("lädt … "), "pause": tr("Pause") + "  ", "stop": tr("Stopp") + "  "}.get(state, "") + \
             (fmt(el) + (" / " + fmt(secs) if secs else "") if state in ("play", "pause", "load") else "")
-        self._bar(d, head.strip() or "Stopp", "Lied %d/%d" % (now.get("song", 1), now["songs"])
+        self._bar(d, head.strip() or tr("Stopp"), tr("Lied %d/%d") % (now.get("song", 1), now["songs"])
                   if now.get("songs", 1) > 1 and state != "stop" else "")
-        title = now.get("title") or now.get("name") or ("Nichts läuft" if state != "stop" or not p.get("total")
-                                                         else "Bereit")
+        title = now.get("title") or now.get("name") or (tr("Nichts läuft") if state != "stop" or not p.get("total")
+                                                         else tr("Bereit"))
         y = 32
         for line in self._wrap(d, title, self.title, W - 16, 2):
             d.text((8, y), line, font=self.title, fill=WHITE)
@@ -504,8 +506,8 @@ class TftScreen:
             d.rectangle((8, 118, W - 9, 130), outline=LIGHT)
             d.rectangle((10, 120, 10 + int((W - 21) * min(1, el / secs)), 128), fill=WHITE)
         s = st.get("stream") or {}
-        foot = ("Stream %d/s → %d Picos" % (s.get("pps", 0), len(s.get("targets", [])))) if s.get("on") else \
-            "%d Titel in der Liste" % p.get("total", 0)
+        foot = (tr("Stream %d/s → %d Picos") % (s.get("pps", 0), len(s.get("targets", [])))) if s.get("on") else \
+            tr("%d Titel in der Liste") % p.get("total", 0)
         d.text((8, 138), self._fit(d, foot, self.small, W - 16), font=self.small, fill=SOFT)
         for (x0, y0, x1, y1), what in BUTTONS:
             d.rounded_rectangle((x0, y0, x1, y1), radius=10, fill=LIGHT)
@@ -535,40 +537,40 @@ class TftScreen:
         name = st.get("name") or "c64pi"
         if mode == "ap" and n.get("ap"):
             ap = n["ap"]
-            self._bar(d, "Eigenes WLAN des Pi")
-            rows = [("WLAN-Name", ap.get("ssid", "")), ("Passwort", ap.get("pw", "")),
-                    ("Danach im Browser", "http://" + ap.get("ip", ""))]
+            self._bar(d, tr("Eigenes WLAN des Pi"))
+            rows = [(tr("WLAN-Name"), ap.get("ssid", "")), (tr("Passwort"), ap.get("pw", "")),
+                    (tr("Danach im Browser"), "http://" + ap.get("ip", ""))]
             y = 34
             for label, value in rows:
                 d.text((8, y), label, font=self.small, fill=SOFT)
                 d.text((8, y + 17), self._fit(d, value, self.title, W - 16), font=self.title, fill=WHITE)
                 y += 52
-            d.text((8, 214), "kein Kabel, kein bekanntes WLAN", font=self.small, fill=SOFT)
+            d.text((8, 214), self._fit(d, tr("kein Kabel, kein bekanntes WLAN"), self.small, W - 16), font=self.small, fill=SOFT)
             return
-        self._bar(d, "Netzwerk")
+        self._bar(d, tr("Netzwerk"))
         d.text((8, 34), self._fit(d, name + ".local", self.title, W - 16), font=self.title, fill=WHITE)
         if mode == "lan":
-            lines = ["Netzwerkkabel", n.get("eth_ip", "")]
+            lines = [tr("Netzwerkkabel"), n.get("eth_ip", "")]
         elif mode == "wlan":
-            lines = ["WLAN " + n.get("wlan_ssid", ""), n.get("wlan_ip", "")]
+            lines = [tr("WLAN %s") % n.get("wlan_ssid", ""), n.get("wlan_ip", "")]
         elif mode == "party":
-            lines = ["Party-WLAN " + (n.get("ap") or {}).get("ssid", ""), (n.get("ap") or {}).get("ip", "")]
+            lines = [tr("Party-WLAN %s") % (n.get("ap") or {}).get("ssid", ""), (n.get("ap") or {}).get("ip", "")]
         elif mode == "none":
-            lines = ["kein Netz", "suche …"]
+            lines = [tr("kein Netz"), tr("suche …")]
         else:
-            lines = ["Netz unbekannt", st.get("ip", "")]
+            lines = [tr("Netz unbekannt"), st.get("ip", "")]
         d.text((8, 70), self._fit(d, lines[0], self.mid, W - 16), font=self.mid, fill=SOFT)
         d.text((8, 94), lines[1], font=self.title, fill=WHITE)
         s = st.get("stream") or {}
         if s.get("on"):
-            txt = "Stream %d/s an %d Picos" % (s.get("pps", 0), len(s.get("targets", [])))
+            txt = tr("Stream %d/s an %d Picos") % (s.get("pps", 0), len(s.get("targets", [])))
         else:
-            txt = "Stream-Verteiler aus"
+            txt = tr("Stream-Verteiler aus")
         d.text((8, 136), self._fit(d, txt, self.mid, W - 16), font=self.mid, fill=SOFT)
         u = st.get("ultimate") or ""
         if u:
             d.text((8, 160), self._fit(d, "Ultimate: " + u, self.mid, W - 16), font=self.mid, fill=SOFT)
-        d.text((8, 214), "Tippen: zurück zur Wiedergabe", font=self.small, fill=SOFT)
+        d.text((8, 214), self._fit(d, tr("Tippen: zurück zur Wiedergabe"), self.small, W - 16), font=self.small, fill=SOFT)
 
     def _cal(self, d, step, note):
         d.rectangle((0, 0, W - 1, H - 1), fill=DARK)
@@ -576,9 +578,9 @@ class TftScreen:
         d.line((x - 14, y, x + 14, y), fill=WHITE, width=2)
         d.line((x, y - 14, x, y + 14), fill=WHITE, width=2)
         d.ellipse((x - 5, y - 5, x + 5, y + 5), outline=WHITE)
-        d.text((60, 92), "Touch einrichten (%d/3)" % (min(step, 2) + 1), font=self.head, fill=WHITE)
-        d.text((60, 116), "Mit einem Stift oder dem", font=self.small, fill=SOFT)
-        d.text((60, 134), "Fingernagel genau auf das Kreuz", font=self.small, fill=SOFT)
-        d.text((60, 152), "tippen.", font=self.small, fill=SOFT)
+        d.text((60, 92), tr("Touch einrichten (%d/3)") % (min(step, 2) + 1), font=self.head, fill=WHITE)
+        for k, line in enumerate(self._wrap(d, tr("Mit einem Stift oder dem Fingernagel genau auf das Kreuz tippen."),
+                                            self.small, W - 70, 3)):
+            d.text((60, 116 + 18 * k), line, font=self.small, fill=SOFT)
         if note:
             d.text((60, 178), note, font=self.small, fill=WHITE)

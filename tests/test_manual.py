@@ -62,7 +62,8 @@ def test_requirements_cover_imports():
             t, own = _imports(os.path.join(dirpath, f))
             if os.path.basename(dirpath) == "hdmi":
                 assert t <= {"pygame", "numpy"}, (f, t)
-                assert all(o.startswith(".") and not o.startswith("..") for o in own), (f, own)
+                # (..i18n: the language, standard library only)
+                assert all(o.startswith(".") and (not o.startswith("..") or o == "..i18n") for o in own), (f, own)
                 if f == "modes.py":
                     assert not t, "modes.py is read by the jukebox: no pygame/numpy"
                 continue

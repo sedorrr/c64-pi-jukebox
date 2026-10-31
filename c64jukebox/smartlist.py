@@ -4,14 +4,17 @@ favorites. The HVSC folder is where the Songlengths.md5 was loaded from (<root>/
 import random
 import re
 
+from .i18n import tr
+
 AREAS = ("MUSICIANS", "GAMES", "DEMOS")
+# German; tr() here only marks them (the language is German at import) - shown as tr(label)
 PRESETS = {
-    "fav": "★ Favoriten",
-    "top": "Meistgespielt",
-    "never": "Nie gespielt",
-    "random": "Zufällige aus der HVSC",
-    "short": "Kurze Stücke (unter 2 Minuten)",
-    "multi": "Stücke für 2 oder 3 SIDs",
+    "fav": tr("★ Favoriten"),
+    "top": tr("Meistgespielt"),
+    "never": tr("Nie gespielt"),
+    "random": tr("Zufällige aus der HVSC"),
+    "short": tr("Kurze Stücke (unter 2 Minuten)"),
+    "multi": tr("Stücke für 2 oder 3 SIDs"),
 }
 
 

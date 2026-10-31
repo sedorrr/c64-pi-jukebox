@@ -11,6 +11,7 @@ import random
 import time
 
 from . import events, sidfile
+from .i18n import tr
 from .sources import SourceError, join
 from .ultimate import UltimateError
 
@@ -281,12 +282,12 @@ class Player:
             data = await src.read(item["path"])
             head = sidfile.parse_header(data)
             if head is None:
-                raise SourceError("Keine SID-Datei: " + item["name"])
+                raise SourceError(tr("Keine SID-Datei: %s") % item["name"])
             md5 = sidfile.md5(data)
             core.remember_info(item["src"], item["path"], len(data), md5, head)
             if skip_blocked and self._blocked(dict(item, md5=md5)):
                 item["md5"] = md5
-                events.log("gesperrt, übersprungen: %s" % item["name"])
+                events.log(tr("gesperrt, übersprungen: %s") % item["name"])
                 return False
             if song is None:
                 song = item.get("song") or head["start"]
@@ -302,7 +303,7 @@ class Player:
             self.cur = None
             if self.fails >= min(5, max(1, len(self.items))):
                 self.state = "stop"
-                self.msg += " – Wiedergabe angehalten"
+                self.msg += tr(" – Wiedergabe angehalten")
                 await core.sid_release()                   # a socket switched for the failed tune goes back
                 core.notifier.stopped()
             else:
@@ -328,7 +329,8 @@ class Player:
         self.cur = {"item": item, "info": info, "song": song, "secs": secs, "t0": self.clock(), "paused": 0.0,
                     "paused_at": None}
         self.state = "play"
-        events.log("Titel: %s (Lied %d, %s)" % (item["name"], song, "%d s" % secs if secs else "Länge unbekannt"))
+        events.log(tr("Titel: %s (Lied %d, %s)") % (item["name"], song,
+                                                   "%d s" % secs if secs else tr("Länge unbekannt")))
         core.hub.mark_loud()
         core.notifier.playing(info, secs, self.elapsed)
         return True
@@ -389,11 +391,11 @@ class Player:
                 sa["songs"] -= 1
                 if sa["songs"] <= 0:
                     self.stop_after = None
-                    await self._stop("Gestoppt (Stopp nach Titeln)")
+                    await self._stop(tr("Gestoppt (Stopp nach Titeln)"))
                     return
             elif self.clock() >= sa.get("until", 0):
                 self.stop_after = None
-                await self._stop("Gestoppt (Stopp nach Zeit)")
+                await self._stop(tr("Gestoppt (Stopp nach Zeit)"))
                 return
         if not manual and c and self.opts.get("subsongs") == "all" and c["song"] < c["info"]["songs"]:
             await self._start(c["song"] + 1)
@@ -401,7 +403,7 @@ class Player:
         for _ in range(len(self.order)):               # blocked tunes are skipped, at most one round
             if self.pos + 1 >= len(self.order):
                 if not self.opts.get("repeat", True) and not manual:
-                    await self._stop("Ende der Liste")
+                    await self._stop(tr("Ende der Liste"))
                     return
                 if self.opts.get("shuffle"):
                     self._make_order()
@@ -412,7 +414,7 @@ class Player:
                 continue
             if await self._start(skip_blocked=True) is not False:
                 return
-        await self._stop("Alle Titel der Liste sind gesperrt")
+        await self._stop(tr("Alle Titel der Liste sind gesperrt"))
 
     async def set_song(self, song):
         async with self.lock:
@@ -507,8 +509,9 @@ class Player:
         async with self.lock:
             if self.due() != why:
                 return
-            events.log("weiter: %s nach %.0f s" % ({"end": "Titelende", "limit": "Zeitgrenze", "silence": "Stille",
-                                                      "retry": "neuer Versuch"}.get(why, why), self.elapsed()))
+            what = {"end": tr("Titelende"), "limit": tr("Zeitgrenze"), "silence": tr("Stille"),
+                    "retry": tr("neuer Versuch")}.get(why, why)
+            events.log(tr("weiter: %s nach %d s") % (what, round(self.elapsed())))
             if why == "retry":
                 self.retry_at = None
                 await self._advance(manual=True)

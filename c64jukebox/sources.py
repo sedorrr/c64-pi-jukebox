@@ -12,6 +12,7 @@ import socket
 import threading
 import time
 
+from .i18n import tr
 from .smb2 import Smb2, SmbFailed
 
 SID_MAX = 1 << 20            # a SID file is at most ~64 KB, anything this big is not one
@@ -19,13 +20,13 @@ IDLE_S = 60
 
 
 class SourceError(Exception):
-    """message for the page (German)"""
+    """message for the page (in the chosen language: tr() where it is raised)"""
 
 
 def norm(path):
     parts = [p for p in (path or "/").replace("\\", "/").split("/") if p not in ("", ".")]
     if ".." in parts:
-        raise SourceError("Ungültiger Pfad")
+        raise SourceError(tr("Ungültiger Pfad"))
     return "/" + "/".join(parts)
 
 
@@ -84,8 +85,8 @@ class LocalSource(Source):
         p = self._abs(path)
         if not os.path.isdir(p):
             if p == self.root:
-                raise SourceError("Ordner %s gibt es nicht (USB-Stick eingesteckt?)" % self.root)
-            raise SourceError("Ordner nicht gefunden")
+                raise SourceError(tr("Ordner %s gibt es nicht (USB-Stick eingesteckt?)") % self.root)
+            raise SourceError(tr("Ordner nicht gefunden"))
         out = []
         with os.scandir(p) as it:
             for e in it:
@@ -100,11 +101,11 @@ class LocalSource(Source):
         p = self._abs(path)
         try:
             if os.path.getsize(p) > limit:
-                raise SourceError("Datei zu groß")
+                raise SourceError(tr("Datei zu groß"))
             with open(p, "rb") as f:
                 return f.read()
         except OSError:
-            raise SourceError("Datei nicht lesbar: " + norm(path))
+            raise SourceError(tr("Datei nicht lesbar: %s") % norm(path))
 
     async def list(self, path):
         return await asyncio.get_running_loop().run_in_executor(None, self._list, path)
@@ -117,7 +118,7 @@ class LocalSource(Source):
             with open(self._abs(path), "rb") as f:
                 return f.read(n)
         except OSError:
-            raise SourceError("Datei nicht lesbar: " + norm(path))
+            raise SourceError(tr("Datei nicht lesbar: %s") % norm(path))
 
     async def head(self, path, n):
         return await asyncio.get_running_loop().run_in_executor(None, self._head, path, n)
@@ -164,7 +165,7 @@ class _Threaded(Source):
                         raise SourceError(self._explain(e))
 
     def _explain(self, e):
-        return "Verbindung fehlgeschlagen: %s" % (e or type(e).__name__)
+        return tr("Verbindung fehlgeschlagen: %s") % (e or type(e).__name__)
 
     async def _run(self, fn, *args):
         return await asyncio.get_running_loop().run_in_executor(None, self._call, fn, *args)
@@ -213,7 +214,7 @@ class FtpSource(_Threaded):
 
     def _connect(self):
         if not self.host:
-            raise SourceError("Kein Server eingetragen")
+            raise SourceError(tr("Kein Server eingetragen"))
         f = ftplib.FTP(encoding="latin-1")
         f.connect(self.host, self.port, timeout=10)
         f.login(self.user or "anonymous", self.pw or "")
@@ -234,9 +235,9 @@ class FtpSource(_Threaded):
 
     def _explain(self, e):
         if isinstance(e, ftplib.error_perm) and str(e)[:3] == "530":
-            return "FTP-Anmeldung abgelehnt (Benutzer/Passwort)"
+            return tr("FTP-Anmeldung abgelehnt (Benutzer/Passwort)")
         if isinstance(e, (ConnectionRefusedError, socket.timeout, TimeoutError)):
-            return "FTP-Server %s nicht erreichbar" % self.host
+            return tr("FTP-Server %s nicht erreichbar") % self.host
         return "FTP: %s" % e
 
     def _list(self, f, path):
@@ -244,7 +245,7 @@ class FtpSource(_Threaded):
         try:
             f.cwd(full)
         except ftplib.error_perm:
-            raise SourceError("Ordner nicht gefunden: " + norm(path))
+            raise SourceError(tr("Ordner nicht gefunden: %s") % norm(path))
         out = []
         try:
             for name, facts in f.mlsd():
@@ -275,14 +276,14 @@ class FtpSource(_Threaded):
         def take(b):
             buf.write(b)
             if buf.tell() > limit:
-                raise SourceError("Datei zu groß")
+                raise SourceError(tr("Datei zu groß"))
         try:
             f.retrbinary("RETR " + join(self.root, path), take)
         except SourceError:
             self._drop()
             raise
         except ftplib.error_perm:
-            raise SourceError("Datei nicht gefunden: " + norm(path))
+            raise SourceError(tr("Datei nicht gefunden: %s") % norm(path))
         return buf.getvalue()
 
     async def list(self, path):
@@ -305,18 +306,18 @@ class PysmbClient:
         try:
             ok = self.c.connect(host, 445, timeout=timeout)
         except (OSError, socket.timeout) as e:
-            raise SmbFailed("SMB-Server %s nicht erreichbar (%s)" % (host, e))
+            raise SmbFailed(tr("SMB-Server %s nicht erreichbar (%s)") % (host, e))
         except Exception as e:
-            raise SmbFailed("SMB-Anmeldung fehlgeschlagen (%s)" % str(e).splitlines()[0][:120])
+            raise SmbFailed(tr("SMB-Anmeldung fehlgeschlagen (%s)") % str(e).splitlines()[0][:120])
         if not ok:
-            raise SmbFailed("SMB-Anmeldung abgelehnt (Benutzer/Passwort)", login=True)
+            raise SmbFailed(tr("SMB-Anmeldung abgelehnt (Benutzer/Passwort)"), login=True)
 
     def listdir(self, share, path):
         from smb.smb_structs import OperationFailure
         try:
             items = self.c.listPath(share, path or "/", timeout=30)
         except OperationFailure:
-            raise SourceError("Ordner nicht gefunden oder kein Zugriff: " + norm(path))
+            raise SourceError(tr("Ordner nicht gefunden oder kein Zugriff: %s") % norm(path))
         return [(f.filename, bool(f.isDirectory), int(f.file_size)) for f in items if f.filename not in (".", "..")]
 
     def read(self, share, path, limit):
@@ -325,7 +326,7 @@ class PysmbClient:
         try:
             self.c.retrieveFileFromOffset(share, path, buf, 0, limit + 1, timeout=30)
         except OperationFailure:
-            raise SourceError("Datei nicht gefunden oder kein Zugriff: " + norm(path))
+            raise SourceError(tr("Datei nicht gefunden oder kein Zugriff: %s") % norm(path))
         return None if buf.tell() > limit else buf.getvalue()
 
     def head(self, share, path, n):
@@ -334,7 +335,7 @@ class PysmbClient:
         try:
             self.c.retrieveFileFromOffset(share, path, buf, 0, n, timeout=30)
         except OperationFailure:
-            raise SourceError("Datei nicht gefunden oder kein Zugriff: " + norm(path))
+            raise SourceError(tr("Datei nicht gefunden oder kein Zugriff: %s") % norm(path))
         return buf.getvalue()
 
     def shares(self):
@@ -372,7 +373,7 @@ class Smb2Client:
             raise SourceError(str(e))
         except Exception as e:
             if _smb_missing(e):
-                raise SourceError("Ordner nicht gefunden oder kein Zugriff: " + norm(path))
+                raise SourceError(tr("Ordner nicht gefunden oder kein Zugriff: %s") % norm(path))
             raise
 
     def read(self, share, path, limit):
@@ -380,7 +381,7 @@ class Smb2Client:
             return self.c.read(share, path, limit)
         except Exception as e:
             if _smb_missing(e):
-                raise SourceError("Datei nicht gefunden oder kein Zugriff: " + norm(path))
+                raise SourceError(tr("Datei nicht gefunden oder kein Zugriff: %s") % norm(path))
             raise
 
     def head(self, share, path, n):
@@ -388,7 +389,7 @@ class Smb2Client:
             return self.c.head(share, path, n)
         except Exception as e:
             if _smb_missing(e):
-                raise SourceError("Datei nicht gefunden oder kein Zugriff: " + norm(path))
+                raise SourceError(tr("Datei nicht gefunden oder kein Zugriff: %s") % norm(path))
             raise
 
     def shares(self):
@@ -431,7 +432,7 @@ class SmbSource(_Threaded):
 
     def _connect(self):
         if not self.host or not self.share:
-            raise SourceError("Server oder Freigabe fehlt")
+            raise SourceError(tr("Server oder Freigabe fehlt"))
         return smb_connect(self.host, self.user, self.pw, self.domain)
 
     def _close_conn(self, c):
@@ -446,7 +447,7 @@ class SmbSource(_Threaded):
     def _read(self, c, path, limit):
         data = c.read(self.share, join(self.root, path), limit)
         if data is None:
-            raise SourceError("Datei zu groß")
+            raise SourceError(tr("Datei zu groß"))
         return data
 
     async def list(self, path):
@@ -499,12 +500,12 @@ class Sources:
                             s.get("path") or "/")
             src.kind = "u64"
             return src
-        raise SourceError("Unbekannte Quelle")
+        raise SourceError(tr("Unbekannte Quelle"))
 
     def get(self, sid):
         s = self.config.source(sid)
         if s is None:
-            raise SourceError("Quelle nicht gefunden")
+            raise SourceError(tr("Quelle nicht gefunden"))
         key = json.dumps([s, self.config.ultimate(self.ultimate_index(s)) if s.get("kind") == "u64" else None],
                          sort_keys=True)
         hit = self._cache.get(sid)

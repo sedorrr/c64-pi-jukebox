@@ -15,6 +15,8 @@ import os
 import threading
 import time
 
+from .i18n import tr
+
 I2C_SLAVE = 0x0703
 W, H = 128, 64
 
@@ -56,7 +58,7 @@ class Oled:
                 return a
             except OSError:
                 continue
-        raise OSError("kein Display an 0x3C/0x3D")
+        raise OSError(tr("kein Display an 0x3C/0x3D"))
 
     def cmd(self, cmds):
         for k in range(0, len(cmds), 16):
@@ -145,28 +147,28 @@ class Screen:
         if mode == "ap" and n.get("ap"):
             ap = n["ap"]
             d.rectangle((0, 0, W - 1, 12), fill=1)
-            d.text((2 + ox, 0), "Eigenes WLAN des Pi", font=self.small, fill=0)
-            d.text((ox, 14 + oy), self._fit(d, "Name: " + ap.get("ssid", ""), self.small, W), font=self.small, fill=1)
-            d.text((ox, 26 + oy), self._fit(d, "Passwort: " + ap.get("pw", ""), self.small, W), font=self.small, fill=1)
+            d.text((2 + ox, 0), tr("Eigenes WLAN des Pi"), font=self.small, fill=0)
+            d.text((ox, 14 + oy), self._fit(d, tr("Name: %s") % ap.get("ssid", ""), self.small, W), font=self.small, fill=1)
+            d.text((ox, 26 + oy), self._fit(d, tr("Passwort: %s") % ap.get("pw", ""), self.small, W), font=self.small, fill=1)
             d.text((ox, 38 + oy), self._fit(d, "http://" + ap.get("ip", ""), self.big, W), font=self.big, fill=1)
-            d.text((ox, 53 + oy), "kein Kabel, kein WLAN", font=self.small, fill=1)
+            d.text((ox, 53 + oy), tr("kein Kabel, kein WLAN"), font=self.small, fill=1)
             return
         d.text((ox, oy), name + ".local", font=self.big, fill=1)
         if mode == "lan":
-            lines = ["Kabel", n.get("eth_ip", "")]
+            lines = [tr("Kabel"), n.get("eth_ip", "")]
         elif mode == "wlan":
-            lines = ["WLAN " + n.get("wlan_ssid", ""), n.get("wlan_ip", "")]
+            lines = [tr("WLAN %s") % n.get("wlan_ssid", ""), n.get("wlan_ip", "")]
         elif mode == "party":
             lines = ["Party " + (n.get("ap") or {}).get("ssid", ""), (n.get("ap") or {}).get("ip", "")]
         elif mode == "none":
-            lines = ["kein Netz", "suche …"]
+            lines = [tr("kein Netz"), tr("suche …")]
         else:
-            lines = ["Netz unbekannt", st.get("ip", "")]
+            lines = [tr("Netz unbekannt"), st.get("ip", "")]
         d.text((ox, 17 + oy), self._fit(d, lines[0], self.big, W), font=self.big, fill=1)
         d.text((ox, 33 + oy), lines[1], font=self.big, fill=1)
         s = st.get("stream") or {}
-        d.text((ox, 52 + oy), self._fit(d, "Stream %d/s an %d Picos" % (s.get("pps", 0), len(s.get("targets", []))) if s.get("on")
-                                        else "Stream-Verteiler aus", self.small, W), font=self.small, fill=1)
+        d.text((ox, 52 + oy), self._fit(d, tr("Stream %d/s an %d Picos") % (s.get("pps", 0), len(s.get("targets", []))) if s.get("on")
+                                        else tr("Stream-Verteiler aus"), self.small, W), font=self.small, fill=1)
 
     def _play(self, d, st, ox, oy):
         p = st.get("player") or {}
@@ -186,14 +188,14 @@ class Screen:
         if now.get("songs", 1) > 1:
             t = "%d/%d" % (now.get("song", 1), now["songs"])
             d.text((W - d.textlength(t, font=self.small) - 1 + ox, oy), t, font=self.small, fill=1)
-        d.text((ox, 13 + oy), self._fit(d, now.get("title") or now.get("name") or "Nichts läuft", self.big, W), font=self.big, fill=1)
+        d.text((ox, 13 + oy), self._fit(d, now.get("title") or now.get("name") or tr("Nichts läuft"), self.big, W), font=self.big, fill=1)
         d.text((ox, 29 + oy), self._fit(d, now.get("author") or "", self.small, W), font=self.small, fill=1)
         if secs:
             d.rectangle((ox, 42 + oy, W - 1, 46 + oy), outline=1)
             d.rectangle((ox, 42 + oy, ox + int((W - 1 - ox) * min(1, el / secs)), 46 + oy), fill=1)
         s = st.get("stream") or {}
-        foot = ("Stream %d/s → %d Picos" % (s.get("pps", 0), len(s.get("targets", [])))) if s.get("on") else \
-            "%d Titel in der Liste" % p.get("total", 0)
+        foot = (tr("Stream %d/s → %d Picos") % (s.get("pps", 0), len(s.get("targets", [])))) if s.get("on") else \
+            tr("%d Titel in der Liste") % p.get("total", 0)
         d.text((ox, 52 + oy), self._fit(d, foot, self.small, W), font=self.small, fill=1)
 
 
@@ -203,7 +205,8 @@ class Display:
     """the jukebox's side: finds the display (OLED on I2C or the 2.8" TFT on SPI), chooses the page, sends only changed
     pictures; on the TFT also the touch (buttons, page change, calibration). tick() runs in a worker thread about once a
     second, the touch in its own thread - both draw under self.lock."""
-    TFT_MSG = {"own": "2,8″-Display (ILI9341) an SPI 0.0, Touch an SPI 1.0", "shared": "2,8″-Display (ILI9341) an SPI 0.0, Touch an SPI 0.1"}
+    TFT_MSG = {"own": tr("2,8″-Display (ILI9341) an SPI 0.0, Touch an SPI 1.0"),       # tr: marks only (German at
+               "shared": tr("2,8″-Display (ILI9341) an SPI 0.0, Touch an SPI 0.1")}    # import), translated when shown
 
     def __init__(self, settings, bus_factory=I2CBus, clock=time.monotonic, hw=None, on_touch=None, save=None,
                  touch_thread=True):
@@ -250,7 +253,7 @@ class Display:
         kind = st.get("type", "auto")
         if kind == "off":
             self.close()
-            self.msg = "aus"
+            self.msg = tr("aus")
             return False
         if self.dev:
             return True
@@ -265,7 +268,7 @@ class Display:
                 touch = "shared" if st.get("touch") == "shared" else "own"
                 self.dev = Ili9341(self.hw, flip=bool(st.get("flip")), touch=touch, dc=int(st.get("dc") or 24))
                 self.tft = True
-                self.msg = self.TFT_MSG[touch]
+                self.msg = tr(self.TFT_MSG[touch])
                 if self.touch_thread:
                     self.reader = TouchReader(self.dev.touch, self.touch_raw)
                     self.reader.start()
@@ -275,14 +278,14 @@ class Display:
                 self.screen = Screen()
                 self.dev = Oled(self.bus_factory(), "sh1106" if kind == "sh1106" else "ssd1306")
                 self.tft = False
-                self.msg = "%s an 0x%02X" % (self.dev.kind.upper(), self.dev.addr)
+                self.msg = tr("%s an 0x%02X") % (self.dev.kind.upper(), self.dev.addr)
             self.last_img = None
             return True
         except (OSError, ImportError) as e:
             self.close()
-            self.msg = "nicht gefunden (%s)" % e
+            self.msg = tr("nicht gefunden (%s)") % e
             if "spidev1.0" in str(e):                    # the second SPI bus comes with install.sh + one restart
-                self.msg = "zweiter SPI-Bus für den Touch fehlt – Pi einmal neu starten (sudo reboot)"
+                self.msg = tr("zweiter SPI-Bus für den Touch fehlt – Pi einmal neu starten (sudo reboot)")
             return False
 
     def page_for(self, st):
@@ -346,7 +349,7 @@ class Display:
             try:
                 self._draw(st)
             except OSError as e:
-                self.msg = "Fehler: %s" % e
+                self.msg = tr("Fehler: %s") % e
                 self.close()
 
     def redraw(self):
@@ -356,7 +359,7 @@ class Display:
                 try:
                     self._draw(self.last_st)
                 except OSError as e:
-                    self.msg = "Fehler: %s" % e
+                    self.msg = tr("Fehler: %s") % e
 
     # ---- touch (TFT only) ----
     def calibrate(self):
@@ -386,7 +389,7 @@ class Display:
                     self.save()
                     self.cal_step, self.cal_note = None, ""
                 else:
-                    self.cal_step, self.cal_raw, self.cal_note = 0, [], "Nicht erkannt – bitte noch einmal"
+                    self.cal_step, self.cal_raw, self.cal_note = 0, [], tr("Nicht erkannt – bitte noch einmal")
             self.redraw()
             return "cal"
         cal = st.get("cal")

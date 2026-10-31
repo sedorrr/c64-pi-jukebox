@@ -8,6 +8,8 @@ import os
 
 import pygame
 
+from ..i18n import tr
+
 SIZE = (1920, 1080)
 
 
@@ -154,9 +156,10 @@ def open_screen(prefer_gpu=True, windowed=False, size=SIZE):
     if prefer_gpu:
         try:
             scr = GpuScreen(size, windowed)
-            return scr, "Grafikchip (%s, %s)" % (pygame.display.get_driver(), scr.driver[1])
+            return scr, tr("Grafikchip (%s, %s)") % (pygame.display.get_driver(),
+                                                     tr("Standard") if scr.driver[0] < 0 else scr.driver[1])
         except Exception as e:                       # pygame._sdl2 raises its own error class (e.g. "EGL not initialized")
-            note = "ohne Grafikchip: %s" % e
+            note = tr("ohne Grafikchip: %s") % e
     else:
-        note = "ohne Grafikchip"
+        note = tr("ohne Grafikchip")
     return SoftScreen(size, display=True), note

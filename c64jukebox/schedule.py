@@ -5,7 +5,9 @@ A time that passed while the Pi was off is not made up for."""
 import re
 import time
 
-DAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+from .i18n import tr
+
+DAYS = [tr("Mo"), tr("Di"), tr("Mi"), tr("Do"), tr("Fr"), tr("Sa"), tr("So")]   # tr: marks them, shown with tr()
 MAX = 20
 
 
@@ -18,14 +20,14 @@ def clean(entries, lists=()):
         t = str(e.get("time", "")).strip()
         m = re.match(r"^(\d{1,2}):(\d{2})$", t)
         if not m or int(m.group(1)) > 23 or int(m.group(2)) > 59:
-            raise ValueError("Keine gültige Uhrzeit: %s" % (t or "(leer)"))
+            raise ValueError(tr("Keine gültige Uhrzeit: %s") % (t or tr("(leer)")))
         days = sorted({int(d) for d in e.get("days", []) if str(d).isdigit() and 0 <= int(d) <= 6})
         if not days:
-            raise ValueError("Kein Wochentag gewählt (%s)" % t)
+            raise ValueError(tr("Kein Wochentag gewählt (%s)") % t)
         do = "stop" if e.get("do") == "stop" else "play"
         name = str(e.get("list") or "").strip()[:60] if do == "play" else ""
         if name and lists and name not in lists:
-            raise ValueError("Liste nicht gefunden: %s" % name)
+            raise ValueError(tr("Liste nicht gefunden: %s") % name)
         out.append({"id": str(e.get("id") or "e%d" % k)[:20], "on": bool(e.get("on", True)), "days": days,
                     "time": "%02d:%02d" % (int(m.group(1)), int(m.group(2))), "do": do, "list": name,
                     "tv": bool(e.get("tv"))})
@@ -67,8 +69,13 @@ def next_run(entries, now):
 
 def describe(e, when=None):
     """short text for the page: "Mo 18:00 · Abspielen „Feierabend“ (Fernseher an)" """
-    what = ("Abspielen " + ("„%s“" % e["list"] if e.get("list") else "(aktuelle Liste)")) if e["do"] == "play" else "Stoppen"
+    if e["do"] != "play":
+        what = tr("Stoppen")
+    elif e.get("list"):
+        what = tr("Abspielen „%s“") % e["list"]
+    else:
+        what = tr("Abspielen (aktuelle Liste)")
     if e.get("tv"):
-        what += " (Fernseher an)" if e["do"] == "play" else " (Fernseher aus)"
-    day = DAYS[when.tm_wday] + " " if when else ""
+        what += " " + (tr("(Fernseher an)") if e["do"] == "play" else tr("(Fernseher aus)"))
+    day = tr(DAYS[when.tm_wday]) + " " if when else ""
     return "%s%s · %s" % (day, e["time"], what)

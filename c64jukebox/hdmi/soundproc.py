@@ -22,6 +22,7 @@ from collections import deque
 
 import numpy as np
 
+from ..i18n import tr
 from .modes import SOUND_DEVICE, SOUND_PORT
 
 AUDIO_LEN = 770                                    # 2 bytes sequence + 192 stereo frames int16
@@ -237,13 +238,13 @@ class SoundProc:
             self.proc = subprocess.Popen(args, cwd=here, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                          stderr=subprocess.DEVNULL, bufsize=0)
         except OSError as e:
-            self.proc, self.msg = None, "Ton: %s" % e
+            self.proc, self.msg = None, tr("Ton: %s") % e
             return
         line = self.proc.stdout.readline()
         try:
             self.port = json.loads(line)["ready"]
         except (ValueError, KeyError):
-            self.msg = "Ton: Prozess startet nicht"
+            self.msg = tr("Ton: Prozess startet nicht")
             return
         threading.Thread(target=self._read, daemon=True, name="sound-state").start()
 
@@ -253,7 +254,8 @@ class SoundProc:
                 d = json.loads(line)
             except ValueError:
                 continue
-            self.ok, self.msg = d.get("ok", False), d.get("msg", "")
+            msg = d.get("msg", "")                    # the process knows no language: "Ton: <error>" from it
+            self.ok, self.msg = d.get("ok", False), tr("Ton: %s") % msg[5:] if msg.startswith("Ton: ") else msg
             self.gaps, self.dropped = d.get("gaps", []), d.get("dropped", 0)
             self.filled, self.restarts = d.get("filled", 0), d.get("restarts", 0)
             self.dev = d.get("dev", "")

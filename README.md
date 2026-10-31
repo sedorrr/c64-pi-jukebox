@@ -34,6 +34,7 @@ controlled entirely through a **web page** (German) – on the phone as well as 
   page (🔍 HVSC) and on the TV with the on-screen keyboard
 - **As an app on the phone:** "Add to Home Screen" (iPhone/Android) gives the page its own icon and full screen
 - **Bluetooth headphones:** search, pair, connect on the page; the TV sound goes to them while they are connected
+- **German or English:** the page, the TV menu, the displays and the manual – chosen under Settings → System
 - **Updates on request:** a newer version on GitHub is shown on the page and in the TV menu; "Installieren" there downloads it and runs the installer (the old program comes back if that fails)
 - **Switching off:** "Jukebox ausschalten" (⏻ at the top of the page, the TV menu or the touch display) shuts the Pi down cleanly; on a Tuya smart plug (e.g. Antela, app "Smart Life") it sets the plug's timer first, so the power goes once the Pi is down - back on by app or voice assistant
 - **Never play again:** a blocked list per file (MD5) – moving on, shuffle, discover and generated lists skip blocked

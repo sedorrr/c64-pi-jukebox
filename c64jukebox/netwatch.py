@@ -23,6 +23,8 @@ import subprocess
 import sys
 import time
 
+from .i18n import set_lang, tr
+
 RUN_DIR = "/run/c64pi"
 CONFIG = "/var/lib/c64jukebox/config.json"
 CON_AP = "c64pi-ap"
@@ -126,6 +128,7 @@ class NetWatch:
                 c = json.load(f)
         except (OSError, ValueError):
             c = {}
+        set_lang(c.get("lang") or "de")         # the texts for the page and the display (net.json) in its language
         w = c.get("wlan") or {}
         name = c.get("name") or "c64pi"
         base = OUR_PREFIX if name == "c64pi" else "%s-%s" % (OUR_PREFIX, name)
@@ -263,7 +266,7 @@ class NetWatch:
         if len(parts) >= 2:
             s = self.settings()
             party = s["party"]["on"] and parts[0] == s["party"]["ssid"]
-            self.ap = {"ssid": parts[0], "pw": "wie zu Hause" if party else s["pw"], "ip": parts[1].split("/")[0]}
+            self.ap = {"ssid": parts[0], "pw": tr("wie zu Hause") if party else s["pw"], "ip": parts[1].split("/")[0]}
             if party:
                 self.ap["party"] = True
             self.next_try = self.clock() + AP_RETRY_S
@@ -327,13 +330,13 @@ class NetWatch:
         if eth.get("state") == "connected" and eth.get("con") != CON_PARTY_ETH:
             self.party_eth_down("Heimnetz am Kabel")
             self.stop_ap("Heimnetz am Kabel") if self.ap and self.ap.get("party") else None
-            self.party = {"state": "wartet", "why": "Kabel-Netz eines Routers"}
+            self.party = {"state": "wartet", "why": tr("Kabel-Netz eines Routers")}
             return False
         if wifi.get("state") == "connected" and wifi.get("con") not in ("", CON_AP):
-            self.party = {"state": "wartet", "why": "mit dem WLAN verbunden"}
+            self.party = {"state": "wartet", "why": tr("mit dem WLAN verbunden")}
             return False
         if not p["ssid"]:
-            self.party = {"state": "wartet", "why": "kein WLAN-Name eingestellt"}
+            self.party = {"state": "wartet", "why": tr("kein WLAN-Name eingestellt")}
             return False
         # the cable: hand out the one address only when no router answered for a while since it was plugged in
         if self.carrier(eth_name):
@@ -350,14 +353,14 @@ class NetWatch:
             self.ensure_radio()
             visible, _ = self.look_around(connect=False)
             if any(v["ssid"] == p["ssid"] for v in visible):
-                self.party = {"state": "wartet", "why": "Heim-WLAN in Reichweite"}
+                self.party = {"state": "wartet", "why": tr("Heim-WLAN in Reichweite")}
                 return False
             pw = p["pw"] or self.saved_psk(p["ssid"])
             if len(pw) < 8:
-                self.party = {"state": "fehler", "why": "kein Passwort für %s gespeichert" % p["ssid"]}
+                self.party = {"state": "fehler", "why": tr("kein Passwort für %s gespeichert") % p["ssid"]}
                 return True
             if self.start_ap(visible, {"ssid": p["ssid"], "pw": pw}):
-                self.ap.update(party=True, pw="wie zu Hause")   # the home password never goes to the page/display
+                self.ap.update(party=True, pw=tr("wie zu Hause"))   # the home password never goes to the page/display
         self.mode = "party"
         self.party = {"state": "aktiv" if self.ap else "startet", "ssid": p["ssid"], "ap_ip": (self.ap or {}).get("ip", ""),
                       "eth": self.party_eth, "u64": PARTY_U64_IP if self.party_eth else ""}
@@ -381,7 +384,7 @@ class NetWatch:
         if act == "scan":
             self.ensure_radio()
             self.look_around(connect=False)
-            ok, msg = True, "%d WLANs gefunden" % len(self.scan_list)
+            ok, msg = True, tr("%d WLANs gefunden") % len(self.scan_list)
         elif act == "connect" and req.get("ssid"):
             self.ensure_radio()
             had_ap = self.ap is not None
@@ -393,7 +396,7 @@ class NetWatch:
                 cmd += ["password", req["pw"]]
             rc, out = self.run(cmd, timeout=60)
             ok = rc == 0
-            msg = "verbunden mit " + req["ssid"] if ok else "Verbinden ging nicht: " + out.strip()[:200]
+            msg = tr("verbunden mit %s") % req["ssid"] if ok else tr("Verbinden ging nicht: %s") % out.strip()[:200]
             if ok:
                 self.ap = None
                 self.radio_was_off = False
@@ -404,16 +407,17 @@ class NetWatch:
             con = self.saved_wifi().get(req["ssid"])
             if con:
                 rc, out = self.run(["nmcli", "connection", "delete", con])
-                ok, msg = rc == 0, "vergessen" if rc == 0 else out.strip()[:200]
+                ok, msg = rc == 0, tr("vergessen") if rc == 0 else out.strip()[:200]
             else:
-                msg = "nicht gespeichert"
+                msg = tr("nicht gespeichert")
         else:
-            msg = "unbekannte Anfrage"
+            msg = tr("unbekannte Anfrage")
         self.last = {"id": rid, "ok": ok, "msg": msg}
         self.log(msg)
 
     # ------------------------------------------------------------ one look around (every few seconds)
     def tick(self):
+        self.settings()                          # first: the language of the answer to a request (set_lang)
         self.handle_request()
         now = self.clock()
         devs = self.devices()

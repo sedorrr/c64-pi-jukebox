@@ -13,6 +13,8 @@ import os
 import struct
 import time
 
+from .i18n import tr
+
 
 def _ioc(d, nr, size):
     return (d << 30) | (size << 16) | (ord("a") << 8) | nr
@@ -55,10 +57,12 @@ KEYS = {
     0x0D: "back",                                             # exit / back
     0x30: "song_next", 0x31: "song_prev",                     # channel up/down: the next/previous sub-tune
 }
-KEY_NAMES = {0x00: "OK", 0x01: "hoch", 0x02: "runter", 0x03: "links", 0x04: "rechts", 0x09: "Menü", 0x0A: "Setup",
-             0x0B: "Inhalt", 0x0C: "Favoriten", 0x0D: "Zurück", 0x10: "Hauptmenü", 0x11: "Kontextmenü",
-             0x30: "Kanal +", 0x31: "Kanal –", 0x44: "Play", 0x45: "Stop", 0x46: "Pause", 0x48: "Rücklauf",
-             0x49: "Vorlauf", 0x4B: "vor", 0x4C: "zurück (Titel)", 0x61: "Play/Pause"}
+# German; tr() here only marks them for tools/i18n_check.py (German at import) - shown as tr(KEY_NAMES[k])
+KEY_NAMES = {0x00: "OK", 0x01: tr("hoch"), 0x02: tr("runter"), 0x03: tr("links"), 0x04: tr("rechts"),
+             0x09: tr("Menü"), 0x0A: "Setup", 0x0B: tr("Inhalt"), 0x0C: tr("Favoriten"), 0x0D: tr("Zurück"),
+             0x10: tr("Hauptmenü"), 0x11: tr("Kontextmenü"), 0x30: tr("Kanal +"), 0x31: tr("Kanal –"),
+             0x44: "Play", 0x45: "Stop", 0x46: "Pause", 0x48: tr("Rücklauf"), 0x49: tr("Vorlauf"), 0x4B: tr("vor"),
+             0x4C: tr("zurück (Titel)"), 0x61: "Play/Pause"}
 DECK = {1: "next", 2: "prev", 3: "stop"}                       # Deck Control: skip forward, skip back, stop
 REPEAT_S = 0.35                                                # a held key repeats: once per 0.35 s at most
 
@@ -170,7 +174,7 @@ class CecLink:
         try:
             self.fd = self.opener(self.dev, os.O_RDWR | os.O_NONBLOCK)
         except OSError as e:
-            self.err = "kein CEC-Anschluss (%s)" % (e.strerror or e)
+            self.err = tr("kein CEC-Anschluss (%s)") % (e.strerror or e)
             return False
         try:
             caps = bytearray(CAPS.size)
@@ -248,7 +252,7 @@ class CecLink:
             self.ioctl(self.fd, CEC_TRANSMIT, buf)          # timeout 0: queued, not waited for
             return True
         except OSError as e:
-            self.err = "CEC senden: %s" % (e.strerror or e)
+            self.err = tr("CEC senden: %s") % (e.strerror or e)
             return False
 
     def close(self):

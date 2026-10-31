@@ -779,3 +779,60 @@ def test_sound_device_pi3_and_pi4(tmp_path):
     assert soundproc.sound_device(str(pi3)) == "default:CARD=vc4hdmi"
     assert soundproc.sound_device(str(pi4)) == "default:CARD=vc4hdmi0"
     assert soundproc.sound_device(str(tmp_path / "none")) == soundproc.SOUND_DEVICE
+
+
+# ---------------------------------------------------------------- English (the language comes in the cfg)
+class _Said:
+    """a font that notes what it renders"""
+
+    def __init__(self, f, said):
+        self.f, self.said = f, said
+
+    def render(self, text, *a):
+        self.said.append(text)
+        return self.f.render(text, *a)
+
+    def size(self, text):
+        return self.f.size(text)
+
+
+def test_screen_texts_in_english(tmp_path):
+    """cfg "lang": "en" -> the service's own texts in English (idle text, title card, hints, SID voices); back to German"""
+    from c64jukebox import i18n
+    from c64jukebox.hdmi.app import Osd
+    from c64jukebox.hdmi.sidtrace import note_name, wave_name
+    pygame.init()
+    run = str(tmp_path)
+    clock = Clock()
+    app = HdmiApp(run, lambda: (SoftScreen(), "Test"), audio_port=0, video_port=0, clock=clock, seed=5)
+    i18n._tables.clear()
+    try:
+        write_in(run, {"on": True, "mode": "bars", "bg": "images", "lang": "en"}, {"state": "stop"})
+        app.tick()
+        assert i18n.lang() == "en"
+        clock.t += 1
+        app.compose(clock.t)
+        assert app.osd.cache["idle"][0][0][0] == "Nothing is playing"
+        assert app.osd.cache["note"][0][0][0] == "No pictures – upload some on the web page"
+        pygame.image.save(preview_items(app), os.path.join(HERE, "web", "hdmi_en_idle.png"))
+        osd = Osd()
+        playing = dict(PLAYER, state="pause", now=dict(PLAYER["now"], hvsc={"len": 125}))
+        osd.items(playing, "", "c64pi")
+        top, time_, hint = (osd.cache[k][0] for k in ("top", "time", "hint"))
+        assert top[1][0] == "Needs: MOS6581 - $D400, MOS8580 - $D420" and top[3][0] == "Sub-tune 1/17"
+        assert time_[0][0].endswith("(Pause)") and hint[0][0] == "Length 2:05 found in the HVSC · OK: take it"
+        said = []
+        tc = TitleCard()
+        tc.f_head, tc.f_info = _Said(tc.f_head, said), _Said(tc.f_info, said)
+        tc._render(PLAYER["now"])
+        assert "Now playing" in said and any("Sub-tune 1/17" in s for s in said)
+        assert wave_name(0x51) == "Pulse+Triangle" and note_name(71) == "B-4" and MODES["bars"] == "Balken"
+        assert i18n.tr(MODES["bars"]) == "Bars"
+        write_in(run, {"on": True, "mode": "bars", "bg": "none", "lang": "de"}, {"state": "stop"})
+        clock.t += 1
+        app.read_input(clock.t)
+        assert i18n.lang() == "de" and wave_name(0x51) == "Puls+Dreieck" and note_name(71) == "H-4"
+    finally:
+        app.stop()
+        i18n.set_lang("de")
+        i18n._tables.clear()

@@ -394,3 +394,34 @@ def test_home_screen_icons(tmp_path):
         assert m["display"] == "standalone" and [i["src"] for i in m["icons"]] == ["icon-192.png", "icon-512.png"]
         assert (await c.get("/nope.png")).status == 404
     run(tmp_path, t)
+
+
+def test_messages_in_english(tmp_path):
+    """language "en": errors raised in core reach the page in English, the event log too, and a list renamed
+    while it plays keeps its "List “…”" source (set in English)"""
+    from c64jukebox import events, i18n
+
+    async def t(c, jb, u64):
+        i18n.set_lang("en")                                  # after Jukebox() took the (empty) setting
+        await login(c)
+        s, j = await post(c, "/api/playlist/load", {"name": "gibtsnicht"})
+        assert s == 400 and j["msg"] == "List not found"
+        jb.player.items = [{"src": "pi", "path": "/b.sid", "name": "b.sid"}]
+        jb.playlist_write("Abend", jb.player.items)
+        s, j = await post(c, "/api/playlist/load", {"name": "Abend", "play": False})
+        assert jb.player.source == "List “Abend”"
+        jb.playlist_rename("Abend", "Nacht")
+        assert jb.player.source == "List “Nacht”"
+        try:
+            jb.playlist_rename("Nacht", "")
+        except ValueError as e:
+            assert str(e) == "Please enter a new name"
+        jb.add_ultimate("192.168.1.99", "Elite")
+        assert (await get(c, "/api/events"))[1]["events"][-1]["text"] == "Ultimate added: Elite (192.168.1.99)"
+    i18n._tables.clear()
+    try:
+        run(tmp_path, t)
+    finally:
+        i18n.set_lang("de")
+        i18n._tables.clear()
+        events.clear()

@@ -10,6 +10,7 @@ from collections import deque
 import numpy as np
 import pygame
 
+from ..i18n import tr
 from .analyzer import BANDS, NET_HISTORY
 from .sidtrace import note_name, wave_name
 from .modes import MODES
@@ -249,8 +250,8 @@ class Styles:
         self._cloud_system(surf, self.cloud[0], a.smoothed_l, hw / 2, H / 2, side, (180, 220, 255), (255, 45, 210), bg, now)
         self._cloud_system(surf, self.cloud[1], a.smoothed_r, hw * 1.5, H / 2, side, (255, 224, 180), (255, 100, 20), bg, now)
         f = font(round(15 * self.k), bold=True)
-        self._text(surf, "Links", (6, 4), f, LABEL)
-        self._text(surf, "Rechts", (hw + 6, 4), f, LABEL)
+        self._text(surf, tr("Links"), (6, 4), f, LABEL)
+        self._text(surf, tr("Rechts"), (hw + 6, 4), f, LABEL)
 
     def _osc_line(self, surf, samples, cy, half, color):
         n = min(300, len(samples))
@@ -271,8 +272,8 @@ class Styles:
         self._osc_line(surf, a.stereo[:, 0], rh / 2, rh / 2 * 0.85, rgb("#39ff6a"))
         self._osc_line(surf, a.stereo[:, 1], rh * 1.5, rh / 2 * 0.85, rgb("#ff9a3c"))
         f = font(round(15 * self.k), bold=True)
-        self._text(surf, "Links", (6, 4), f, LABEL)
-        self._text(surf, "Rechts", (6, rh + 4), f, LABEL)
+        self._text(surf, tr("Links"), (6, 4), f, LABEL)
+        self._text(surf, tr("Rechts"), (6, rh + 4), f, LABEL)
 
     def _radial(self, surf, a, info, bg, now):
         W, H = self.W, self.H
@@ -397,8 +398,8 @@ class Styles:
         self._wave_row(surf, self.wave[0], rh / 2, rh * 0.40, (20, 60, 90), (57, 192, 255))
         self._wave_row(surf, self.wave[1], rh * 1.5, rh * 0.40, (90, 45, 15), (255, 154, 60))
         f = font(round(15 * self.k), bold=True)
-        self._text(surf, "Links", (6, 4), f, LABEL)
-        self._text(surf, "Rechts", (6, rh + 4), f, LABEL)
+        self._text(surf, tr("Links"), (6, 4), f, LABEL)
+        self._text(surf, tr("Rechts"), (6, rh + 4), f, LABEL)
 
     @staticmethod
     def _fit(text, f, width):
@@ -494,8 +495,8 @@ class Styles:
         bases = sorted({b for _, chips in frames[-50:] for b in chips})[:3]
         if not bases:
             f = font(round(22 * k), bold=True)
-            self._text(surf, "SID-Stimmen", (W / 2, H * 0.42), f, LABEL, anchor="c")
-            self._text(surf, info.sid_note or "Warte auf die Daten des Ultimate …", (W / 2, H * 0.52),
+            self._text(surf, tr("SID-Stimmen"), (W / 2, H * 0.42), f, LABEL, anchor="c")
+            self._text(surf, info.sid_note or tr("Warte auf die Daten des Ultimate …"), (W / 2, H * 0.52),
                        font(round(16 * k)), rgb("#9a9a9a"), anchor="c")
             return
         rows = len(bases)
@@ -544,7 +545,7 @@ class Styles:
                        (x0, r0), fh, LABEL)
             if last:
                 vol, cut, filt, vs = last
-                self._text(surf, "Lautstärke %d" % vol + ("  Filter %d %%" % round(cut * 100) if filt & 7 else ""),
+                self._text(surf, tr("Lautstärke %d") % vol + ("  Filter %d %%" % round(cut * 100) if filt & 7 else ""),
                            (x1, r0), fs, rgb("#9a9a9a"), anchor="ne")
                 lh = (bot - top) / 3
                 for v, (midi, lvl, ctrl, pw) in enumerate(vs):

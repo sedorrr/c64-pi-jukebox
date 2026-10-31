@@ -8,6 +8,7 @@ Closed after 30 s without a key (60 s at the keyboard). Only the logic - the HDM
 (hdmi-in.json "menu")."""
 from . import VERSION, plug, sidfile, smartlist
 from .hdmi.modes import MODES
+from .i18n import tr
 from .sources import SourceError
 
 TIMEOUT_S = 30
@@ -15,7 +16,8 @@ KBD_TIMEOUT_S = 60
 WINDOW = 9                                       # lines shown at once
 VOLUMES = (100, 90, 80, 70, 60, 50, 40, 30, 20, 10)
 KBD_ROWS = ["ABCDEFGHIJKLM", "NOPQRSTUVWXYZ", "abcdefghijklm", "nopqrstuvwxyz", "0123456789-_.",
-            ["Leer", "←", "Fertig", "Abbrechen"]]
+            ["Leer", "←", "Fertig", "Abbrechen"]]             # compared in _kbd_key; view() shows them with tr()
+KBD_WORDS = (tr("Leer"), tr("Fertig"), tr("Abbrechen"))   # marks them for tools/i18n_check.py (German at import)
 NAME_MAX = 40
 TV_HITS = 200                                    # search hits on the TV (the page shows up to 500)
 DONE_S = 2.0                                     # a length taken: the note this long, then the menu closes by itself
@@ -26,12 +28,13 @@ def c_bt_on(core):
 
 
 def onoff(v):
-    return "an" if v else "aus"
+    return tr("an") if v else tr("aus")
 
 
 class TvMenu:
-    TITLES = {"main": "C64-Jukebox", "lists": "Musik wählen", "effects": "Effekt am Fernseher",
-              "ultimates": "Welches Ultimate spielt", "sound": "Bild und Ton", "power": "Ausschalten"}
+    # marked with tr() for tools/i18n_check.py (German at import); view() shows them with tr()
+    TITLES = {"main": "C64-Jukebox", "lists": tr("Musik wählen"), "effects": tr("Effekt am Fernseher"),
+              "ultimates": tr("Welches Ultimate spielt"), "sound": tr("Bild und Ton"), "power": tr("Ausschalten")}
 
     def __init__(self, core, clock):
         self.core, self.clock = core, clock
@@ -90,34 +93,34 @@ class TvMenu:
         c = self.core.config
         h, pl = c["hdmi"], c["player"]
         if self.level == "lists":
-            out = [("In der HVSC suchen", "›", ("search",))] if self.core.hvsc_root() else []
-            out += [("Ordner: " + (s.get("label") or s["id"]), "›", ("browse", s["id"], "/")) for s in c["sources"]]
-            out += [(label, "", ("preset", key)) for key, label in smartlist.PRESETS.items()]
-            out += [(p["name"], "%d Titel ›" % p["n"], ("listmenu", p["name"])) for p in self.core.playlists()]
+            out = [(tr("In der HVSC suchen"), "›", ("search",))] if self.core.hvsc_root() else []
+            out += [(tr("Ordner: %s") % (s.get("label") or s["id"]), "›", ("browse", s["id"], "/")) for s in c["sources"]]
+            out += [(tr(label), "", ("preset", key)) for key, label in smartlist.PRESETS.items()]
+            out += [(p["name"], tr("%d Titel ›") % p["n"], ("listmenu", p["name"])) for p in self.core.playlists()]
             return out
         if self.level == "list":
-            return [("Abspielen", "", ("list", self.cur_list)),
-                    ("Hinten anhängen", "", ("listadd", self.cur_list)),
-                    ("Umbenennen", "›", ("rename", self.cur_list)),
-                    ("Löschen", "›", ("ask", "Liste „%s“ löschen?" % self.cur_list, "Ja, löschen",
+            return [(tr("Abspielen"), "", ("list", self.cur_list)),
+                    (tr("Hinten anhängen"), "", ("listadd", self.cur_list)),
+                    (tr("Umbenennen"), "›", ("rename", self.cur_list)),
+                    (tr("Löschen"), "›", ("ask", tr("Liste „%s“ löschen?") % self.cur_list, tr("Ja, löschen"),
                                            ("delete", self.cur_list), "list"))]
         if self.level == "confirm":
             q, yes, act, _ = self.confirm
-            return [("Nein", "", ("unconfirm",)), (yes, "", act)]
+            return [(tr("Nein"), "", ("unconfirm",)), (yes, "", act)]
         if self.level == "effects":
-            return [(name, "●" if key == h.get("mode") else "", ("mode", key)) for key, name in MODES.items()]
+            return [(tr(name), "●" if key == h.get("mode") else "", ("mode", key)) for key, name in MODES.items()]
         if self.level == "dir" and self.dir.get("q") is not None:      # search hits
             d = self.dir
             if not d["items"]:
-                return [("Nichts gefunden – andere Wörter", "›", ("search",))]
-            return [("Alle %d abspielen" % len(d["items"]), "", ("playhit", 0))] + \
+                return [(tr("Nichts gefunden – andere Wörter"), "›", ("search",))]
+            return [(tr("Alle %d abspielen") % len(d["items"]), "", ("playhit", 0))] + \
                 [((e.get("i") or {}).get("t") or e["n"], (e.get("i") or {}).get("a", ""), ("playhit", k))
                  for k, e in enumerate(d["items"])]
         if self.level == "dir":
             d = self.dir
-            out = [("Diesen Ordner abspielen", "", ("playdir", False, "replace")),
-                   ("… mit allen Unterordnern", "", ("playdir", True, "replace")),
-                   ("Ordner hinten anhängen", "", ("playdir", False, "add"))]
+            out = [(tr("Diesen Ordner abspielen"), "", ("playdir", False, "replace")),
+                   (tr("… mit allen Unterordnern"), "", ("playdir", True, "replace")),
+                   (tr("Ordner hinten anhängen"), "", ("playdir", False, "add"))]
             out += [(e["n"] + "/", "›", ("cd", e["n"])) for e in d["items"] if e["d"]]
             out += [((e.get("i") or {}).get("t") or e["n"], "", ("playfile", e["n"])) for e in d["items"] if not e["d"]]
             return out
@@ -126,31 +129,31 @@ class TvMenu:
             out = [(self._u64_name(u), "●" if i == sel else u.get("addr", ""), ("u64sel", i))
                    for i, u in enumerate(c["ultimates"]) if u.get("addr")]
             name = self._u64_name()
-            out += [("Einschalten", name, ("power", True)),
-                    ("Ausschalten", name + " ›", ("ask", "„%s“ ausschalten?" % name, "Ja, ausschalten",
-                                                 ("power", False), "ultimates"))]
-            out.append(("Im Netzwerk suchen", "%d %%" % (self.scan_job.pct or 0) if self._busy(self.scan_job) else "›",
+            out += [(tr("Einschalten"), name, ("power", True)),
+                    (tr("Ausschalten"), name + " ›", ("ask", tr("„%s“ ausschalten?") % name, tr("Ja, ausschalten"),
+                                                     ("power", False), "ultimates"))]
+            out.append((tr("Im Netzwerk suchen"), "%d %%" % (self.scan_job.pct or 0) if self._busy(self.scan_job) else "›",
                         ("u64scan",)))
             out += [("+ " + f["name"], f["ip"], ("u64add", k)) for k, f in enumerate(self.found)]
             return out
         if self.level == "sound":
             return [
-                ("Effekte automatisch wechseln", onoff(h.get("auto")), ("auto",)),
-                ("Titel einblenden", onoff(h.get("osd", True)), ("osd",)),
-                ("Ton am Fernseher", onoff(h.get("sound")), ("sound",)),
-                *([("Ton über Kopfhörer", onoff(c["bt"].get("on")) + ("" if self.core.bt_conn else " (nicht verbunden)"),
-                    ("btout",))] if c["bt"].get("mac") else []),
-                ("Lautstärke am Fernseher", "%d %%" % int(h.get("volume", 100)), ("volume",)),
+                (tr("Effekte automatisch wechseln"), onoff(h.get("auto")), ("auto",)),
+                (tr("Titel einblenden"), onoff(h.get("osd", True)), ("osd",)),
+                (tr("Ton am Fernseher"), onoff(h.get("sound")), ("sound",)),
+                *([(tr("Ton über Kopfhörer"), onoff(c["bt"].get("on")) if self.core.bt_conn else
+                    tr("%s (nicht verbunden)") % onoff(c["bt"].get("on")), ("btout",))] if c["bt"].get("mac") else []),
+                (tr("Lautstärke am Fernseher"), "%d %%" % int(h.get("volume", 100)), ("volume",)),
             ]
         name = self._u64_name()
         if self.level == "power":
             return [
-                ("Fernseher ausschalten", "", ("tvoff",)),
-                ("Jukebox ausschalten", "›", ("ask", "Jukebox ausschalten?" + (" Die Steckdose schaltet danach ab."
-                                                                              if plug.configured(c["plug"]) else ""),
-                                              "Ja, ausschalten", ("pioff",), "power")),
-                ("Ultimate ausschalten", name + " ›", ("ask", "„%s“ ausschalten?" % name, "Ja, ausschalten",
-                                                          ("power", False), "power")),
+                (tr("Fernseher ausschalten"), "", ("tvoff",)),
+                (tr("Jukebox ausschalten"), "›", ("ask", tr("Jukebox ausschalten? Die Steckdose schaltet danach ab.")
+                                                  if plug.configured(c["plug"]) else tr("Jukebox ausschalten?"),
+                                                  tr("Ja, ausschalten"), ("pioff",), "power")),
+                (tr("Ultimate ausschalten"), name + " ›", ("ask", tr("„%s“ ausschalten?") % name, tr("Ja, ausschalten"),
+                                                              ("power", False), "power")),
             ]
         p = self.core.player
         lh = getattr(self.core, "loop_hint", None)
@@ -158,36 +161,36 @@ class TvMenu:
         nh = getattr(self.core, "name_hint", None)
         p_name = nh["len"] if nh and nh["cur"] is p.cur else 0
         return [
-            ("Musik wählen", "›", ("go", "lists")),
-            *([("HVSC-Länge übernehmen", "%d:%02d" % divmod(p_name, 60), ("nametake",))] if p_name else []),
-            *([("Erkannte Länge übernehmen", "%d:%02d" % divmod(p_loop, 60), ("looptake",))] if p_loop else []),
-            *([("Ende hier merken", "Länge unbekannt", ("endhere",))]
+            (tr("Musik wählen"), "›", ("go", "lists")),
+            *([(tr("HVSC-Länge übernehmen"), "%d:%02d" % divmod(p_name, 60), ("nametake",))] if p_name else []),
+            *([(tr("Erkannte Länge übernehmen"), "%d:%02d" % divmod(p_loop, 60), ("looptake",))] if p_loop else []),
+            *([(tr("Ende hier merken"), tr("Länge unbekannt"), ("endhere",))]
               if p.state == "play" and p.cur and not p.cur.get("secs") and not p_loop and not p_name else []),
-            *([("Titel nicht mehr spielen", "›", ("ask", "„%s“ überspringen und nicht mehr von selbst spielen?"
-                                                  % (p.cur["item"].get("title") or p.cur["item"].get("name", "")),
-                                                  "Ja, nicht mehr spielen", ("block",), "main"))] if p.cur else []),
-            ("Zufall", onoff(pl.get("shuffle")), ("shuffle",)),
-            ("Wiederholen", onoff(pl.get("repeat")), ("repeat",)),
-            ("Effekt", MODES.get(h.get("mode"), "?") + " ›", ("go", "effects")),
-            ("Bild und Ton", "%d %% ›" % int(h.get("volume", 100)), ("go", "sound")),
+            *([(tr("Titel nicht mehr spielen"), "›", ("ask", tr("„%s“ überspringen und nicht mehr von selbst spielen?")
+                                                      % (p.cur["item"].get("title") or p.cur["item"].get("name", "")),
+                                                      tr("Ja, nicht mehr spielen"), ("block",), "main"))] if p.cur else []),
+            (tr("Zufall"), onoff(pl.get("shuffle")), ("shuffle",)),
+            (tr("Wiederholen"), onoff(pl.get("repeat")), ("repeat",)),
+            (tr("Effekt"), tr(MODES.get(h.get("mode"), "?")) + " ›", ("go", "effects")),
+            (tr("Bild und Ton"), "%d %% ›" % int(h.get("volume", 100)), ("go", "sound")),
             ("Ultimate", name + " ›", ("go", "ultimates")),
-            ("Längen prüfen", self._check_value(), ("checklens",)),
-            *([("%d HVSC-Längen übernehmen" % len(self.core.list_hits), "", ("listnames",))]
+            (tr("Längen prüfen"), self._check_value(), ("checklens",)),
+            *([(tr("%d HVSC-Längen übernehmen") % len(self.core.list_hits), "", ("listnames",))]
               if getattr(self.core, "list_hits", None) else []),
             self._update_entry(),
-            ("Ausschalten", "›", ("go", "power")),          # one "up" from the top (after "Schließen")
-            ("Schließen", "", ("close",)),
+            (tr("Ausschalten"), "›", ("go", "power")),          # one "up" from the top (after "Schließen")
+            (tr("Schließen"), "", ("close",)),
         ]
 
     def _update_entry(self):
         u = self.core.update
         if self.core.update_running():
-            return ("Update", "läuft …", ("updcheck",))
+            return ("Update", tr("läuft …"), ("updcheck",))
         if u and u["newer"]:
-            return ("Update auf %s installieren" % u["ver"], "›",
-                    ("ask", "Version %s installieren? Die Jukebox startet dabei neu, das dauert einige Minuten."
-                     % u["ver"], "Ja, installieren", ("update",), "main"))
-        return ("Nach Update sehen", "Version %s ›" % VERSION, ("updcheck",))
+            return (tr("Update auf %s installieren") % u["ver"], "›",
+                    ("ask", tr("Version %s installieren? Die Jukebox startet dabei neu, das dauert einige Minuten.")
+                     % u["ver"], tr("Ja, installieren"), ("update",), "main"))
+        return (tr("Nach Update sehen"), tr("Version %s ›") % VERSION, ("updcheck",))
 
     def _check_value(self):
         j = self.job
@@ -201,30 +204,30 @@ class TvMenu:
         j = self.play_job
         if j:
             if not j.done:
-                self.note = "Ordner wird gelesen: " + (j.progress or "…")
+                self.note = tr("Ordner wird gelesen: %s") % (j.progress or "…")
             else:
                 self.play_job = None
                 if j.error:
                     self.note = j.error
                 else:
                     r = j.result or {}
-                    self.note = "%d Titel %s" % (r.get("n", 0), "angehängt" if self.level == "dir" and
-                                                 getattr(j, "mode", "") == "add" else "– spielt")
+                    self.note = (tr("%d Titel angehängt") if self.level == "dir" and getattr(j, "mode", "") == "add"
+                                 else tr("%d Titel – spielt")) % r.get("n", 0)
                     self.close_at = self.clock() + DONE_S
                 self.version += 1
         j = self.scan_job
         if j:
             if not j.done:
-                self.note = "Suche im Netzwerk: " + (j.progress or "…")
+                self.note = tr("Suche im Netzwerk: %s") % (j.progress or "…")
             else:
                 self.scan_job = None
                 known = {u.get("addr") for u in self.core.config["ultimates"]}
                 self.found = [{"ip": e["ip"], "name": (e.get("u64") or {}).get("product") or e.get("name") or e["ip"]}
                               for e in (j.result or []) if e["ip"] not in known and e.get("alt") not in known]
                 n = len(self.found)
-                self.note = j.error or ("%s gefunden – mit OK übernehmen" % ("1 neues Ultimate" if n == 1 else
-                                                                         "%d neue Ultimates" % n)
-                                        if n else "Kein neues Ultimate gefunden")
+                self.note = j.error or (tr("1 neues Ultimate gefunden – mit OK übernehmen") if n == 1 else
+                                        tr("%d neue Ultimates gefunden – mit OK übernehmen") % n if n else
+                                        tr("Kein neues Ultimate gefunden"))
                 self.version += 1
 
     def _check_note(self):
@@ -233,19 +236,19 @@ class TvMenu:
         if not j:
             return
         if not j.done:
-            self.note = "Längen prüfen: " + (j.progress or "…")
+            self.note = tr("Längen prüfen: %s") % (j.progress or "…")
             return
         self.job = None
         r = j.result or {}
         if j.error:
-            self.note = "Längen prüfen: " + j.error
+            self.note = tr("Längen prüfen: %s") % j.error
         elif r.get("taken"):
-            self.note = "%d Längen aus der HVSC übernommen" % r["taken"]
+            self.note = tr("%d Längen aus der HVSC übernommen") % r["taken"]
         elif r.get("found"):
-            self.note = "%d von %d Titeln ohne Länge in der HVSC gefunden" % (r["found"], r["nolen"])
+            self.note = tr("%d von %d Titeln ohne Länge in der HVSC gefunden") % (r["found"], r["nolen"])
         else:
-            self.note = "%d Titel ohne Länge, nichts in der HVSC gefunden" % r.get("nolen", 0) if r.get("nolen") \
-                else "Alle Titel haben eine Länge"
+            self.note = tr("%d Titel ohne Länge, nichts in der HVSC gefunden") % r.get("nolen", 0) if r.get("nolen") \
+                else tr("Alle Titel haben eine Länge")
         self.version += 1
 
     def view(self):
@@ -255,28 +258,29 @@ class TvMenu:
         self._jobs_note()
         if self.level == "kbd":
             k = self.kbd
-            return {"kind": "kbd", "title": k["title"], "text": k["text"], "rows": [list(r) for r in KBD_ROWS],
+            return {"kind": "kbd", "title": k["title"], "text": k["text"],
+                    "rows": [list(r) if isinstance(r, str) else [tr(x) for x in r] for r in KBD_ROWS],
                     "cur": [k["r"], k["c"]], "note": self.note, "v": self.version,
-                    "hint": "Pfeile wählen · OK tippt · Zurück löscht"}
+                    "hint": tr("Pfeile wählen · OK tippt · Zurück löscht")}
         e = self.entries()
         sel = min(self.sel[self.level], max(0, len(e) - 1))
         top = max(0, min(sel - WINDOW // 2, len(e) - WINDOW))
         if self.level == "confirm":
             title = self.confirm[0]
         elif self.level == "list":
-            title = "Liste „%s“" % self.cur_list
+            title = tr("Liste „%s“") % self.cur_list
         elif self.level == "dir" and self.dir.get("q") is not None:
-            title = "Suche „%s“" % self.dir["q"]
+            title = tr("Suche „%s“") % self.dir["q"]
         elif self.level == "dir":
             title = self.dir["label"] + " " + self.dir["path"]
             if len(title) > 50:
                 title = "…" + title[-49:]
         else:
-            title = self.TITLES[self.level]
+            title = tr(self.TITLES[self.level])
         return {"title": title, "sel": sel - top, "more_up": top > 0,
                 "more_down": top + WINDOW < len(e), "note": self.note, "v": self.version,
                 "items": [{"l": l, "v": v} for l, v, _ in e[top:top + WINDOW]],
-                "hint": "↑↓ wählen · OK · ← zurück"}
+                "hint": tr("↑↓ wählen · OK · ← zurück")}
 
     # ---- keys
     async def key(self, cmd):
@@ -331,14 +335,14 @@ class TvMenu:
             len(smartlist.PRESETS) + (names.index(name) if name in names else 0)
 
     def _search_kbd(self, text=""):
-        self.kbd = {"text": text, "r": 0, "c": 0, "title": "In der HVSC suchen (Titel, Komponist, Datei)",
+        self.kbd = {"text": text, "r": 0, "c": 0, "title": tr("In der HVSC suchen (Titel, Komponist, Datei)"),
                     "search": True, "back": "lists"}
         self.level = "kbd"
 
     async def _search_done(self):
         q = self.kbd["text"].strip()
         if len(q) < 2:
-            self.note = "Mindestens 2 Zeichen"
+            self.note = tr("Mindestens 2 Zeichen")
             return
         try:
             hits = await self.core.hvsc_find(q, TV_HITS)
@@ -348,14 +352,14 @@ class TvMenu:
         root = self.core.hvsc_root()
         self.dir = {"src": root[0], "label": "HVSC", "path": root[1], "q": q, "items": hits}
         self.level, self.kbd, self.sel["dir"] = "dir", None, 0
-        self.note = "%d Treffer%s" % (len(hits), " (gekürzt)" if len(hits) >= TV_HITS else "")
+        self.note = (tr("%d Treffer (gekürzt)") if len(hits) >= TV_HITS else tr("%d Treffer")) % len(hits)
 
     async def _open_dir(self, src, path, select=None):
         """a folder of a source as the "dir" level: sub-folders and SID files (titles of files read before)"""
         try:
             entries = await self.core.ls(src, path)
         except (SourceError, OSError) as e:
-            self.note = str(e) or "Ordner nicht lesbar"
+            self.note = str(e) or tr("Ordner nicht lesbar")
             return
         items = [e for e in self.core.annotate(src, path, entries) if e["d"] or sidfile.is_sid_name(e["n"])]
         label = (self.core.config.source(src) or {}).get("label") or src
@@ -365,7 +369,7 @@ class TvMenu:
             if select in names:
                 self.sel["dir"] = names.index(select)
         if not items:
-            self.note = "Keine Ordner oder SID-Dateien hier"
+            self.note = tr("Keine Ordner oder SID-Dateien hier")
 
     async def _do(self, a):
         core, kind = self.core, a[0]
@@ -387,9 +391,9 @@ class TvMenu:
             core.hdmi_set({kind: not h.get(kind, kind == "osd")})
         elif kind == "btout":
             core.bt_set(not c_bt_on(core))
-            name = core.config["bt"].get("name") or "Kopfhörer"
-            self.note = ("Ton über „%s“" % name if core.bt_active() else "Ton über „%s“, sobald verbunden" % name) \
-                if core.config["bt"].get("on") else "Ton über den Fernseher"
+            name = core.config["bt"].get("name") or tr("Kopfhörer")
+            self.note = ((tr("Ton über „%s“") if core.bt_active() else tr("Ton über „%s“, sobald verbunden")) % name) \
+                if core.config["bt"].get("on") else tr("Ton über den Fernseher")
         elif kind == "volume":
             v = int(h.get("volume", 100))
             nxt = [x for x in VOLUMES if x < v]
@@ -397,12 +401,12 @@ class TvMenu:
         elif kind == "mode":
             was_auto = h.get("auto")
             core.hdmi_set({"mode": a[1], "auto": False})
-            self.note = "Automatischer Wechsel ist jetzt aus" if was_auto else ""
+            self.note = tr("Automatischer Wechsel ist jetzt aus") if was_auto else ""
             self.level = "main"
         elif kind == "preset":
             try:
                 n = await core.smart({"preset": a[1]})
-                self.note = "%d Titel – %s" % (n, smartlist.PRESETS.get(a[1], ""))
+                self.note = tr("%d Titel – %s") % (n, tr(smartlist.PRESETS.get(a[1], "")))
                 self.close()
             except ValueError as e:
                 self.note = str(e)
@@ -415,15 +419,15 @@ class TvMenu:
                 self.note = str(e)
                 return
             if not items:
-                self.note = "Die Liste ist leer"
+                self.note = tr("Die Liste ist leer")
                 return
             if kind == "listadd":
                 await core.player.add_items(items)
                 core.auto_check()
-                self.note = "%d Titel angehängt" % len(items)
+                self.note = tr("%d Titel angehängt") % len(items)
                 return
             await core.player.set_items(items, None if pl.get("shuffle") else 0, play=True,
-                                        source="Liste „%s“" % a[1])
+                                        source=tr("Liste „%s“") % a[1])
             core.auto_check()
             self.close()
         elif kind == "ask":
@@ -434,7 +438,7 @@ class TvMenu:
         elif kind == "delete":
             try:
                 core.playlist_delete(a[1])
-                self.note = "Liste „%s“ gelöscht" % a[1]
+                self.note = tr("Liste „%s“ gelöscht") % a[1]
             except ValueError as e:
                 self.note = str(e)
             self.level, self.confirm = "lists", None
@@ -444,11 +448,11 @@ class TvMenu:
         elif kind == "playhit":
             d = self.dir
             items = [{"src": d["src"], "path": e["p"], "name": e["n"]} for e in d["items"]]
-            await core.player.set_items(items, a[1], play=True, source="Suche „%s“" % d["q"])
+            await core.player.set_items(items, a[1], play=True, source=tr("Suche „%s“") % d["q"])
             core.auto_check()
             self.close()
         elif kind == "rename":
-            self.kbd = {"text": a[1][:NAME_MAX], "r": 0, "c": 0, "title": "Neuer Name für „%s“" % a[1], "list": a[1]}
+            self.kbd = {"text": a[1][:NAME_MAX], "r": 0, "c": 0, "title": tr("Neuer Name für „%s“") % a[1], "list": a[1]}
             self.level = "kbd"
         elif kind == "browse":
             await self._open_dir(a[1], a[2])
@@ -457,12 +461,12 @@ class TvMenu:
             await self._open_dir(d["src"], d["path"].rstrip("/") + "/" + a[1])
         elif kind == "playdir":
             if self._busy(self.play_job):
-                self.note = "Der Ordner wird noch gelesen …"
+                self.note = tr("Der Ordner wird noch gelesen …")
                 return
             d = self.dir
             self.play_job = core.start_job("folder", lambda job: core.play_folder(job, d["src"], d["path"], a[1], a[2]))
             self.play_job.mode = a[2]
-            self.note = "Ordner wird gelesen …"
+            self.note = tr("Ordner wird gelesen …")
         elif kind == "playfile":
             d = self.dir
             files = [e for e in d["items"] if not e["d"]]
@@ -473,91 +477,92 @@ class TvMenu:
             self.close()
         elif kind == "u64sel":
             if a[1] == core.config["u64_sel"]:
-                self.note = "„%s“ spielt schon" % self._u64_name()
+                self.note = tr("„%s“ spielt schon") % self._u64_name()
             elif core.player.state in ("play", "pause", "load"):
                 name = self._u64_name(core.config["ultimates"][a[1]])
-                await self._do(("ask", "Musik stoppen und zu „%s“ wechseln?" % name, "Ja, wechseln",
+                await self._do(("ask", tr("Musik stoppen und zu „%s“ wechseln?") % name, tr("Ja, wechseln"),
                                 ("u64set", a[1]), "ultimates"))
             else:
                 await self._do(("u64set", a[1]))
         elif kind == "u64set":
             await core.select_ultimate(a[1])
             self.level, self.confirm = "ultimates", None
-            self.note = "Es spielt jetzt „%s“" % self._u64_name()
+            self.note = tr("Es spielt jetzt „%s“") % self._u64_name()
         elif kind == "u64scan":
             if not self._busy(self.scan_job):
                 self.found = []
                 self.scan_job = core.start_job("scan", core.find_ultimates)
-            self.note = "Suche im Netzwerk …"
+            self.note = tr("Suche im Netzwerk …")
         elif kind == "u64add":
             f = self.found.pop(a[1])
             i = core.add_ultimate(f["ip"], f["name"])
-            self.note = "„%s“ übernommen" % f["name"]
+            self.note = tr("„%s“ übernommen") % f["name"]
             await self._do(("u64sel", i))
         elif kind == "checklens":
             if not (self.job and not self.job.done):
                 self.job = core.start_job("check", core.check_list)
-            self.note = "Längen prüfen …"
+            self.note = tr("Längen prüfen …")
         elif kind == "listnames":
             n = core.take_list_hits()
-            self.note = "%d Längen übernommen" % n
+            self.note = tr("%d Längen übernommen") % n
             self.close_at = self.clock() + DONE_S
         elif kind == "nametake":
             try:
                 secs = core.name_take()
-                self.note = "Länge %d:%02d aus der HVSC übernommen" % (secs // 60, secs % 60)
+                self.note = tr("Länge %d:%02d aus der HVSC übernommen") % (secs // 60, secs % 60)
                 self.close_at = self.clock() + DONE_S
             except ValueError as e:
                 self.note = str(e)
         elif kind == "looptake":
             try:
                 secs = core.loop_take()
-                self.note = "Länge %d:%02d übernommen – nächstes Stück" % (secs // 60, secs % 60)
+                self.note = tr("Länge %d:%02d übernommen – nächstes Stück") % (secs // 60, secs % 60)
                 self.close_at = self.clock() + DONE_S
             except ValueError as e:
                 self.note = str(e)
         elif kind == "endhere":
             try:
                 secs = await core.remember_end()
-                self.note = "Länge %d:%02d gemerkt – nächstes Stück" % (secs // 60, secs % 60)
+                self.note = tr("Länge %d:%02d gemerkt – nächstes Stück") % (secs // 60, secs % 60)
                 self.close_at = self.clock() + DONE_S
             except ValueError as e:
                 self.note = str(e)
         elif kind == "block":
             try:
                 it = await core.block()
-                self.note = "„%s“ gesperrt – nächstes Stück" % (it.get("title") or it.get("name", ""))
+                self.note = tr("„%s“ gesperrt – nächstes Stück") % (it.get("title") or it.get("name", ""))
                 self.close_at = self.clock() + DONE_S
             except ValueError as e:
                 self.note = str(e)
             self.level, self.confirm = "main", None
         elif kind == "updcheck":
             if self.core.update_running():
-                self.note = "Das Update läuft – die Jukebox startet gleich neu"
+                self.note = tr("Das Update läuft – die Jukebox startet gleich neu")
                 return
-            self.note = "Frage GitHub …"
+            self.note = tr("Frage GitHub …")
             u = await self.core.update_check()
-            self.note = "GitHub nicht erreichbar" if not u else \
-                "Version %s ist erschienen – mit OK installieren" % u["ver"] if u["newer"] else \
-                "Aktuell – Version %s" % VERSION
+            self.note = tr("GitHub nicht erreichbar") if not u else \
+                tr("Version %s ist erschienen – mit OK installieren") % u["ver"] if u["newer"] else \
+                tr("Aktuell – Version %s") % VERSION
         elif kind == "update":
             try:
                 r = await core.update_install()
-                self.note = "Update auf %s läuft – die Jukebox startet gleich neu" % r["ver"]
+                self.note = tr("Update auf %s läuft – die Jukebox startet gleich neu") % r["ver"]
             except ValueError as e:
                 self.note = str(e)
             self.level, self.confirm = "main", None
         elif kind == "tvoff":
             try:
                 core.cec_tv("standby")
-                self.note = "Fernseher wird ausgeschaltet"
+                self.note = tr("Fernseher wird ausgeschaltet")
                 self.close_at = self.clock() + DONE_S
             except ValueError as e:
                 self.note = str(e)
         elif kind == "pioff":
             try:
                 r = await core.power_off()
-                self.note = "Jukebox wird ausgeschaltet" + (" – Strom aus in %d s" % r["secs"] if r["timer"] else "")
+                self.note = tr("Jukebox wird ausgeschaltet – Strom aus in %d s") % r["secs"] if r["timer"] else \
+                    tr("Jukebox wird ausgeschaltet")
             except ValueError as e:
                 self.note = str(e)
             self._answered()
@@ -617,6 +622,6 @@ class TvMenu:
         except ValueError as e:
             self.note = str(e)                   # stays at the keyboard: name taken or empty
             return
-        self.note = "Umbenannt in „%s“" % new
+        self.note = tr("Umbenannt in „%s“") % new
         self.cur_list, self.level, self.kbd = new, "list", None
         self._select_list(new)

@@ -14,6 +14,8 @@ from email.utils import parsedate_to_datetime
 
 import aiohttp
 
+from .i18n import tr
+
 # the known news pages (checked 2026-10-20) - "on": shown unless the user chose otherwise on the page
 DEFAULT_FEEDS = [
     {"label": "Indie Retro News", "url": "https://www.indieretronews.com/feeds/posts/default?alt=rss", "on": True},
@@ -138,12 +140,12 @@ class News:
     async def _get(self, session, url, limit):
         async with session.get(url, headers={"User-Agent": UA}, timeout=aiohttp.ClientTimeout(total=20)) as r:
             if r.status >= 300:
-                raise ValueError("Fehler %d" % r.status)
+                raise ValueError(tr("Fehler %d") % r.status)
             data = bytearray()
             async for chunk in r.content.iter_chunked(1 << 16):     # read() alone gives only what has arrived
                 data += chunk
                 if len(data) > limit:
-                    raise ValueError("zu groß")
+                    raise ValueError(tr("zu groß"))
             return bytes(data)
 
     async def refresh(self, session, feeds):
@@ -157,7 +159,7 @@ class News:
             except (aiohttp.ClientError, asyncio.TimeoutError, ET.ParseError, ValueError, OSError) as e:
                 err = str(e) or type(e).__name__
                 if isinstance(e, aiohttp.ClientConnectorError):           # its text holds the whole SSL error
-                    err = "keine Verbindung zu %s" % e.host + (" (Zertifikat)" if "CERTIFICATE" in err else "")
+                    err = tr("keine Verbindung zu %s") % e.host + (tr(" (Zertifikat)") if "CERTIFICATE" in err else "")
                 self.state[url] = {"label": label, "n": 0, "err": err[:160], "t": time.time()}
         items = interleave(per_feed)[:KEEP]
         os.makedirs(self.img_dir, exist_ok=True)
@@ -199,7 +201,7 @@ def small_picture(data, path):
         img.draft("RGB", (IMAGE_SIZE[0] * 2, IMAGE_SIZE[1] * 2))
         img = ImageOps.exif_transpose(img).convert("RGB")
     except Exception:
-        raise ValueError("kein Bild")
+        raise ValueError(tr("kein Bild"))
     img.thumbnail(IMAGE_SIZE)
     img.save(path + ".tmp", "JPEG", quality=85)
     os.replace(path + ".tmp", path)

@@ -15,6 +15,8 @@ MD5 - a whole HVSC needs no file read) or, for the rest, from reading the file."
 import os
 import re
 
+from .i18n import tr
+
 SHARED_FORMAT = "ultimate64_sid_player_shared_playlist"
 U64PL_HEADER = "# Ultimate64 SID Player Playlist"
 HVSC_TOPS = ("/MUSICIANS/", "/GAMES/", "/DEMOS/")
@@ -72,11 +74,11 @@ class FolderIndex:
 def parse_shared(data):
     """-> (name, songs) or ValueError with a message for the page"""
     if not isinstance(data, dict) or data.get("format") != SHARED_FORMAT:
-        raise ValueError("Das ist keine geteilte Playlist des Ultimate64 SID Player")
+        raise ValueError(tr("Das ist keine geteilte Playlist des Ultimate64 SID Player"))
     songs = [s for s in (data.get("songs") or []) if isinstance(s, dict)]
     if not songs:
-        raise ValueError("Die Playlist enthält keine Titel")
-    return str(data.get("name") or "Importierte Playlist")[:60], songs
+        raise ValueError(tr("Die Playlist enthält keine Titel"))
+    return str(data.get("name") or tr("Importierte Playlist"))[:60], songs
 
 
 def missing_label(entry):

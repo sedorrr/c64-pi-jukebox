@@ -322,3 +322,21 @@ def test_party_stays_quiet_at_home(tmp_path):
     t2[0] += 1
     w2.tick()
     assert state(tmp_path)["party"]["state"] == "aus" and nm.party_eth != "up"
+
+
+def test_texts_in_the_language_of_the_settings(tmp_path):
+    """the watcher reads "lang" from the jukebox's config.json: its answers and reasons reach the page in English"""
+    from c64jukebox import i18n
+    nm = FakeNM()
+    nm.eth = True
+    nm.air = [("MeinWLAN", 70)]
+    w, t = make(tmp_path, nm, {"name": "c64pi", "lang": "en", "party": {"on": True, "ssid": ""}})
+    try:
+        (tmp_path / "run").mkdir()
+        (tmp_path / "run" / "request.json").write_text(json.dumps({"id": "e1", "action": "scan"}))
+        nm.eth = False
+        w.tick()
+        s = state(tmp_path)
+        assert s["last"]["msg"] == "1 Wi-Fi networks found" and s["party"]["why"] == "no Wi-Fi name set"
+    finally:
+        i18n.set_lang("de")

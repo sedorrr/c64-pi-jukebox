@@ -10,6 +10,8 @@ from collections import deque
 
 import numpy as np
 
+from ..i18n import tr
+
 PAL_HZ = 985248
 FRAME = 19656                          # cycles of one PAL frame (312 lines x 63)
 PKT_HEAD = 4
@@ -20,7 +22,8 @@ FORGET = 3 * 50                        # a chip without writes for 3 s is no lon
 # envelope times of the SID (ms) for the rate values 0..15; decay and release take three times as long
 ATTACK_MS = (2, 8, 16, 24, 38, 56, 68, 80, 100, 250, 500, 800, 1000, 3000, 5000, 8000)
 NOTE_NAMES = ("C-", "C#", "D-", "D#", "E-", "F-", "F#", "G-", "G#", "A-", "A#", "H-")
-WAVES = ((0x80, "Rauschen"), (0x40, "Puls"), (0x20, "Säge"), (0x10, "Dreieck"))
+WAVES = ((0x80, tr("Rauschen")), (0x40, tr("Puls")), (0x20, tr("Säge")), (0x10, tr("Dreieck")))   # tr: marks only
+# (German at import), translated in wave_name
 
 
 def sid_writes(words, io2=False):
@@ -37,13 +40,13 @@ def sid_writes(words, io2=False):
 
 
 def note_name(midi):
-    """69.0 -> "A-4" (C64 style, German H for B)"""
+    """69.0 -> "A-4" (C64 style, German H for B - B in English)"""
     n = int(round(midi))
-    return "%s%d" % (NOTE_NAMES[n % 12], n // 12 - 1)
+    return "%s%d" % (tr("H-") if n % 12 == 11 else NOTE_NAMES[n % 12], n // 12 - 1)
 
 
 def wave_name(ctrl):
-    names = [n for bit, n in WAVES if ctrl & bit]
+    names = [tr(n) for bit, n in WAVES if ctrl & bit]
     return "+".join(names) if names else "–"
 
 

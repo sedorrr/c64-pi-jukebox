@@ -382,3 +382,68 @@ def test_block_from_the_tv(tmp_path):
         assert "gesperrt" in jb.menu.view()["note"] and p.cur["info"]["title"] == "Alpha"
         assert jb.stats.is_blocked(p.items[0])
     run(tmp_path, t)
+
+
+def test_menu_in_english(tmp_path):
+    """the same menu in English (i18n.set_lang): labels, values, titles, the question, the keyboard; previews
+    tests/web/hdmi_menu_en*.png to check the lengths"""
+    from c64jukebox import i18n
+
+    async def t(e):
+        jb = e.jb
+        jb.config.data["hdmi"].update(on=True, mode="bars", auto=False, volume=100)
+        i18n.set_lang("en")                                 # after Jukebox() took the (empty) setting
+        await jb._cec_cmd("select")
+        v = jb.menu.view()
+        labels = [x[0] for x in jb.menu.entries_of("main")]
+        assert v["title"] == "C64-Jukebox" and v["items"][0]["l"] == "Choose music"
+        assert {"l": "Shuffle", "v": "off"} in v["items"] and {"l": "Effect", "v": "Bars ›"} in v["items"]
+        assert ["Repeat", "Picture and sound", "Ultimate", "Check lengths", "Check for update", "Switch off",
+                "Close"] == [x for x in labels if x in ("Repeat", "Picture and sound", "Ultimate", "Check lengths",
+                                                         "Check for update", "Switch off", "Close")]
+        assert v["hint"] == "↑↓ choose · OK · ← back"
+        scr = SoftScreen()
+        scr.present(MenuView().items(v))
+        pygame.image.save(scr.snapshot(), os.path.join(HERE, "web", "hdmi_menu_en.png"))
+        jb.menu.sel["main"] = labels.index("Switch off")
+        await jb._cec_cmd("select")
+        v = jb.menu.view()
+        assert v["title"] == "Switch off" and [x["l"] for x in v["items"]] == \
+            ["Switch TV off", "Switch off jukebox", "Switch off Ultimate"]
+        await jb._cec_cmd("down")
+        await jb._cec_cmd("select")                         # asks first, "No" first
+        v = jb.menu.view()
+        assert v["title"].startswith("Switch off the jukebox?") and [x["l"] for x in v["items"]] == \
+            ["No", "Yes, switch off"]
+        scr.present(MenuView().items(v))
+        pygame.image.save(scr.snapshot(), os.path.join(HERE, "web", "hdmi_menu_en_ask.png"))
+        await jb._cec_cmd("back")
+        await jb._cec_cmd("back")
+        jb.menu.sel["main"] = labels.index("Picture and sound")
+        await jb._cec_cmd("select")
+        v = jb.menu.view()
+        assert v["title"] == "Picture and sound" and [x["l"] for x in v["items"]] == \
+            ["Change effects automatically", "Show title", "Sound on the TV", "Volume on the TV"]
+        scr.present(MenuView().items(v))
+        pygame.image.save(scr.snapshot(), os.path.join(HERE, "web", "hdmi_menu_en_sound.png"))
+        # the keyboard: its words in English, the keys still work (compared in German inside)
+        jb.menu._search_kbd("ab")
+        v = jb.menu.view()
+        assert v["rows"][-1] == ["Space", "←", "Done", "Cancel"] and v["title"].startswith("Search the HVSC")
+        scr.present(MenuView().items(v))
+        pygame.image.save(scr.snapshot(), os.path.join(HERE, "web", "hdmi_keyboard_en.png"))
+        jb.menu.kbd.update(r=len(tvmenu.KBD_ROWS) - 1, c=0)
+        await jb._cec_cmd("select")                         # "Space"
+        assert jb.menu.kbd["text"] == "ab "
+        jb.menu.kbd.update(c=3)
+        await jb._cec_cmd("select")                         # "Cancel"
+        assert jb.menu.level == "lists"
+        i18n.set_lang("de")
+        await jb._cec_cmd("back")
+        assert jb.menu.view()["items"][0]["l"] == "Musik wählen"            # back to German at once
+    try:
+        i18n._tables.clear()
+        run(tmp_path, t)
+    finally:
+        i18n.set_lang("de")
+        i18n._tables.clear()

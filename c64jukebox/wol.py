@@ -7,6 +7,7 @@ import re
 import socket
 import subprocess
 
+from .i18n import tr
 from .stream import local_ip
 
 
@@ -21,7 +22,7 @@ def normalize_mac(text):
 def magic_packet(mac):
     m = normalize_mac(mac)
     if not m:
-        raise ValueError("Keine gültige MAC-Adresse: %s" % mac)
+        raise ValueError(tr("Keine gültige MAC-Adresse: %s") % mac)
     return b"\xff" * 6 + bytes.fromhex(m.replace(":", "")) * 16
 
 
@@ -66,5 +67,5 @@ def send(mac, towards=None, opener=None):
             finally:
                 s.close()
     if not sent:
-        raise err or OSError("Weckruf konnte nicht gesendet werden")
+        raise err or OSError(tr("Weckruf konnte nicht gesendet werden"))
     return sent

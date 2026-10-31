@@ -16,6 +16,8 @@ from aiohttp import web
 from . import VERSION, bt, events, plug, wol
 from .config import MASK, unmask_list
 from .hdmi.modes import MODES as HDMI_MODES
+from . import i18n
+from .i18n import tr
 from .markdown import to_html
 from .sources import SourceError, norm
 from .ultimate import UltimateError
@@ -23,11 +25,13 @@ from .ultimate import UltimateError
 HERE = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(HERE, "web")
 MANUAL = os.path.join(os.path.dirname(HERE), "docs", "HANDBUCH.md")
+MANUAL_EN = os.path.join(os.path.dirname(HERE), "docs", "MANUAL.md")        # the same section ids (markdown.py)
 COOKIE = "c64pi"
 COOKIE_DAYS = 30
 OPEN = {"/api/login", "/api/logout", "/api/hello"}
 # the page's files (no login: the login form needs them; the icons + manifest for "Zum Home-Bildschirm")
-STATIC = ("app.js", "style.css", "icon.svg", "apple-touch-icon.png", "icon-192.png", "icon-512.png", "manifest.json")
+STATIC = ("app.js", "style.css", "icon.svg", "apple-touch-icon.png", "icon-192.png", "icon-512.png", "manifest.json",
+          "lang-en.json")
 
 
 def _sign(secret, exp):
@@ -51,8 +55,8 @@ def ok(**kw):
     return web.json_response(dict({"ok": True}, **kw))
 
 
-def fail(msg, status=400):
-    return web.json_response({"ok": False, "msg": msg}, status=status)
+def fail(msg, status=400, **extra):
+    return web.json_response(dict(extra, ok=False, msg=msg), status=status)
 
 
 async def body(req):
@@ -74,9 +78,9 @@ def make_app(jb, trust_local=False):
             jb.web_used()
             local = trust_local and req.remote in LOCAL and "X-Forwarded-For" not in req.headers
             if p not in OPEN and not local and not cookie_ok(jb.config["web"]["secret"], req.cookies.get(COOKIE, "")):
-                return fail("Bitte anmelden", 401)
+                return fail(tr("Bitte anmelden"), 401)
             if req.method == "POST" and req.headers.get("X-C64") != "1":
-                return fail("Anfrage abgelehnt", 403)
+                return fail(tr("Anfrage abgelehnt"), 403)
         try:
             return await handler(req)
         except (SourceError, UltimateError, ValueError) as e:
@@ -99,24 +103,26 @@ def make_app(jb, trust_local=False):
     manual_cache = {}
 
     async def manual(req):
+        path = MANUAL_EN if i18n.lang() == "en" and os.path.exists(MANUAL_EN) else MANUAL
         try:
-            mt = os.path.getmtime(MANUAL)
-            if manual_cache.get("mt") != mt:
-                with open(MANUAL, encoding="utf-8") as f:
-                    manual_cache["html"], _ = to_html(f.read())
-                manual_cache["mt"] = mt
+            mt = os.path.getmtime(path)
+            if manual_cache.get("key") != (path, mt):
+                with open(path, encoding="utf-8") as f:
+                    manual_cache["html"], _ = to_html(f.read(), contents=tr("Inhalt"))
+                manual_cache["key"] = (path, mt)
             return web.Response(text=manual_cache["html"], content_type="text/html")
         except (OSError, ValueError):
-            return web.Response(text="<p>Handbuch nicht gefunden.</p>", content_type="text/html")
+            return web.Response(text="<p>%s</p>" % tr("Handbuch nicht gefunden."), content_type="text/html")
 
     async def hello(req):
-        return ok(login=cookie_ok(j.config["web"]["secret"], req.cookies.get(COOKIE, "")), name=j.config["name"])
+        return ok(login=cookie_ok(j.config["web"]["secret"], req.cookies.get(COOKIE, "")), name=j.config["name"],
+                  lang=j.config.data.get("lang", ""))
 
     async def login(req):
         d = await body(req)
         if not j.config.password_ok(str(d.get("pw", ""))):
             await asyncio.sleep(1.0)
-            return fail("Passwort falsch", 401)
+            return fail(tr("Passwort falsch"), 401)
         resp = ok(pwdefault=j.config.password_default())
         resp.set_cookie(COOKIE, make_cookie(j.config["web"]["secret"]), max_age=COOKIE_DAYS * 86400,
                         httponly=True, samesite="Strict")
@@ -130,10 +136,10 @@ def make_app(jb, trust_local=False):
     async def password(req):
         d = await body(req)
         if not j.config.password_ok(str(d.get("old", ""))):
-            return fail("Bisheriges Passwort falsch", 401)
+            return fail(tr("Bisheriges Passwort falsch"), 401)
         new = str(d.get("new", ""))
         if len(new) < 4:
-            return fail("Das neue Passwort braucht mindestens 4 Zeichen")
+            return fail(tr("Das neue Passwort braucht mindestens 4 Zeichen"))
         j.config.set_password(new)
         resp = ok()
         resp.set_cookie(COOKIE, make_cookie(j.config["web"]["secret"]), max_age=COOKIE_DAYS * 86400,
@@ -163,19 +169,19 @@ def make_app(jb, trust_local=False):
         try:
             data = json.loads(await req.text())
         except ValueError:
-            return fail("Die Datei ist kein JSON")
+            return fail(tr("Die Datei ist kein JSON"))
         src, path = q.get("src", ""), norm(q.get("path", "/"))
         if not j.config.source(src):
-            return fail("Bitte einen Suchordner wählen")
+            return fail(tr("Bitte einen Suchordner wählen"))
         return ok(job=j.start_job("import", lambda job: j.import_shared(job, data, src, path, q.get("save") != "0")).id)
 
     async def import_u64pl(req):
         q = req.query
         text = (await req.read()).decode("utf-8", "replace")
-        name = (q.get("name") or "Importierte Playlist").rsplit(".", 1)[0][:60]
+        name = (q.get("name") or tr("Importierte Playlist")).rsplit(".", 1)[0][:60]
         src, path = q.get("src", ""), norm(q.get("path", "/"))
         if src and not j.config.source(src):
-            return fail("Suchordner unbekannt")
+            return fail(tr("Suchordner unbekannt"))
         return ok(job=j.start_job("import", lambda job: j.import_u64pl(job, text, name, src, path, q.get("save") != "0")).id)
 
     async def export_shared(req):
@@ -186,16 +192,16 @@ def make_app(jb, trust_local=False):
         try:
             data = json.loads(await req.text())
         except ValueError:
-            return fail("Die Datei ist kein JSON")
+            return fail(tr("Die Datei ist kein JSON"))
         kind = req.query.get("kind")
         if not isinstance(data, (dict, list)):
-            return fail("Unbekanntes Format")
+            return fail(tr("Unbekanntes Format"))
         if kind == "plays":
             n, _ = j.stats.merge_pc(plays=data)
-            msg = "%d Zähler übernommen" % n
+            msg = tr("%d Zähler übernommen") % n
         else:
             _, n = j.stats.merge_pc(favorites=data)
-            msg = "%d Favoriten übernommen" % n
+            msg = tr("%d Favoriten übernommen") % n
         j.stats.save(force=True)
         j.player.lver += 1
         return ok(msg=msg)
@@ -224,13 +230,13 @@ def make_app(jb, trust_local=False):
 
     async def hvsc_titles_post(req):
         if not j.hvsc_root():
-            return fail("Dafür zuerst die Songlängen der HVSC aus einer Quelle laden (Tab „Dateien“)")
+            return fail(tr("Dafür zuerst die Songlängen der HVSC aus einer Quelle laden (Tab „Dateien“)"))
         return ok(job=j.start_job("hvsctitles", j.hvsc_titles).id)
 
     async def update_post(req):
         u = await j.update_check()
         if not u:
-            return fail("GitHub nicht erreichbar")
+            return fail(tr("GitHub nicht erreichbar"))
         return ok(ver=u["ver"], newer=u["newer"], installed=VERSION)
 
     async def update_install_post(req):
@@ -246,12 +252,12 @@ def make_app(jb, trust_local=False):
         d = await body(req)
         try:
             return ok(**await j.power_off(force=bool(d.get("force"))))
-        except ValueError as e:
-            return fail(str(e))
+        except ValueError as e:                  # plug=True: the plug did not answer (the page offers "anyway")
+            return fail(str(e), plug=isinstance(e, plug.PlugError) or isinstance(e.__context__, plug.PlugError))
 
     async def plug_check_post(req):
         if not plug.configured(j.config["plug"]):
-            return fail("Geräte-ID und Schlüssel der Steckdose fehlen")
+            return fail(tr("Geräte-ID und Schlüssel der Steckdose fehlen"))
         return ok(job=j.start_job("plug", j.plug_check).id)
 
     async def bt_get(req):
@@ -264,9 +270,9 @@ def make_app(jb, trust_local=False):
         d = await body(req)
         act, mac = str(d.get("act", "")), str(d.get("mac", "")).upper()
         if act not in ("scan", "on") and not bt.MAC_RE.match(mac):
-            return fail("Gerät fehlt")
+            return fail(tr("Gerät fehlt"))
         if not j.bt.present:
-            return fail("Bluetooth fehlt auf dem Pi (Pakete bluez und bluez-alsa-utils)")
+            return fail(tr("Bluetooth fehlt auf dem Pi (Pakete bluez und bluez-alsa-utils)"))
         try:
             if act == "scan":
                 return ok(job=j.start_job("btscan", j.bt_scan).id)
@@ -281,7 +287,7 @@ def make_app(jb, trust_local=False):
             elif act == "on":
                 j.bt_set(bool(d.get("on")))
             else:
-                return fail("unbekannte Aktion")
+                return fail(tr("unbekannte Aktion"))
         except ValueError as e:
             return fail(str(e))
         return ok(**j.bt_status())
@@ -296,18 +302,18 @@ def make_app(jb, trust_local=False):
         d = await body(req)
         act = d.get("action")
         if act not in ("scan", "connect", "forget"):
-            return fail("unbekannte Aktion")
+            return fail(tr("unbekannte Aktion"))
         if act != "scan" and not str(d.get("ssid", "")).strip():
-            return fail("WLAN-Name fehlt")
+            return fail(tr("WLAN-Name fehlt"))
         if act == "connect" and d.get("pw") and len(str(d["pw"])) < 8:
-            return fail("WLAN-Passwörter haben mindestens 8 Zeichen")
+            return fail(tr("WLAN-Passwörter haben mindestens 8 Zeichen"))
         rid = j.net_request(act, str(d.get("ssid", "")), str(d.get("pw", "")))
         for _ in range(240):                     # the watcher looks every 5 s; connecting takes up to a minute
             await asyncio.sleep(0.5)
             st = j.net_state()
             if (st.get("last") or {}).get("id") == rid:
                 return web.json_response(dict(st, ok=st["last"]["ok"], msg=st["last"]["msg"]))
-        return fail("Keine Antwort vom Netzwerk-Dienst")
+        return fail(tr("Keine Antwort vom Netzwerk-Dienst"))
 
     async def ctl(req):
         d = await body(req)
@@ -315,7 +321,7 @@ def make_app(jb, trust_local=False):
         # commands naming entries by index: refuse when the page's numbering is out of date
         if c in ("remove", "nextup", "fav", "block", "unblock", "setlen", "setsong", "move", "goto") and d.get("over") is not None \
                 and int(d["over"]) != p.over:
-            return fail("Die Liste hat sich inzwischen geändert – bitte noch einmal", 409)
+            return fail(tr("Die Liste hat sich inzwischen geändert – bitte noch einmal"), 409)
         if c == "play":
             await p.play()
         elif c == "pause":
@@ -340,7 +346,7 @@ def make_app(jb, trust_local=False):
         elif c == "fav":
             i = int(d.get("i", -1))
             if not 0 <= i < len(p.items):
-                return fail("Eintrag fehlt")
+                return fail(tr("Eintrag fehlt"))
             on = j.stats.toggle_fav(await j.with_md5(p.items[i]))
             p.lver += 1
             return ok(fav=on, player=p.state_json())
@@ -355,14 +361,14 @@ def make_app(jb, trust_local=False):
             if d.get("i") is not None:                 # a list entry instead of a key of the blocked list
                 i = int(d["i"])
                 if not 0 <= i < len(p.items):
-                    return fail("Eintrag fehlt")
+                    return fail(tr("Eintrag fehlt"))
                 key = next((k for k in j.stats.keys_of(p.items[i]) if k in j.stats.block), "")
             if not j.unblock(key):
-                return fail("Nicht (mehr) gesperrt")
+                return fail(tr("Nicht (mehr) gesperrt"))
         elif c == "setlen":
             i = int(d.get("i", -1))
             if not 0 <= i < len(p.items):
-                return fail("Eintrag fehlt")
+                return fail(tr("Eintrag fehlt"))
             j.set_user_length(p.items[i], d.get("secs"))
         elif c == "endhere":
             await j.remember_end()
@@ -388,7 +394,7 @@ def make_app(jb, trust_local=False):
             return ok(n=n, player=p.state_json())
         elif c == "discover":
             if await p.discover(bool(d.get("author"))) is None:
-                return fail("Die Liste ist leer")
+                return fail(tr("Die Liste ist leer"))
         elif c == "stopafter":
             if d.get("songs"):
                 p.stop_after = {"songs": max(1, min(int(d["songs"]), 999))}
@@ -403,7 +409,7 @@ def make_app(jb, trust_local=False):
         elif c == "shuffle":
             await p.set_shuffle(bool(d.get("on")))
         else:
-            return fail("unbekannter Befehl")
+            return fail(tr("unbekannter Befehl"))
         return ok(player=p.state_json())
 
     async def queue(req):
@@ -434,15 +440,15 @@ def make_app(jb, trust_local=False):
         d = await body(req)
         new = d.get("sources")
         if not isinstance(new, list):
-            return fail("sources fehlt")
+            return fail(tr("sources fehlt"))
         seen = set()
         for s in new:
             if not isinstance(s, dict) or s.get("kind") not in ("smb", "ftp", "u64", "local"):
-                return fail("Ungültige Quelle")
+                return fail(tr("Ungültige Quelle"))
             if not s.get("id"):
                 s["id"] = "s" + os.urandom(3).hex()
             if s["id"] in seen:
-                return fail("Doppelte Quelle")
+                return fail(tr("Doppelte Quelle"))
             seen.add(s["id"])
             s["label"] = str(s.get("label") or s["id"])[:40]
         old_ids = {s["id"] for s in j.config["sources"]}
@@ -465,7 +471,7 @@ def make_app(jb, trust_local=False):
             src.close()
         sids = sum(1 for e in entries if not e["d"] and e["n"].lower().endswith(".sid"))
         dirs = sum(1 for e in entries if e["d"])
-        return ok(msg="Verbindung klappt: %d Ordner, %d SIDs im Hauptordner" % (dirs, sids))
+        return ok(msg=tr("Verbindung klappt: %d Ordner, %d SIDs im Hauptordner") % (dirs, sids))
 
     async def ls(req):
         src, path = req.query.get("src", ""), norm(req.query.get("path", "/"))
@@ -487,14 +493,14 @@ def make_app(jb, trust_local=False):
         d = await body(req)
         q = str(d.get("q", "")).strip()
         if len(q) < 2:
-            return fail("Mindestens 2 Zeichen suchen")
+            return fail(tr("Mindestens 2 Zeichen suchen"))
         src, path = str(d.get("src", "")), norm(d.get("path", "/"))
         return ok(job=j.start_job("search", lambda job: j.search(job, src, path, q)).id)
 
     async def job_get(req):
         job = j.jobs.get(req.query.get("id", ""))
         if not job:
-            return fail("Auftrag unbekannt", 404)
+            return fail(tr("Auftrag unbekannt"), 404)
         return web.json_response(job.json())
 
     async def job_cancel(req):
@@ -524,9 +530,9 @@ def make_app(jb, trust_local=False):
         src, path, kind = str(d.get("src", "")), norm(d.get("path", "/")), d.get("kind", "hvsc")
 
         async def run(job):
-            job.progress = "lese Datei …"
+            job.progress = tr("lese Datei …")
             data = await j.sources.get(src).read(path, 64 << 20)
-            job.progress = "werte aus …"
+            job.progress = tr("werte aus …")
             label = "%s: %s" % ((j.config.source(src) or {}).get("label", src), path)
             n = await j.set_songlengths(kind, data, {"src": src, "path": path, "label": label})
             return {"n": n}
@@ -538,7 +544,8 @@ def make_app(jb, trust_local=False):
         if kind == "custom" and req.query.get("merge") == "1":
             r = j.merge_custom_lengths(data.decode("latin-1"), req.query.get("overwrite") == "1")
             return ok(n=r["added"] + r["changed"], **r)
-        n = await j.set_songlengths(kind, data, {"label": "hochgeladen: " + req.query.get("name", "Datei")[:80]})
+        label = tr("hochgeladen: %s") % req.query.get("name", tr("Datei"))[:80]
+        n = await j.set_songlengths(kind, data, {"label": label})
         return ok(n=n)
 
     async def stil_load(req):
@@ -546,9 +553,9 @@ def make_app(jb, trust_local=False):
         src, path = str(d.get("src", "")), norm(d.get("path", "/"))
 
         async def run(job):
-            job.progress = "lese Datei …"
+            job.progress = tr("lese Datei …")
             data = await j.sources.get(src).read(path, 32 << 20)
-            job.progress = "werte aus …"
+            job.progress = tr("werte aus …")
             label = "%s: %s" % ((j.config.source(src) or {}).get("label", src), path)
             return {"n": await j.set_stil(data, {"src": src, "path": path, "label": label})}
         return ok(job=j.start_job("stil", run).id)
@@ -574,7 +581,7 @@ def make_app(jb, trust_local=False):
         name = str(d.get("name", "")).strip()
         items = d.get("items") if isinstance(d.get("items"), list) else j.player.items
         if not items:
-            return fail("Die Liste ist leer")
+            return fail(tr("Die Liste ist leer"))
         j.playlist_write(name, items)
         return ok(lists=j.playlists())
 
@@ -584,7 +591,7 @@ def make_app(jb, trust_local=False):
         items = j.playlist_read(name).get("items", [])
         if d.get("mode", "replace") == "replace":
             start = None if items and j.config["player"].get("shuffle") else 0
-            await j.player.set_items(items, start, play=d.get("play", True), source="Liste „%s“" % name)
+            await j.player.set_items(items, start, play=d.get("play", True), source=tr("Liste „%s“") % name)
             j.auto_check()
         else:
             await j.player.add_items(items)
@@ -621,7 +628,7 @@ def make_app(jb, trust_local=False):
                     raw = str(x.get("wmac") or "").strip()
                     x["wmac"] = wol.normalize_mac(raw) or ""
                     if raw and not x["wmac"]:
-                        return fail("Keine gültige WLAN-MAC: %s (12 Hex-Ziffern, z. B. 12:34:56:78:9A:BC)" % raw)
+                        return fail(tr("Keine gültige WLAN-MAC: %s (12 Hex-Ziffern, z. B. 12:34:56:78:9A:BC)") % raw)
                 else:                                    # not sent: keep the one learnt for this address
                     old = next((o for o in c["ultimates"] if o.get("addr") == x["addr"]), {})
                     if old.get("wmac"):
@@ -645,6 +652,9 @@ def make_app(jb, trust_local=False):
             c["pico_news"] = bool(d["pico_news"])
         if "updates" in d:
             c["updates"] = bool(d["updates"])
+        if d.get("lang") in i18n.LANGS:
+            c["lang"] = d["lang"]
+            i18n.set_lang(c["lang"])
         if "plug" in d and isinstance(d["plug"], dict):
             pg, n = c["plug"], d["plug"]
             for k, size in (("ip", 64), ("id", 40)):
@@ -676,7 +686,7 @@ def make_app(jb, trust_local=False):
             pw = d["wlan"].get("ap_pw")
             if pw is not None and pw != MASK:
                 if pw and len(pw) < 8:
-                    return fail("Das Passwort des Zugangspunkts braucht mindestens 8 Zeichen")
+                    return fail(tr("Das Passwort des Zugangspunkts braucht mindestens 8 Zeichen"))
                 w["ap_pw"] = str(pw)[:63]
         if "display" in d and isinstance(d["display"], dict):
             dd = c["display"]
@@ -709,7 +719,8 @@ def make_app(jb, trust_local=False):
         sj = j.hdmi_sync_job
         cache = len([n for n in os.listdir(j.hdmi_cache_dir()) if n.endswith(".jpg")]) \
             if os.path.isdir(j.hdmi_cache_dir()) else 0
-        return web.json_response({"cfg": j.config["hdmi"], "modes": HDMI_MODES, "status": j.hdmi_status(),
+        return web.json_response({"cfg": j.config["hdmi"], "modes": {k: tr(v) for k, v in HDMI_MODES.items()},
+                                  "status": j.hdmi_status(),
                                   "images": j.hdmi_images(), "src_images": cache,
                                   "sync": sj.json() if sj else None, "news": j.news_state(),
                                   "cec": dict(j.config["cec"], status=j.cec_status())})
@@ -754,7 +765,7 @@ def make_app(jb, trust_local=False):
 
     async def hdmi_sync(req):
         if not j.config["hdmi"].get("img_src"):
-            return fail("Erst eine Quelle für die Bilder wählen")
+            return fail(tr("Erst eine Quelle für die Bilder wählen"))
         return ok(job=j.hdmi_sync().id)
 
     async def hdmi_post(req):
@@ -767,7 +778,7 @@ def make_app(jb, trust_local=False):
     async def hdmi_upload(req):
         data = await req.read()
         if not data:
-            return fail("Leere Datei")
+            return fail(tr("Leere Datei"))
         name = await asyncio.get_running_loop().run_in_executor(None, j.hdmi_add_image,
                                                                 req.query.get("name", "bild.jpg")[:120], data)
         return ok(name=name, images=j.hdmi_images())
@@ -791,7 +802,7 @@ def make_app(jb, trust_local=False):
 
     async def display_calibrate(req):
         if not j.display.calibrate():
-            return fail("Kein Touch-Display in Betrieb (Art „2,8″ mit Touch“ wählen und speichern)")
+            return fail(tr("Kein Touch-Display in Betrieb (Art „2,8″ mit Touch“ wählen und speichern)"))
         return ok()
 
     async def devices_query(req):
@@ -806,9 +817,9 @@ def make_app(jb, trust_local=False):
         try:
             d = json.loads(await req.text())
         except ValueError:
-            return fail("Die Datei ist keine Sicherung (kein JSON)")
+            return fail(tr("Die Datei ist keine Sicherung (kein JSON)"))
         n = await j.restore(d)
-        return ok(msg="Sicherung eingespielt (%d Wiedergabelisten)" % n)
+        return ok(msg=tr("Sicherung eingespielt (%d Wiedergabelisten)") % n)
 
     r.add_get("/", page)
     r.add_get("/hilfe", manual)

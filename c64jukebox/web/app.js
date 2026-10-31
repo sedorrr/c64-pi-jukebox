@@ -7,6 +7,42 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem('c64pi.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem('c64pi.' + k, JSON.stringify(v)); } catch (e) { /* private mode */ } },
 };
+/* the language (i18n.py): German is the text in the code, T() gives it in the chosen language from lang-en.json
+   ("%s"/"%d" filled in order: T('%d Titel', n)); trDom() does the same for the texts and title/placeholder/aria-label
+   of the page itself (elements with translate="no" stay) */
+let LANG = 'de', TR = {};
+function T(s, ...a) {
+  const t = (LANG !== 'de' && TR[s]) || s;
+  let k = 0;
+  return a.length ? t.replace(/%[sd]/g, () => a[k++]) : t;
+}
+const LOC = () => LANG === 'de' ? 'de-DE' : 'en-GB';      /* numbers and dates in the page's language */
+function trDom(root) {
+  if (LANG === 'de') return;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
+    acceptNode: n => n.nodeType === 1 && (n.getAttribute('translate') === 'no' || n.tagName === 'SCRIPT' || n.tagName === 'STYLE')
+      ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT});
+  for (let n = w.nextNode(); n; n = w.nextNode()) {
+    if (n.nodeType === 3) {
+      const key = n.nodeValue.replace(/\s+/g, ' ').trim(), t = key && TR[key];
+      if (t) n.nodeValue = n.nodeValue.replace(/^(\s*)[\s\S]*?(\s*)$/, (m, a, b) => a + t + b);
+    } else {
+      for (const at of ['title', 'placeholder', 'aria-label']) {
+        const v = n.getAttribute(at), t = v && TR[v.replace(/\s+/g, ' ').trim()];
+        if (t) n.setAttribute(at, t);
+      }
+    }
+  }
+}
+async function langInit(lang) {
+  LANG = lang || (/^de/i.test(navigator.language || '') ? 'de' : 'en');
+  document.documentElement.lang = LANG;
+  if (LANG !== 'de') { try { TR = await (await fetch('lang-en.json')).json(); } catch (e) { TR = {}; } }
+  trDom(document.body);
+  /* the same German word with another English text in one place ("Wiedergabe" is the tab "Player" but the settings
+     card "Playback"): translate="no" and the English in data-en */
+  if (LANG !== 'de') document.querySelectorAll('[data-en]').forEach(e => { e.textContent = e.dataset.en; });
+}
 function fmt(s) { if (s == null || isNaN(s)) return ''; s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 let toastT;
 function toast(t) { const e = $('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => e.classList.remove('on'), 3500); }
@@ -16,17 +52,17 @@ async function api(path, data, raw) {
   const o = data === undefined ? {} : {method: 'POST', headers: {'X-C64': '1'}, body: raw ? data : JSON.stringify(data)};
   if (data !== undefined && !raw) o.headers['Content-Type'] = 'application/json';
   let r;
-  try { r = await fetch('/api/' + path, o); } catch (e) { throw new Error('Keine Verbindung zum Pi'); }
+  try { r = await fetch('/api/' + path, o); } catch (e) { throw new Error(T('Keine Verbindung zum Pi')); }
   let j = {};
-  try { j = await r.json(); } catch (e) { j = {ok: false, msg: 'Fehler ' + r.status}; }
+  try { j = await r.json(); } catch (e) { j = {ok: false, msg: T('Fehler %s', r.status)}; }
   if (r.status === 401 && path !== 'login' && path !== 'password') {
     /* a request sent just before a password change still carries the old cookie: only log out if we really are */
     let still = false;
     try { still = (await (await fetch('/api/hello')).json()).login; } catch (e) { /* offline */ }
     if (!still) showLogin();
-    throw new Error('Bitte anmelden');
+    throw new Error(T('Bitte anmelden'));
   }
-  if (!r.ok || j.ok === false) throw new Error(j.msg || ('Fehler ' + r.status));
+  if (!r.ok || j.ok === false) { const err = new Error(j.msg || T('Fehler %s', r.status)); err.status = r.status; throw err; }
   return j;
 }
 async function waitJob(id, onProgress) {
@@ -48,13 +84,13 @@ function ipRange(list) {
 function scanHtml(j, want) {
   const i = j.info || {}, pct = j.pct || 0;
   const found = (i.found || []).filter(t => !want || want.test(t));
-  const now = i.phase === 'names' ? (i.busy && i.busy.length ? 'frage den Namen von ' + H(i.busy[0]) + ' ab' : 'fertig')
-    : (i.busy && i.busy.length ? 'prüft gerade ' + H(ipRange(i.busy)) : 'startet …');
+  const now = i.phase === 'names' ? (i.busy && i.busy.length ? T('frage den Namen von %s ab', H(i.busy[0])) : T('fertig'))
+    : (i.busy && i.busy.length ? T('prüft gerade %s', H(ipRange(i.busy))) : T('startet …'));
   return '<div class=jprog role=progressbar aria-valuenow=' + pct + ' aria-valuemin=0 aria-valuemax=100><div style="width:' + pct + '%"></div></div>' +
     '<div class=hint><b>' + pct + ' %</b> – ' + now + '</div>' +
-    (found.length ? '<div class=hint>gefunden: ' + found.map(H).join(', ') + '</div>' : '');
+    (found.length ? '<div class=hint>' + T('gefunden: %s', found.map(H).join(', ')) + '</div>' : '');
 }
-function errToast(e) { if (e && e.message !== 'Bitte anmelden') toast(e.message || String(e)); }
+function errToast(e) { if (e && e.message !== T('Bitte anmelden')) toast(e.message || String(e)); }
 
 /* ---------------------------------------------------------------- login */
 function showLogin() { $('app').hidden = true; $('login').hidden = false; setTimeout(() => $('lpw').focus(), 50); }
@@ -82,7 +118,7 @@ let helpDone = false;
 async function helpLoad(target) {
   if (!helpDone) {
     const r = await fetch('/hilfe').catch(() => null);
-    $('helpbody').innerHTML = r && r.ok ? await r.text() : 'Handbuch nicht erreichbar.';
+    $('helpbody').innerHTML = r && r.ok ? await r.text() : T('Handbuch nicht erreichbar.');
     helpDone = true;
     $('helpbody').querySelectorAll('a[data-h]').forEach(a => a.onclick = ev => { ev.preventDefault(); helpJump(a.dataset.h); });
   }
@@ -106,7 +142,7 @@ async function poll() {
 }
 function badges(i) {
   const b = [];
-  if (i.songs > 1) b.push(i.songs + ' Lieder');
+  if (i.songs > 1) b.push(T('%d Lieder', i.songs));
   if (i.chips > 1) b.push('<span class="badge st">' + i.chips + ' SIDs</span>');
   if (i.models && i.models.filter(Boolean).length) b.push(i.models.filter(Boolean).join(' + '));
   if (i.sids) b.push('$' + i.sids.join(' $'));
@@ -116,16 +152,16 @@ function nowShow() {
   const p = S.player, n = p.now;
   $('pwwarn').hidden = !S.pwdefault;
   $('bplay').innerHTML = p.state === 'play' ? '&#10074;&#10074;' : '&#9654;';
-  $('bplay').title = p.state === 'play' ? 'Pause' : 'Abspielen';
+  $('bplay').title = p.state === 'play' ? T('Pause') : T('Abspielen');
   if (n) {
     $('nt').textContent = n.title || n.name;
     $('na').textContent = [n.author, n.released && n.released !== n.year ? n.released : ''].filter(Boolean).join(' · ');
-    $('nb').innerHTML = badges(n) + (p.state === 'pause' ? '<span class=badge>Pause</span>' : '');
+    $('nb').innerHTML = badges(n) + (p.state === 'pause' ? '<span class=badge>' + T('Pause') + '</span>' : '');
     const stil = (n.stil || []).map(t => '<p>' + H(t) + '</p>').join('');
     if ($('nstil').dataset.h !== stil) { $('nstil').innerHTML = stil; $('nstil').dataset.h = stil; }
     $('nstil').hidden = !stil;
     $('tel').textContent = fmt(p.el);
-    $('tlen').textContent = n.secs ? fmt(n.secs) : (S.opts.limit_min ? 'max. ' + fmt(S.opts.limit_min * 60) : '');
+    $('tlen').textContent = n.secs ? fmt(n.secs) : (S.opts.limit_min ? T('max. %s', fmt(S.opts.limit_min * 60)) : '');
     const len = n.secs || S.opts.limit_min * 60;
     $('pbar').style.width = len ? Math.min(100, 100 * p.el / len) + '%' : '0';
     $('songsel').hidden = !(n.songs > 1);
@@ -133,13 +169,13 @@ function nowShow() {
     $('endrow').hidden = !(p.state === 'play' && !n.secs) || !!n.loop || !!n.hvsc;
     $('looprow').hidden = !n.loop;
     $('namerow').hidden = !n.hvsc;
-    if (n.hvsc) $('nametxt').textContent = 'In der HVSC als ' + n.hvsc.path.split('/').pop() + ' (' + n.hvsc.path.split('/').slice(1, -1).join('/') + ') mit ' + fmt(n.hvsc.len) + ' – als Länge übernehmen?';
-    if (n.loop) $('looptxt').textContent = 'Fängt nach ' + fmt(n.loop) + ' von vorn an – als Länge übernehmen?';
-    $('sinfo').textContent = 'Lied ' + n.song + ' von ' + n.songs;
+    if (n.hvsc) $('nametxt').textContent = T('In der HVSC als %s (%s) mit %s – als Länge übernehmen?', n.hvsc.path.split('/').pop(), n.hvsc.path.split('/').slice(1, -1).join('/'), fmt(n.hvsc.len));
+    if (n.loop) $('looptxt').textContent = T('Fängt nach %s von vorn an – als Länge übernehmen?', fmt(n.loop));
+    $('sinfo').textContent = T('Lied %d von %d', n.song, n.songs);
     $('topnow').textContent = (p.state === 'pause' ? '❚❚ ' : '♪ ') + (n.title || n.name) + (n.author ? ' – ' + n.author : '');
   } else {
-    $('nt').textContent = p.state === 'load' ? 'Lade …' : 'Nichts läuft';
-    $('na').textContent = p.total ? p.total + ' Titel in der Liste' : '';
+    $('nt').textContent = p.state === 'load' ? T('Lade …') : T('Nichts läuft');
+    $('na').textContent = p.total ? (p.total === 1 ? T('1 Titel in der Liste') : T('%d Titel in der Liste', p.total)) : '';
     $('nstil').hidden = true;
     $('nb').innerHTML = ''; $('tel').textContent = ''; $('tlen').textContent = ''; $('pbar').style.width = '0';
     $('songsel').hidden = true; $('bblock').hidden = true; $('topnow').textContent = ''; $('endrow').hidden = true; $('looprow').hidden = true; $('namerow').hidden = true;
@@ -155,28 +191,28 @@ const ctl = (c, x) => api('ctl', Object.assign({c}, x || {})).then(poll).catch(e
 $('bplay').onclick = () => ctl(S && S.player.state === 'play' ? 'pause' : 'play');
 $('bstop').onclick = () => ctl('stop');
 $('bnext').onclick = () => ctl('next');
-$('bloopok').onclick = () => { const n = S.player.now; api('ctl', {c: 'looptake'}).then(() => { toast('Länge ' + fmt(n && n.loop) + '* übernommen'); poll(); }).catch(errToast); };
+$('bloopok').onclick = () => { const n = S.player.now; api('ctl', {c: 'looptake'}).then(() => { toast(T('Länge %s* übernommen', fmt(n && n.loop))); poll(); }).catch(errToast); };
 $('bloopno').onclick = () => ctl('loopno');
-$('bnameok').onclick = () => { const n = S.player.now; api('ctl', {c: 'nametake'}).then(() => { toast('Länge ' + fmt(n && n.hvsc && n.hvsc.len) + '* übernommen'); poll(); }).catch(errToast); };
+$('bnameok').onclick = () => { const n = S.player.now; api('ctl', {c: 'nametake'}).then(() => { toast(T('Länge %s* übernommen', fmt(n && n.hvsc && n.hvsc.len))); poll(); }).catch(errToast); };
 $('bnameno').onclick = () => ctl('nameno');
 $('bblock').onclick = () => {
   const n = S.player.now;
-  if (n) menu((n.title || n.name) + ' – nicht mehr spielen?', [{label: '⊘ Überspringen und nicht mehr von selbst spielen', danger: true, fn: () => block(null)}]);
+  if (n) menu(T('%s – nicht mehr spielen?', n.title || n.name), [{label: '⊘ ' + T('Überspringen und nicht mehr von selbst spielen'), danger: true, fn: () => block(null)}]);
 };
 function block(i) {
   api('ctl', i === null ? {c: 'block'} : {c: 'block', i, over: LS.over})
-    .then(r => { toast('⊘ „' + r.title + '“ gesperrt'); LS.rows.clear(); lFetch(Math.floor($('lwin').scrollTop / RH()) - 50); poll(); }).catch(lStale);
+    .then(r => { toast('⊘ ' + T('„%s“ gesperrt', r.title)); LS.rows.clear(); lFetch(Math.floor($('lwin').scrollTop / RH()) - 50); poll(); }).catch(lStale);
 }
 function unblock(d) {
-  return api('ctl', Object.assign({c: 'unblock'}, d)).then(() => { toast('Wird wieder gespielt'); LS.rows.clear(); lFetch(Math.floor($('lwin').scrollTop / RH()) - 50); });
+  return api('ctl', Object.assign({c: 'unblock'}, d)).then(() => { toast(T('Wird wieder gespielt')); LS.rows.clear(); lFetch(Math.floor($('lwin').scrollTop / RH()) - 50); });
 }
-$('bend').onclick = () => api('ctl', {c: 'endhere'}).then(() => { toast('Länge ' + fmt(Math.round(S.player.el)) + '* gemerkt'); poll(); }).catch(errToast);
+$('bend').onclick = () => api('ctl', {c: 'endhere'}).then(() => { toast(T('Länge %s* gemerkt', fmt(Math.round(S.player.el)))); poll(); }).catch(errToast);
 $('bprev').onclick = () => ctl('prev');
 $('sdown').onclick = () => { const n = S.player.now; if (n && n.song > 1) ctl('song', {n: n.song - 1}); };
 $('sup').onclick = () => { const n = S.player.now; if (n && n.song < n.songs) ctl('song', {n: n.song + 1}); };
 $('oshuf').onchange = () => ctl('shuffle', {on: $('oshuf').checked});
 $('orep').onchange = () => api('config', {player: {repeat: $('orep').checked}}).then(poll).catch(errToast);
-$('ou64').onchange = () => api('config', {u64_sel: +$('ou64').value}).then(() => { toast('Ultimate gewechselt'); poll(); }).catch(errToast);
+$('ou64').onchange = () => api('config', {u64_sel: +$('ou64').value}).then(() => { toast(T('Ultimate gewechselt')); poll(); }).catch(errToast);
 
 /* ---------------------------------------------------------------- the play list window
    A table like the PC program's (Dateiname, Titel, Komponist, Stück, SIDs, Länge, Gespielt, ★), sorted by a click on a
@@ -197,9 +233,9 @@ function sidText(r) {
 /* like the PC jukebox: a tune needing a SID address the Ultimate does not have right now */
 function sidWarn(r) {
   if (r.sfit === 'fix') return S && S.opts.sidauto === false
-    ? 'Das Ultimate hat diese SID-Adresse gerade nicht („SID-Sockel automatisch umstellen“ ist aus)'
-    : 'Das Ultimate hat diese SID-Adresse gerade nicht – für das Stück wird ein SID-Sockel umgestellt';
-  if (r.sfit === 'no') return 'Das Ultimate hat diese SID-Adresse nicht, und es gibt keine eindeutige Umstellung – das Stück klingt unvollständig';
+    ? T('Das Ultimate hat diese SID-Adresse gerade nicht („SID-Sockel automatisch umstellen“ ist aus)')
+    : T('Das Ultimate hat diese SID-Adresse gerade nicht – für das Stück wird ein SID-Sockel umgestellt');
+  if (r.sfit === 'no') return T('Das Ultimate hat diese SID-Adresse nicht, und es gibt keine eindeutige Umstellung – das Stück klingt unvollständig');
   return '';
 }
 async function lFetch(start, focus) {
@@ -222,11 +258,12 @@ async function lFetch(start, focus) {
 function lHead(r) {
   $('lempty').hidden = r.total > 0;
   const parts = [];
-  if (r.total) parts.push(r.total.toLocaleString('de-DE') + ' Titel, gesamt ' + fmtLong(r.secs) + (r.est ? ' (' + r.est + ' geschätzt)' : ''));
-  if (r.count !== r.total) parts.push(r.count + ' passen');
+  if (r.total) parts.push((r.total === 1 ? T('1 Titel, gesamt %s', fmtLong(r.secs)) : T('%s Titel, gesamt %s', r.total.toLocaleString(LOC()), fmtLong(r.secs))) +
+    (r.est ? ' ' + T('(%d geschätzt)', r.est) : ''));
+  if (r.count !== r.total) parts.push(T('%d passen', r.count));
   if (r.source) parts.push(r.source);
   const sa = S && S.player.stop_after;
-  if (sa) parts.push(sa.songs ? 'Stopp nach ' + sa.songs + ' Titel(n)' : 'Stopp in ' + sa.min + ' min');
+  if (sa) parts.push(sa.songs ? T('Stopp nach %d Titel(n)', sa.songs) : T('Stopp in %s min', sa.min));
   $('lhead').textContent = parts.join(' · ');
   document.querySelectorAll('#lhd [data-col]').forEach(el => {
     el.textContent = el.textContent.replace(/ [▲▼]$/, '') + (LS.sort.col === el.dataset.col ? (LS.sort.rev ? ' ▼' : ' ▲') : '');
@@ -242,15 +279,15 @@ function lRow(pos, r) {
   const cls = 'lrow' + (LS.sel.has(r.i) ? ' sel' : '') + (r.i === LS.cur ? ' cur' : '') + (r.blk ? ' blk' : '');
   const song = r.songs > 1 ? (r.song || 1) + '/' + r.songs : '';
   const sw = sidWarn(r);
-  const t2 = [r.author, song ? 'Stück ' + song : '', r.chips > 1 || sw ? (sw ? '⚠ ' : '') + r.chips + (r.chips > 1 ? ' SIDs' : ' SID') : ''].filter(Boolean).join(' · ');
+  const t2 = [r.author, song ? T('Stück %s', song) : '', r.chips > 1 || sw ? (sw ? '⚠ ' : '') + r.chips + (r.chips > 1 ? ' SIDs' : ' SID') : ''].filter(Boolean).join(' · ');
   return '<div class="' + cls + '" data-p=' + pos + ' data-i=' + r.i + (LS.q || LS.fav ? '' : ' draggable=true') + '>' +
     '<span class=c-no>' + (r.i + 1) + '</span><span class=c-name title="' + H(r.path) + '">' + H(r.name) + '</span>' +
-    '<span class=c-title>' + H(r.title || r.name) + (r.i === LS.upnext && r.i !== LS.cur ? '<span class=nx title="kommt als Nächstes">▸</span>' : '') +
+    '<span class=c-title>' + H(r.title || r.name) + (r.i === LS.upnext && r.i !== LS.cur ? '<span class=nx title="' + T('kommt als Nächstes') + '">▸</span>' : '') +
     '<span class=t2>' + H(t2) + '</span></span><span class=c-author>' + H(r.author) + '</span>' +
     '<span class=c-song data-dbl=song>' + song + '</span><span class="c-sids' + (sw ? ' sidw" title="' + H(sw) : '') + '">' + (sw ? '⚠ ' : '') + H(sidText(r)) + '</span>' +
     '<span class="c-len lk-' + (r.lk || 'none') + '" data-dbl=len>' + lenText(r) + '</span><span class=c-plays>' + (r.plays || '') + '</span>' +
-    '<span class=c-fav data-fav title="Favorit">' + (r.fav ? '★' : '☆') + '</span>' +
-    '<span class=c-more><button data-more aria-label="Mehr zu diesem Titel">⋯</button></span></div>';
+    '<span class=c-fav data-fav title="' + T('Favorit') + '">' + (r.fav ? '★' : '☆') + '</span>' +
+    '<span class=c-more><button data-more aria-label="' + T('Mehr zu diesem Titel') + '">⋯</button></span></div>';
 }
 function lRender() {
   const win = $('lwin'), rh = RH(), hd = $('lhd').offsetHeight;
@@ -360,35 +397,35 @@ $('lrows').addEventListener('drop', ev => {
 $('lrows').addEventListener('dragend', () => { dragI = -1; document.querySelectorAll('.lrow.drop').forEach(e => e.classList.remove('drop')); });
 
 function lPlay(i) { ctl('goto', {i, over: LS.over}); }
-function lStale(e) { if (/geändert/.test(e.message)) { LS.sel.clear(); LS.rows.clear(); poll(); } errToast(e); }
+function lStale(e) { if (e.status === 409 || /geändert/.test(e.message)) { LS.sel.clear(); LS.rows.clear(); poll(); } errToast(e); }
 function lRemove(is) {
-  if (!is.length) { toast('Erst Titel auswählen (antippen, mit Strg/Shift mehrere)'); return; }
-  api('ctl', {c: 'remove', is, over: LS.over}).then(() => { LS.sel.clear(); LS.rows.clear(); toast(is.length + ' Titel entfernt'); poll(); }).catch(lStale);
+  if (!is.length) { toast(T('Erst Titel auswählen (antippen, mit Strg/Shift mehrere)')); return; }
+  api('ctl', {c: 'remove', is, over: LS.over}).then(() => { LS.sel.clear(); LS.rows.clear(); toast(is.length === 1 ? T('1 Titel entfernt') : T('%d Titel entfernt', is.length)); poll(); }).catch(lStale);
 }
 function lNext(is) {
-  if (!is.length) { toast('Erst Titel auswählen'); return; }
-  api('ctl', {c: 'nextup', is, over: LS.over}).then(r => { toast(r.n === 1 ? 'Kommt als Nächstes' : r.n + ' Titel kommen als Nächstes'); LS.rows.clear(); poll(); }).catch(lStale);
+  if (!is.length) { toast(T('Erst Titel auswählen')); return; }
+  api('ctl', {c: 'nextup', is, over: LS.over}).then(r => { toast(r.n === 1 ? T('Kommt als Nächstes') : T('%d Titel kommen als Nächstes', r.n)); LS.rows.clear(); poll(); }).catch(lStale);
 }
-function lFav(i) { api('ctl', {c: 'fav', i, over: LS.over}).then(r => { toast(r.fav ? '★ Favorit' : 'kein Favorit mehr'); LS.rows.clear(); lFetch(Math.floor($('lwin').scrollTop / RH()) - 50); }).catch(lStale); }
+function lFav(i) { api('ctl', {c: 'fav', i, over: LS.over}).then(r => { toast(r.fav ? T('★ Favorit') : T('kein Favorit mehr')); LS.rows.clear(); lFetch(Math.floor($('lwin').scrollTop / RH()) - 50); }).catch(lStale); }
 async function lAskSong(x) {
-  const r = x.r; if (!r || !(r.songs > 1)) { toast('Dieser Titel hat nur ein Stück'); return; }
-  const v = await ask('Stück (1–' + r.songs + ') für „' + (r.title || r.name) + '“', String(r.song || 1));
+  const r = x.r; if (!r || !(r.songs > 1)) { toast(T('Dieser Titel hat nur ein Stück')); return; }
+  const v = await ask(T('Stück (1–%d) für „%s“', r.songs, r.title || r.name), String(r.song || 1));
   if (!v) return;
   const n = parseInt(v, 10);
-  if (!(n >= 1 && n <= r.songs)) { toast('Bitte eine Zahl von 1 bis ' + r.songs); return; }
+  if (!(n >= 1 && n <= r.songs)) { toast(T('Bitte eine Zahl von 1 bis %d', r.songs)); return; }
   api('ctl', {c: 'setsong', i: x.i, n, over: LS.over}).then(() => { LS.rows.clear(); poll(); }).catch(lStale);
 }
 async function lAskLen(x) {
   const r = x.r;
-  const v = await ask('Eigene Länge für „' + ((r && (r.title || r.name)) || '') + '“ (m:ss, leer = HVSC/Standard)', r && r.lk === 'user' ? fmt(r.len) : '');
+  const v = await ask(T('Eigene Länge für „%s“ (m:ss, leer = HVSC/Standard)', (r && (r.title || r.name)) || ''), r && r.lk === 'user' ? fmt(r.len) : '');
   if (v === null || (v === '' && !(r && r.lk === 'user'))) return;
   let secs = null;
   if (v) {
     const m = /^(\d+):(\d{1,2})$/.exec(v.trim()), s = /^\d+$/.test(v.trim()) ? +v.trim() : null;
     secs = m ? +m[1] * 60 + +m[2] : s;
-    if (!secs || secs < 1 || secs > 9999) { toast('Bitte als m:ss angeben, z. B. 3:05'); return; }
+    if (!secs || secs < 1 || secs > 9999) { toast(T('Bitte als m:ss angeben, z. B. 3:05')); return; }
   }
-  api('ctl', {c: 'setlen', i: x.i, secs, over: LS.over}).then(() => { toast(secs ? 'Länge ' + fmt(secs) + '* gemerkt' : 'Eigene Länge entfernt'); LS.rows.clear(); poll(); }).catch(lStale);
+  api('ctl', {c: 'setlen', i: x.i, secs, over: LS.over}).then(() => { toast(secs ? T('Länge %s* gemerkt', fmt(secs)) : T('Eigene Länge entfernt')); LS.rows.clear(); poll(); }).catch(lStale);
 }
 function menu(title, items) {
   $('menutitle').textContent = title;
@@ -398,15 +435,15 @@ function menu(title, items) {
 }
 function lRowMenu(x) {
   const r = x.r || {}, many = LS.sel.size > 1 && LS.sel.has(x.i) ? selList() : [x.i];
-  const items = [{label: '▶ Abspielen', fn: () => lPlay(x.i)},
-    {label: many.length > 1 ? many.length + ' Titel als Nächstes' : 'Als Nächstes spielen', fn: () => lNext(many)}];
-  if (r.songs > 1) items.push({label: 'Stück wählen … (' + (r.song || 1) + '/' + r.songs + ')', fn: () => lAskSong(x)});
-  items.push({label: 'Eigene Länge …', fn: () => lAskLen(x)}, {label: r.fav ? '☆ kein Favorit mehr' : '★ Favorit', fn: () => lFav(x.i)},
-    r.blk ? {label: 'Wieder spielen (nicht mehr gesperrt)', fn: () => unblock({i: x.i, over: LS.over}).catch(lStale)}
-      : {label: '⊘ Nicht mehr spielen', fn: () => block(x.i)});
-  if (r.src) items.push({label: 'Im Tab Dateien zeigen', fn: () => { tab('files'); F.items = []; openDir(r.src, r.path.replace(/\/[^/]*$/, '') || '/'); }});
-  items.push({label: many.length > 1 ? many.length + ' Titel entfernen' : 'Aus der Liste nehmen', danger: true, fn: () => lRemove(many)});
-  menu(r.title || r.name || 'Titel', items);
+  const items = [{label: '▶ ' + T('Abspielen'), fn: () => lPlay(x.i)},
+    {label: many.length > 1 ? T('%d Titel als Nächstes', many.length) : T('Als Nächstes spielen'), fn: () => lNext(many)}];
+  if (r.songs > 1) items.push({label: T('Stück wählen … (%s)', (r.song || 1) + '/' + r.songs), fn: () => lAskSong(x)});
+  items.push({label: T('Eigene Länge …'), fn: () => lAskLen(x)}, {label: r.fav ? '☆ ' + T('kein Favorit mehr') : T('★ Favorit'), fn: () => lFav(x.i)},
+    r.blk ? {label: T('Wieder spielen (nicht mehr gesperrt)'), fn: () => unblock({i: x.i, over: LS.over}).catch(lStale)}
+      : {label: '⊘ ' + T('Nicht mehr spielen'), fn: () => block(x.i)});
+  if (r.src) items.push({label: T('Im Tab Dateien zeigen'), fn: () => { tab('files'); F.items = []; openDir(r.src, r.path.replace(/\/[^/]*$/, '') || '/'); }});
+  items.push({label: many.length > 1 ? T('%d Titel entfernen', many.length) : T('Aus der Liste nehmen'), danger: true, fn: () => lRemove(many)});
+  menu(r.title || r.name || T('Titel'), items);
 }
 $('lplay').onclick = () => { const s = selList(); s.length ? lPlay(s[0]) : ctl('play'); };
 $('lnext').onclick = () => lNext(selList());
@@ -415,19 +452,19 @@ $('lfocus').onclick = () => { LS.userAt = 0; lFetch(Math.max(0, LS.curRow - 50),
 $('lcheck').onclick = async () => {
   const m = $('plmsg');
   $('lcheck').disabled = true;
-  m.innerHTML = scanBar({pct: 0}) + 'Längen prüfen …';
+  m.innerHTML = scanBar({pct: 0}) + T('Längen prüfen …');
   try {
     const r = await api('list/check', {});
-    const res = await waitJob(r.job, (p, j) => { m.innerHTML = scanBar(j) + H(p || 'Längen prüfen …'); });
-    let t = res.read + ' Dateien gelesen' + (res.bad ? ', ' + res.bad + ' nicht lesbar' : '');
-    if (res.nolen) t += ' · ' + res.nolen + ' Titel ohne Länge' + (res.taken ? ', ' + res.taken + ' Längen aus der HVSC übernommen'
-      : res.found ? ', davon ' + res.found + ' in der HVSC gefunden (andere Fassung derselben Datei)' : '');
-    else t += ' · alle Titel haben eine Länge';
+    const res = await waitJob(r.job, (p, j) => { m.innerHTML = scanBar(j) + H(p || T('Längen prüfen …')); });
+    let t = T('%d Dateien gelesen', res.read) + (res.bad ? ', ' + T('%d nicht lesbar', res.bad) : '');
+    if (res.nolen) t += ' · ' + T('%d Titel ohne Länge', res.nolen) + (res.taken ? ', ' + T('%d Längen aus der HVSC übernommen', res.taken)
+      : res.found ? ', ' + T('davon %d in der HVSC gefunden (andere Fassung derselben Datei)', res.found) : '');
+    else t += ' · ' + T('alle Titel haben eine Länge');
     m.textContent = t;
     if (res.found && !res.taken) {
       const b = document.createElement('button');
-      b.className = 'primary'; b.textContent = res.found + ' Längen übernehmen';
-      b.onclick = () => api('ctl', {c: 'takenames'}).then(x => { m.textContent = x.n + ' Längen übernommen'; LS.rows.clear(); poll(); }).catch(errToast);
+      b.className = 'primary'; b.textContent = T('%d Längen übernehmen', res.found);
+      b.onclick = () => api('ctl', {c: 'takenames'}).then(x => { m.textContent = T('%d Längen übernommen', x.n); LS.rows.clear(); poll(); }).catch(errToast);
       m.append(' ', b);
     }
     LS.rows.clear(); poll();
@@ -436,37 +473,37 @@ $('lcheck').onclick = async () => {
 };
 function scanBar(j) { return j.pct != null ? '<div class=jprog><div style="width:' + j.pct + '%"></div></div>' : ''; }
 $('lsave').onclick = async () => {
-  const name = await ask('Liste speichern als', store.get('plname', ''));
+  const name = await ask(T('Liste speichern als'), store.get('plname', ''));
   if (!name) return;
   store.set('plname', name);
-  try { await api('playlist/save', {name}); toast('Gespeichert: ' + name); } catch (e) { errToast(e); }
+  try { await api('playlist/save', {name}); toast(T('Gespeichert: %s', name)); } catch (e) { errToast(e); }
 };
-$('lmenu').onclick = () => menu('Wiedergabeliste', [
-  {label: 'Playlist der PC-Jukebox importieren …', fn: impOpen},
-  {label: 'Für die PC-Jukebox exportieren (.json)', fn: () => exportShared('')},
-  {label: 'Entdecken: ein nie gespielter Titel', fn: () => api('ctl', {c: 'discover'}).then(() => { toast('Entdeckt!'); poll(); }).catch(errToast)},
-  {label: 'Entdecken: ein neuer Komponist', fn: () => api('ctl', {c: 'discover', author: true}).then(() => { toast('Entdeckt!'); poll(); }).catch(errToast)},
-  {label: 'Stopp nach … (Titel oder Minuten)', fn: stopAfter},
-  {label: 'Doppelte entfernen (gleiche Datei)', fn: () => api('ctl', {c: 'dedupe'}).then(r => { toast(r.n ? r.n + ' doppelte Titel entfernt' : 'Keine doppelten Titel'); LS.rows.clear(); poll(); }).catch(errToast)},
-  {label: 'Alles auswählen', fn: () => lIds().then(ids => { if (!ids) return; LS.sel = new Set(ids); lRender(); toast(LS.sel.size + ' ausgewählt'); })},
-  {label: 'Liste leeren', danger: true, fn: () => { if (confirm('Die ganze Wiedergabeliste leeren?')) ctl('clear'); }}]);
+$('lmenu').onclick = () => menu(T('Wiedergabeliste'), [
+  {label: T('Playlist der PC-Jukebox importieren …'), fn: impOpen},
+  {label: T('Für die PC-Jukebox exportieren (.json)'), fn: () => exportShared('')},
+  {label: T('Entdecken: ein nie gespielter Titel'), fn: () => api('ctl', {c: 'discover'}).then(() => { toast(T('Entdeckt!')); poll(); }).catch(errToast)},
+  {label: T('Entdecken: ein neuer Komponist'), fn: () => api('ctl', {c: 'discover', author: true}).then(() => { toast(T('Entdeckt!')); poll(); }).catch(errToast)},
+  {label: T('Stopp nach … (Titel oder Minuten)'), fn: stopAfter},
+  {label: T('Doppelte entfernen (gleiche Datei)'), fn: () => api('ctl', {c: 'dedupe'}).then(r => { toast(r.n ? T('%d doppelte Titel entfernt', r.n) : T('Keine doppelten Titel')); LS.rows.clear(); poll(); }).catch(errToast)},
+  {label: T('Alles auswählen'), fn: () => lIds().then(ids => { if (!ids) return; LS.sel = new Set(ids); lRender(); toast(T('%d ausgewählt', LS.sel.size)); })},
+  {label: T('Liste leeren'), danger: true, fn: () => { if (confirm(T('Die ganze Wiedergabeliste leeren?'))) ctl('clear'); }}]);
 async function stopAfter() {
-  const v = await ask('Stopp nach … – Anzahl Titel (z. B. 5) oder Minuten (z. B. 30m); leer = aus', '');
+  const v = await ask(T('Stopp nach … – Anzahl Titel (z. B. 5) oder Minuten (z. B. 30m); leer = aus'), '');
   if (v === null) return;
   const t = v.trim().toLowerCase();
   const d = !t || t === '0' ? {} : /m(in)?$/.test(t) ? {minutes: parseFloat(t)} : {songs: parseInt(t, 10)};
-  api('ctl', Object.assign({c: 'stopafter'}, d)).then(() => { toast(d.songs ? 'Stopp nach ' + d.songs + ' Titel(n)' : d.minutes ? 'Stopp in ' + d.minutes + ' min' : 'Stopp nach … aus'); poll(); }).catch(errToast);
+  api('ctl', Object.assign({c: 'stopafter'}, d)).then(() => { toast(d.songs ? T('Stopp nach %d Titel(n)', d.songs) : d.minutes ? T('Stopp in %s min', d.minutes) : T('Stopp nach … aus')); poll(); }).catch(errToast);
 }
 async function exportShared(name) {
   try {
-    toast('Export wird vorbereitet …');
+    toast(T('Export wird vorbereitet …'));
     const r = await api('export/shared', {name});
     const res = await waitJob(r.job);
     const nm = (res.json.name || 'playlist').replace(/[^A-Za-z0-9 _-]/g, '_').trim() || 'playlist';
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([JSON.stringify(res.json, null, 2)], {type: 'application/json'}));
     a.download = nm + '_u64playlist.json'; document.body.appendChild(a); a.click(); a.remove();
-    toast(res.json.songs.length + ' Titel exportiert' + (res.skipped ? ', ' + res.skipped + ' ohne MD5 ausgelassen' : ''));
+    toast(T('%d Titel exportiert', res.json.songs.length) + (res.skipped ? ', ' + T('%d ohne MD5 ausgelassen', res.skipped) : ''));
   } catch (e) { errToast(e); }
 }
 /* import of a play list of the PC program */
@@ -477,7 +514,7 @@ async function impOpen() {
   $('imppath').value = F.src ? F.path : '/';
   $('impdlg').showModal();
   try { SRC = (await api('sources')).sources; } catch (e) { errToast(e); return; }
-  $('impsrc').innerHTML = '<option value="">(keine – nur u64://-Einträge)</option>' + SRC.map(s => '<option value="' + H(s.id) + '">' + H(s.label) + '</option>').join('');
+  $('impsrc').innerHTML = '<option value="">' + T('(keine – nur u64://-Einträge)') + '</option>' + SRC.map(s => '<option value="' + H(s.id) + '">' + H(s.label) + '</option>').join('');
   $('impsrc').value = F.src || (SRC[0] ? SRC[0].id : '');
 }
 $('impfile').onchange = async () => {
@@ -487,22 +524,22 @@ $('impfile').onchange = async () => {
   let n = 0;
   if (impKind === 'shared') { try { const d = JSON.parse(impText); n = (d.songs || []).length; impName = d.name || impName; } catch (e) { impKind = ''; } }
   else n = impText.split('\n').filter(l => l.trim() && !l.startsWith('#')).length;
-  $('impname').textContent = impKind ? f.name + ': ' + n + ' Titel (' + (impKind === 'shared' ? 'geteilte Playlist' : '.u64pl') + ')' : 'Datei nicht lesbar';
+  $('impname').textContent = impKind ? T('%s: %d Titel (%s)', f.name, n, impKind === 'shared' ? T('geteilte Playlist') : '.u64pl') : T('Datei nicht lesbar');
   $('impfile').value = '';
 };
 $('impclose').onclick = () => $('impdlg').close();
 $('impgo').onclick = async () => {
-  if (!impKind) { toast('Erst eine Datei wählen'); return; }
+  if (!impKind) { toast(T('Erst eine Datei wählen')); return; }
   const src = $('impsrc').value, path = $('imppath').value.trim() || '/';
-  if (impKind === 'shared' && !src) { toast('Für die geteilte Playlist eine Quelle zum Suchen wählen'); return; }
+  if (impKind === 'shared' && !src) { toast(T('Für die geteilte Playlist eine Quelle zum Suchen wählen')); return; }
   $('impgo').disabled = true; $('impres').innerHTML = '';
   const qs = 'src=' + encodeURIComponent(src) + '&path=' + encodeURIComponent(path) + '&save=' + ($('impsave').checked ? 1 : 0) + '&name=' + encodeURIComponent(impName);
   try {
     const r = await api('import/' + impKind + '?' + qs, impText, true);
     const res = await waitJob(r.job, (p, j) => { $('impprog').innerHTML = scanBar(j) + '<div class=hint>' + H(p) + '</div>'; });
     $('impprog').innerHTML = '';
-    $('impres').innerHTML = '<p class=okc>' + res.found + ' von ' + res.total + ' Titeln gefunden' + (res.saved ? ' – gespeichert als „' + H(res.saved) + '“' : '') + '.</p>' +
-      (res.missing.length ? '<p>Nicht gefunden (' + res.missing.length + '):</p><ul>' + res.missing.slice(0, 300).map(m => '<li>' + H(m) + '</li>').join('') + '</ul>' : '');
+    $('impres').innerHTML = '<p class=okc>' + T('%d von %d Titeln gefunden', res.found, res.total) + (res.saved ? ' – ' + T('gespeichert als „%s“', H(res.saved)) : '') + '.</p>' +
+      (res.missing.length ? '<p>' + T('Nicht gefunden (%d):', res.missing.length) + '</p><ul>' + res.missing.slice(0, 300).map(m => '<li>' + H(m) + '</li>').join('') + '</ul>' : '');
     LS.rows.clear(); poll();
   } catch (e) { $('impprog').innerHTML = '<p class=bad>' + H(e.message) + '</p>'; }
   $('impgo').disabled = false;
@@ -529,7 +566,7 @@ function ask(title, value) {
 }
 
 /* ---------------------------------------------------------------- sources and files */
-const KIND = {smb: ['&#128452;', 'Netzwerkfreigabe'], ftp: ['&#127760;', 'FTP-Server'], u64: ['&#128190;', 'Ultimate-USB'], local: ['&#128204;', 'am Pi']};
+const KIND = {smb: ['&#128452;'], ftp: ['&#127760;'], u64: ['&#128190;'], local: ['&#128204;']};      /* the icons of the source kinds */
 let SRC = [], F = {src: '', path: '/', items: [], token: 0, search: null};
 async function filesShow() {
   try { SRC = (await api('sources')).sources; } catch (e) { errToast(e); return; }
@@ -537,7 +574,7 @@ async function filesShow() {
   const last = store.get('src', '');
   const s = SRC.find(x => x.id === (F.src || last)) || SRC[0];
   if (s && !F.items.length) openDir(s.id, store.get('path.' + s.id, s.kind === 'u64' ? '/' : '/'));
-  else if (!s) { $('flist').innerHTML = ''; $('crumbs').innerHTML = ''; $('fstatus').textContent = 'Noch keine Quelle – oben auf „+ Quelle“ tippen.'; }
+  else if (!s) { $('flist').innerHTML = ''; $('crumbs').innerHTML = ''; $('fstatus').textContent = T('Noch keine Quelle – oben auf „+ Quelle“ tippen.'); }
 }
 function srcDesc(s) {
   if (s.kind === 'smb') return '\\\\' + (s.host || '?') + '\\' + (s.share || '');
@@ -548,8 +585,8 @@ function srcDesc(s) {
 function srcBar() {
   $('srcbar').innerHTML = SRC.map(s => '<div class="src' + (s.id === F.src ? ' on' : '') + '" data-id="' + H(s.id) + '"><span class=ico>' + KIND[s.kind][0] +
     '</span><div class=meta><div class=sl>' + H(s.label) + '</div><div class=sk>' + H(srcDesc(s)) + '</div></div>' +
-    '<button class=ed data-ed="' + H(s.id) + '" title="Bearbeiten" aria-label="Quelle bearbeiten">&#9998;</button></div>').join('') +
-    '<div class="src add" id="srcnew">+ Quelle</div>';
+    '<button class=ed data-ed="' + H(s.id) + '" title="' + T('Bearbeiten') + '" aria-label="' + T('Quelle bearbeiten') + '">&#9998;</button></div>').join('') +
+    '<div class="src add" id="srcnew">' + T('+ Quelle') + '</div>';
 }
 $('srcbar').onclick = ev => {
   const ed = ev.target.closest('[data-ed]');
@@ -562,7 +599,7 @@ function crumbs() {
   const parts = F.path.split('/').filter(Boolean), s = SRC.find(x => x.id === F.src);
   let html = '<a href="#" data-p="/">' + H(s ? s.label : '/') + '</a>', acc = '';
   parts.forEach(p => { acc += '/' + p; html += '<span class=sep>›</span><a href="#" data-p="' + H(acc) + '">' + H(p) + '</a>'; });
-  if (F.search) html += '<span class=sep>›</span><span>Suche „' + H(F.search) + '“</span> <a href="#" data-p="' + H(F.path) + '">✕</a>';
+  if (F.search) html += '<span class=sep>›</span><span>' + T('Suche „%s“', H(F.search)) + '</span> <a href="#" data-p="' + H(F.path) + '">✕</a>';
   $('crumbs').innerHTML = html;
 }
 $('crumbs').onclick = ev => { const a = ev.target.closest('a[data-p]'); if (a) { ev.preventDefault(); openDir(F.src, a.dataset.p); } };
@@ -572,7 +609,7 @@ async function openDir(src, path, keepFilter) {
   store.set('src', src); store.set('path.' + src, F.path);
   if (!keepFilter) $('ffilter').value = '';
   srcBar(); crumbs();
-  $('fstatus').textContent = 'Lese Ordner …'; $('flist').innerHTML = '';
+  $('fstatus').textContent = T('Lese Ordner …'); $('flist').innerHTML = '';
   try {
     const r = await api('ls?src=' + encodeURIComponent(src) + '&path=' + encodeURIComponent(F.path));
     if (token !== F.token) return;
@@ -582,7 +619,7 @@ async function openDir(src, path, keepFilter) {
   } catch (e) {
     if (token !== F.token) return;
     F.items = [];
-    $('fstatus').innerHTML = '<span class=bad>' + H(e.message) + '</span>' + (path !== '/' ? ' <a href="#" onclick="openDir(F.src,\'/\');return false">zum Hauptordner</a>' : '');
+    $('fstatus').innerHTML = '<span class=bad>' + H(e.message) + '</span>' + (path !== '/' ? ' <a href="#" onclick="openDir(F.src,\'/\');return false">' + T('zum Hauptordner') + '</a>' : '');
   }
 }
 const isSid = e => !e.d && /\.sid$/i.test(e.n);
@@ -602,7 +639,7 @@ function sidLine(e) {
   if (!i) return '<div class=meta><div class=t>' + H(e.n.replace(/\.sid$/i, '')) + '</div><div class=s>' + (e.err ? '<span class=bad>' + H(e.err) + '</span>' : '…') + '</div>' +
     (F.search ? '<div class=f>' + H(e.p) + '</div>' : '') + '</div>';
   const len = i.lens && i.lens[(i.st || 1) - 1];
-  const s = [i.a, i.y, i.n > 1 ? i.n + ' Lieder' : '', len ? fmt(len) : ''].filter(Boolean).map(H);
+  const s = [i.a, i.y, i.n > 1 ? T('%d Lieder', i.n) : '', len ? fmt(len) : ''].filter(Boolean).map(H);
   if (i.c > 1) s.push('<span class=st2>' + i.c + ' SIDs</span>');
   return '<div class=meta><div class=t>' + H(i.t || e.n) + '</div><div class=s>' + s.join(' · ') + '</div><div class=f>' + H(F.search ? e.p : e.n) + '</div></div>';
 }
@@ -610,17 +647,17 @@ function filesRender() {
   const v = visible(), sids = F.items.filter(isSid).length, dirs = F.items.filter(e => e.d).length;
   $('flist').innerHTML = v.map((e, k) => {
     if (e.d) return '<li class=dir data-k=' + k + '><span class=ico>&#128193;</span><div class=meta><div class=t>' + H(e.n) + '</div></div><span class=chev>›</span></li>';
-    if (isStil(e)) return '<li class=other data-k=' + k + '><span class=ico>&#128196;</span><div class=meta><div class=t>' + H(e.n) + '</div><div class=s>Hintergründe zu den Stücken (HVSC)</div></div>' +
-      '<button data-stil=1 data-k=' + k + '>als STIL laden</button></li>';
-    if (isSl(e)) return '<li class=other data-k=' + k + '><span class=ico>&#128196;</span><div class=meta><div class=t>' + H(e.n) + '</div><div class=s>Songlängen-Datei?</div></div>' +
-      '<button data-sl=hvsc data-k=' + k + '>als HVSC-Längen laden</button><button data-sl=custom data-k=' + k + '>als eigene</button></li>';
+    if (isStil(e)) return '<li class=other data-k=' + k + '><span class=ico>&#128196;</span><div class=meta><div class=t>' + H(e.n) + '</div><div class=s>' + T('Hintergründe zu den Stücken (HVSC)') + '</div></div>' +
+      '<button data-stil=1 data-k=' + k + '>' + T('als STIL laden') + '</button></li>';
+    if (isSl(e)) return '<li class=other data-k=' + k + '><span class=ico>&#128196;</span><div class=meta><div class=t>' + H(e.n) + '</div><div class=s>' + T('Songlängen-Datei?') + '</div></div>' +
+      '<button data-sl=hvsc data-k=' + k + '>' + T('als HVSC-Längen laden') + '</button><button data-sl=custom data-k=' + k + '>' + T('als eigene') + '</button></li>';
     return '<li class=sid data-k=' + k + '><span class=ico>&#9835;</span>' + sidLine(e) +
-      '<button class=add data-add=' + k + ' title="An die Liste anhängen" aria-label="An die Liste anhängen">+</button><button class=play data-k=' + k + ' title="Abspielen" aria-label="Abspielen">&#9654;</button></li>';
+      '<button class=add data-add=' + k + ' title="' + T('An die Liste anhängen') + '" aria-label="' + T('An die Liste anhängen') + '">+</button><button class=play data-k=' + k + ' title="' + T('Abspielen') + '" aria-label="' + T('Abspielen') + '">&#9654;</button></li>';
   }).join('');
   F.vis = v;
   const fl = $('ffilter').value.trim();
-  $('fstatus').textContent = F.search ? (sids + ' Treffer' + (fl ? ', ' + v.filter(isSid).length + ' nach Filter' : ''))
-    : (dirs + ' Ordner, ' + sids + ' SIDs' + (fl ? ' – ' + v.length + ' passen zum Filter' : ''));
+  $('fstatus').textContent = F.search ? (T('%d Treffer', sids) + (fl ? ', ' + T('%d nach Filter', v.filter(isSid).length) : ''))
+    : ((dirs === 1 ? T('1 Ordner, %d SIDs', sids) : T('%d Ordner, %d SIDs', dirs, sids)) + (fl ? ' – ' + T('%d passen zum Filter', v.length) : ''));
   $('fplay').disabled = $('fadd').disabled = !!F.search && !sids;
 }
 async function fetchInfo(token) {
@@ -641,7 +678,7 @@ $('flist').onclick = ev => {
   if (sl) { ev.stopPropagation(); slLoad(F.vis[+sl.dataset.k], sl.dataset.sl); return; }
   const st = ev.target.closest('[data-stil]');
   if (st) { ev.stopPropagation(); stilLoad(F.vis[+st.dataset.k]); return; }
-  if (add) { ev.stopPropagation(); const e = F.vis[+add.dataset.add]; api('queue', {mode: 'add', items: [toItem(e)], play: true}).then(() => { toast('An die Liste angehängt'); poll(); }).catch(errToast); return; }
+  if (add) { ev.stopPropagation(); const e = F.vis[+add.dataset.add]; api('queue', {mode: 'add', items: [toItem(e)], play: true}).then(() => { toast(T('An die Liste angehängt')); poll(); }).catch(errToast); return; }
   if (!li) return;
   const e = F.vis[+li.dataset.k];
   if (e.d) { openDir(F.src, e.p); return; }
@@ -658,13 +695,13 @@ async function folderGo(mode) {
     if (!list.length) return;
     if ($('fshuf').checked !== !!(S && S.opts.shuffle)) await api('ctl', {c: 'shuffle', on: $('fshuf').checked});
     await api('queue', {mode, items: list.map(toItem), start: 0, play: true}).catch(errToast);
-    toast(list.length + ' Titel ' + (mode === 'add' ? 'angehängt' : 'in der Liste')); poll(); return;
+    toast(mode === 'add' ? T('%d Titel angehängt', list.length) : T('%d Titel in der Liste', list.length)); poll(); return;
   }
-  $('fstatus').textContent = 'Sammle SIDs …';
+  $('fstatus').textContent = T('Sammle SIDs …');
   try {
     const r = await api('folder', {src: F.src, path: F.path, recursive: $('frec').checked, shuffle: $('fshuf').checked, mode});
-    const res = await waitJob(r.job, (p, j) => { $('fstatus').textContent = 'Sammle SIDs … ' + p + (j.info && j.info.dir ? ' – liest ' + j.info.dir : ''); });
-    toast(res.n + ' Titel ' + (mode === 'add' ? 'angehängt' : 'in der Liste') + (res.trunc ? ' (gekürzt)' : ''));
+    const res = await waitJob(r.job, (p, j) => { $('fstatus').textContent = T('Sammle SIDs …') + ' ' + p + (j.info && j.info.dir ? ' – ' + T('liest %s', j.info.dir) : ''); });
+    toast((mode === 'add' ? T('%d Titel angehängt', res.n) : T('%d Titel in der Liste', res.n)) + (res.trunc ? ' ' + T('(gekürzt)') : ''));
     filesRender(); poll();
   } catch (e) { $('fstatus').innerHTML = '<span class=bad>' + H(e.message) + '</span>'; }
 }
@@ -674,32 +711,32 @@ $('fsearch').onclick = () => fSearch(false);
 $('fhvsc').onclick = () => fSearch(true);
 async function fSearch(hvsc) {
   const q = $('ffilter').value.trim();
-  if (q.length < 2) { toast('Erst oben ins Filterfeld schreiben, wonach gesucht wird'); $('ffilter').focus(); return; }
+  if (q.length < 2) { toast(T('Erst oben ins Filterfeld schreiben, wonach gesucht wird')); $('ffilter').focus(); return; }
   if (hvsc && S && S.hvsc) { F.src = S.hvsc.src; F.path = S.hvsc.path; srcBar(); }   /* results belong to that source */
   const token = ++F.token;
-  $('fstatus').textContent = 'Suche …'; $('flist').innerHTML = '';
+  $('fstatus').textContent = T('Suche …'); $('flist').innerHTML = '';
   try {
     const r = await api('search', {src: F.src, path: F.path, q});
-    const res = await waitJob(r.job, (p, j) => { if (token === F.token) $('fstatus').textContent = 'Suche … ' + p + (j.info && j.info.dir ? ' – durchsucht ' + j.info.dir : ''); });
+    const res = await waitJob(r.job, (p, j) => { if (token === F.token) $('fstatus').textContent = T('Suche …') + ' ' + p + (j.info && j.info.dir ? ' – ' + T('durchsucht %s', j.info.dir) : ''); });
     if (token !== F.token) return;
     F.search = q; F.items = res; $('ffilter').value = '';
     crumbs(); filesRender(); fetchInfo(token);
   } catch (e) { $('fstatus').innerHTML = '<span class=bad>' + H(e.message) + '</span>'; }
 }
 async function stilLoad(e) {
-  $('fstatus').textContent = 'Lese STIL …';
+  $('fstatus').textContent = T('Lese STIL …');
   try {
     const r = await api('stil/load', {src: F.src, path: e.p});
     const res = await waitJob(r.job, p => { $('fstatus').textContent = 'STIL: ' + p; });
-    toast(res.n + ' STIL-Einträge geladen'); $('fstatus').textContent = res.n + ' STIL-Einträge geladen'; poll();
+    toast(T('%d STIL-Einträge geladen', res.n)); $('fstatus').textContent = T('%d STIL-Einträge geladen', res.n); poll();
   } catch (err) { $('fstatus').innerHTML = '<span class=bad>' + H(err.message) + '</span>'; }
 }
 async function slLoad(e, kind) {
-  $('fstatus').textContent = 'Lese Songlängen …';
+  $('fstatus').textContent = T('Lese Songlängen …');
   try {
     const r = await api('songlengths/load', {src: F.src, path: e.p, kind});
-    const res = await waitJob(r.job, p => { $('fstatus').textContent = 'Songlängen: ' + p; });
-    toast(res.n + ' Songlängen geladen'); $('fstatus').textContent = res.n + ' Songlängen geladen';
+    const res = await waitJob(r.job, p => { $('fstatus').textContent = T('Songlängen: %s', p); });
+    toast(T('%d Songlängen geladen', res.n)); $('fstatus').textContent = T('%d Songlängen geladen', res.n);
     F.items.forEach(x => { delete x.i; }); fetchInfo(F.token);
   } catch (err) { $('fstatus').innerHTML = '<span class=bad>' + H(err.message) + '</span>'; }
 }
@@ -709,12 +746,12 @@ let editing = null;
 function srcEdit(s) {
   editing = s;
   const d = $('srcdlg');
-  $('sdtitle').textContent = s ? 'Quelle bearbeiten' : 'Neue Quelle';
+  $('sdtitle').textContent = s ? T('Quelle bearbeiten') : T('Neue Quelle');
   $('sk').value = s ? s.kind : 'smb';
   $('sl').value = s ? s.label : ''; $('sh').value = s ? s.host || '' : ''; $('ss').value = s ? s.share || '' : '';
   $('su').value = s ? s.user || '' : ''; $('sw').value = s ? s.pw || '' : ''; $('sp').value = s ? s.port || 21 : 21;
   $('sd').value = s ? s.path || '/' : '/';
-  $('sx').innerHTML = '<option value=-1>das gerade gewählte</option>' + (S ? S.ultimates : []).map((u, i) => '<option value=' + i + '>' + H(u.label || u.addr) + '</option>').join('');
+  $('sx').innerHTML = '<option value=-1>' + T('das gerade gewählte') + '</option>' + (S ? S.ultimates : []).map((u, i) => '<option value=' + i + '>' + H(u.label || u.addr) + '</option>').join('');
   $('sx').value = s && s.u64 != null ? s.u64 : -1;
   $('sdel').hidden = !s; $('smsg').textContent = ''; $('sscanres').innerHTML = ''; $('sshareres').innerHTML = '';
   $('sscanst').textContent = ''; $('ssharest').textContent = ''; $('sscanprog').innerHTML = '';
@@ -734,14 +771,14 @@ function srcForm() {
   if (k === 'smb') s.share = $('ss').value.trim().replace(/^[\/\\]+|[\/\\]+$/g, '');
   if (k === 'ftp' || k === 'u64') s.port = +$('sp').value || 21;
   if (k === 'u64') { s.u64 = +$('sx').value; if (s.port === 21) delete s.port; }
-  if (!s.label) s.label = k === 'smb' ? (s.share || s.host || 'Freigabe') : k === 'ftp' ? (s.host || 'FTP') : k === 'u64' ? 'USB-Stick am Ultimate' : 'Ordner am Pi';
+  if (!s.label) s.label = k === 'smb' ? (s.share || s.host || T('Freigabe')) : k === 'ftp' ? (s.host || 'FTP') : k === 'u64' ? T('USB-Stick am Ultimate') : T('Ordner am Pi');
   return s;
 }
 $('scancel').onclick = () => $('srcdlg').close();
 $('ssave').onclick = async () => {
   const s = srcForm();
-  if ((s.kind === 'smb' || s.kind === 'ftp') && !s.host) { $('smsg').textContent = 'Bitte einen Server eintragen.'; return; }
-  if (s.kind === 'smb' && !s.share) { $('smsg').textContent = 'Bitte eine Freigabe wählen („Freigaben anzeigen“).'; return; }
+  if ((s.kind === 'smb' || s.kind === 'ftp') && !s.host) { $('smsg').textContent = T('Bitte einen Server eintragen.'); return; }
+  if (s.kind === 'smb' && !s.share) { $('smsg').textContent = T('Bitte eine Freigabe wählen („Freigaben anzeigen“).'); return; }
   const list = SRC.map(x => x.id === s.id ? s : x);
   if (!editing) list.push(s);
   try {
@@ -752,7 +789,7 @@ $('ssave').onclick = async () => {
   } catch (e) { $('smsg').textContent = e.message; }
 };
 $('sdel').onclick = async () => {
-  if (!editing || !confirm('Quelle „' + editing.label + '“ löschen? (Die Dateien selbst bleiben, wo sie sind.)')) return;
+  if (!editing || !confirm(T('Quelle „%s“ löschen? (Die Dateien selbst bleiben, wo sie sind.)', editing.label))) return;
   try {
     SRC = (await api('sources', {sources: SRC.filter(x => x.id !== editing.id)})).sources;
     $('srcdlg').close(); if (F.src === editing.id) { F.src = ''; F.items = []; }
@@ -760,20 +797,20 @@ $('sdel').onclick = async () => {
   } catch (e) { $('smsg').textContent = e.message; }
 };
 $('stest').onclick = async () => {
-  $('smsg').textContent = 'Teste …';
+  $('smsg').textContent = T('Teste …');
   try { $('smsg').innerHTML = '<span class=okc>' + H((await api('sources/test', {source: srcForm()})).msg) + '</span>'; }
   catch (e) { $('smsg').textContent = e.message; }
 };
 $('sscan').onclick = async () => {
   const k = $('sk').value;
-  $('sscanst').textContent = 'Suche im Netz …'; $('sscanres').innerHTML = '';
+  $('sscanst').textContent = T('Suche im Netz …'); $('sscanres').innerHTML = '';
   const want = k === 'smb' ? /SMB/ : /FTP/;
   try {
     const r = await api('scan', {});
     const hosts = await waitJob(r.job, (p, j) => { $('sscanst').textContent = ''; $('sscanprog').innerHTML = scanHtml(j, want); });
     $('sscanprog').innerHTML = '';
     const fit = hosts.filter(h => k === 'smb' ? h.smb : h.ftp);
-    $('sscanst').textContent = fit.length ? 'Gefunden – antippen zum Übernehmen:' : 'Nichts gefunden' + (k === 'smb' ? ' (SMB, Port 445).' : ' (FTP, Port 21).');
+    $('sscanst').textContent = fit.length ? T('Gefunden – antippen zum Übernehmen:') : T('Nichts gefunden') + (k === 'smb' ? ' (SMB, Port 445).' : ' (FTP, Port 21).');
     $('sscanres').innerHTML = fit.map(h => '<button type=button data-h="' + H(h.host || h.ip) + '" data-n="' + H(h.name || '') + '">' +
       H(h.name || h.ip) + (h.name ? ' <span class=hint>' + H(h.ip) + '</span>' : '') + (h.u64 ? ' <span class=hint>(' + H(h.u64.product) + ')</span>' : '') + '</button>').join('');
   } catch (e) { $('sscanprog').innerHTML = ''; $('sscanst').textContent = e.message; }
@@ -787,11 +824,11 @@ $('sscanres').onclick = ev => {
 };
 $('sshares').onclick = async () => {
   const host = $('sh').value.trim();
-  if (!host) { $('ssharest').textContent = 'Erst den Server eintragen.'; return; }
-  $('ssharest').textContent = 'Frage ' + host + ' …'; $('sshareres').innerHTML = '';
+  if (!host) { $('ssharest').textContent = T('Erst den Server eintragen.'); return; }
+  $('ssharest').textContent = T('Frage %s …', host); $('sshareres').innerHTML = '';
   try {
     const r = await api('shares', {host, user: $('su').value.trim(), pw: $('sw').value, id: editing ? editing.id : ''});
-    $('ssharest').textContent = r.shares.length ? 'Freigaben – antippen:' : 'Keine Freigaben sichtbar (Benutzer/Passwort nötig?)';
+    $('ssharest').textContent = r.shares.length ? T('Freigaben – antippen:') : T('Keine Freigaben sichtbar (Benutzer/Passwort nötig?)');
     $('sshareres').innerHTML = r.shares.map(s => '<button type=button data-s="' + H(s.name) + '">' + H(s.name) + (s.comment ? ' <span class=hint>' + H(s.comment) + '</span>' : '') + '</button>').join('');
   } catch (e) { $('ssharest').textContent = e.message; }
 };
@@ -806,12 +843,12 @@ async function statsLoad() {
   try {
     const s = await api('statistics');
     const max = s.top.length ? s.top[0][1] : 1;
-    $('statbox').innerHTML = '<p>' + s.plays + ' Starts von ' + s.tunes + ' verschiedenen Titeln · ' + s.favs + ' Favoriten · ' +
-      (s.blocked ? s.blocked + ' gesperrt · ' : '') + 'gehört etwa ' +
-      fmtLong(s.listened) + ' (Titel der Liste mit bekannter Länge)</p>' +
-      (s.top.length ? '<h4>Meistgespielte Komponisten</h4>' + s.top.map(([a, n]) => '<div class=bar><span>' + H(a) + '</span><i style="width:' +
-        Math.max(4, 100 * n / max) + '%"></i><b>' + n + '</b></div>').join('') : '<p class=hint>Noch nichts gespielt.</p>') +
-      '<h4>Titel der Liste nach SIDs</h4><p>1 SID: ' + s.chips[1] + ' · 2 SIDs: ' + s.chips[2] + ' · 3 SIDs: ' + s.chips[3] + '</p>';
+    $('statbox').innerHTML = '<p>' + T('%d Starts von %d verschiedenen Titeln', s.plays, s.tunes) + ' · ' + T('%d Favoriten', s.favs) + ' · ' +
+      (s.blocked ? T('%d gesperrt', s.blocked) + ' · ' : '') +
+      T('gehört etwa %s (Titel der Liste mit bekannter Länge)', fmtLong(s.listened)) + '</p>' +
+      (s.top.length ? '<h4>' + T('Meistgespielte Komponisten') + '</h4>' + s.top.map(([a, n]) => '<div class=bar><span>' + H(a) + '</span><i style="width:' +
+        Math.max(4, 100 * n / max) + '%"></i><b>' + n + '</b></div>').join('') : '<p class=hint>' + T('Noch nichts gespielt.') + '</p>') +
+      '<h4>' + T('Titel der Liste nach SIDs') + '</h4><p>1 SID: ' + s.chips[1] + ' · 2 SIDs: ' + s.chips[2] + ' · 3 SIDs: ' + s.chips[3] + '</p>';
   } catch (e) { $('statbox').textContent = e.message; }
 }
 /* tunes that never come on their own again */
@@ -820,7 +857,7 @@ async function blockedLoad() {
   try {
     BLK = (await api('blocked')).items;
     $('blocked').innerHTML = BLK.map((e, k) => '<li data-k=' + k + '><div class=meta><div class=t>' + H(e.title || e.name || e.path) + '</div>' +
-      '<div class=s>' + H(e.author || '') + '</div></div><button data-a=un title="Wieder von selbst spielen">Wieder spielen</button></li>').join('');
+      '<div class=s>' + H(e.author || '') + '</div></div><button data-a=un title="' + T('Wieder von selbst spielen') + '">' + T('Wieder spielen') + '</button></li>').join('');
     $('blockhint').hidden = BLK.length > 0;
   } catch (e) { errToast(e); }
 }
@@ -832,17 +869,17 @@ $('blocked').onclick = ev => {
 let HIST = [];
 function histWhen(t, now) {
   const d = new Date(t * 1000), today = new Date(now * 1000).toDateString() === d.toDateString();
-  const hm = d.toLocaleTimeString('de-DE', {hour: '2-digit', minute: '2-digit'});
-  return today ? hm : d.toLocaleDateString('de-DE', {day: '2-digit', month: '2-digit'}) + ' ' + hm;
+  const hm = d.toLocaleTimeString(LOC(), {hour: '2-digit', minute: '2-digit'});
+  return today ? hm : d.toLocaleDateString(LOC(), {day: '2-digit', month: '2-digit'}) + ' ' + hm;
 }
 async function histLoad() {
   try {
     const r = await api('history');
     HIST = r.items;
     $('hist').innerHTML = HIST.slice(0, 50).map((e, k) => '<li data-k=' + k + '><span class="hint htime">' + histWhen(e.t, r.now) + '</span>' +
-      '<div class=meta><div class=t>' + H(e.title || e.name) + '</div><div class=s>' + H([e.author, e.songs > 1 ? 'Lied ' + e.song + '/' + e.songs : ''].filter(Boolean).join(' · ')) + '</div></div>' +
-      '<button data-a=next title="Als Nächstes spielen">&#9654;</button><button data-a=add title="Hinten anhängen">+</button></li>').join('') ||
-      '<li class=hint>Noch nichts gespielt.</li>';
+      '<div class=meta><div class=t>' + H(e.title || e.name) + '</div><div class=s>' + H([e.author, e.songs > 1 ? T('Lied %s', e.song + '/' + e.songs) : ''].filter(Boolean).join(' · ')) + '</div></div>' +
+      '<button data-a=next title="' + T('Als Nächstes spielen') + '">&#9654;</button><button data-a=add title="' + T('Hinten anhängen') + '">+</button></li>').join('') ||
+      '<li class=hint>' + T('Noch nichts gespielt.') + '</li>';
     $('histall').disabled = $('histclr').disabled = !HIST.length;
   } catch (e) { errToast(e); }
 }
@@ -853,7 +890,7 @@ $('hist').onclick = async ev => {
   const e = HIST[+li.dataset.k];
   try {
     await api('queue', {mode: b.dataset.a === 'next' ? 'next' : 'add', items: [histItem(e)], play: true});
-    toast(b.dataset.a === 'next' ? 'Kommt als Nächstes' : 'An die Liste angehängt'); poll();
+    toast(b.dataset.a === 'next' ? T('Kommt als Nächstes') : T('An die Liste angehängt')); poll();
   } catch (err) { errToast(err); }
 };
 $('histall').onclick = async () => {
@@ -862,12 +899,12 @@ $('histall').onclick = async () => {
     const k = e.src + '\n' + e.path + '\n' + e.song;
     if (!seen.has(k)) { seen.add(k); items.push(histItem(e)); }
   }
-  if (!confirm('Die aktuelle Wiedergabeliste durch die ' + items.length + ' zuletzt gespielten Titel ersetzen?')) return;
-  try { await api('queue', {mode: 'replace', items, play: false, source: 'Zuletzt gespielt'}); toast(items.length + ' Titel übernommen'); poll(); tab('play'); }
+  if (!confirm(T('Die aktuelle Wiedergabeliste durch die %d zuletzt gespielten Titel ersetzen?', items.length))) return;
+  try { await api('queue', {mode: 'replace', items, play: false, source: T('Zuletzt gespielt')}); toast(T('%d Titel übernommen', items.length)); poll(); tab('play'); }
   catch (e) { errToast(e); }
 };
 $('histclr').onclick = async () => {
-  if (!confirm('Verlauf löschen?')) return;
+  if (!confirm(T('Verlauf löschen?'))) return;
   try { await api('history/clear', {}); histLoad(); } catch (e) { errToast(e); }
 };
 /* lists put together from the HVSC (Songlengths.md5), the play counts and the favourites */
@@ -875,8 +912,8 @@ async function smLoad() {
   try {
     const r = await api('smart');
     $('smpre').innerHTML = Object.entries(r.presets).map(([k, v]) => '<button type="button" data-pre="' + k + '">' + H(v) + '</button>').join('');
-    $('smstate').textContent = r.hvsc ? r.hvsc.toLocaleString('de-DE') + ' Stücke der HVSC bekannt (' + r.root + ') · ' + r.favs + ' Favoriten · Tippen spielt die Auswahl'
-      : 'Für die HVSC-Auswahl zuerst die Songlängen der HVSC aus einer Quelle laden (Tab „Dateien“) · ' + r.favs + ' Favoriten';
+    $('smstate').textContent = r.hvsc ? T('%s Stücke der HVSC bekannt (%s)', r.hvsc.toLocaleString(LOC()), r.root) + ' · ' + T('%d Favoriten', r.favs) + ' · ' + T('Tippen spielt die Auswahl')
+      : T('Für die HVSC-Auswahl zuerst die Songlängen der HVSC aus einer Quelle laden (Tab „Dateien“)') + ' · ' + T('%d Favoriten', r.favs);
   } catch (e) { $('smstate').textContent = e.message; }
 }
 function smFilter() {
@@ -886,7 +923,7 @@ function smFilter() {
 async function smRun(filter, mode, name) {
   try {
     const r = await api('smart', {filter, mode, name: name || ''});
-    toast(r.n + ' Titel ' + (mode === 'add' ? 'angehängt' : mode === 'save' ? 'als Liste „' + name + '“ gespeichert' : 'in der Liste'));
+    toast(mode === 'add' ? T('%d Titel angehängt', r.n) : mode === 'save' ? T('%d Titel als Liste „%s“ gespeichert', r.n, name) : T('%d Titel in der Liste', r.n));
     poll(); if (mode === 'save') plsLoad(); else if (mode === 'play') tab('play');
   } catch (e) { errToast(e); }
 }
@@ -894,18 +931,18 @@ $('smpre').onclick = ev => { const b = ev.target.closest('[data-pre]'); if (b) s
 $('smplay').onclick = () => smRun(smFilter(), 'play');
 $('smadd').onclick = () => smRun(smFilter(), 'add');
 $('smsave').onclick = async () => {
-  const name = await ask('Name der neuen Liste', $('smtext').value.trim() || 'Zusammengestellt');
+  const name = await ask(T('Name der neuen Liste'), $('smtext').value.trim() || T('Zusammengestellt'));
   if (name) smRun(smFilter(), 'save', name);
 };
 async function plsLoad() {
   statsLoad(); histLoad(); smLoad(); blockedLoad();
   try {
     const r = await api('playlists');
-    $('pls').innerHTML = r.lists.map(p => '<li data-n="' + H(p.name) + '"><div class=meta><div class=t>' + H(p.name) + '</div><div class=s>' + p.n + ' Titel' +
-      (p.saved ? ' · ' + H(p.saved) : '') + '</div></div><button data-a=load title="Laden und abspielen">&#9654; Laden</button><button data-a=add title="Hinten anhängen">+</button>' +
-      '<button data-a=exp title="Für die PC-Jukebox exportieren (.json)">&#8599;</button>' +
-      '<button data-a=ren title="Umbenennen" aria-label="Umbenennen">&#9998;</button>' +
-      '<button data-a=del class=danger title="Löschen" aria-label="Löschen">&#128465;</button></li>').join('') || '<li class=hint>Noch keine Listen gespeichert.</li>';
+    $('pls').innerHTML = r.lists.map(p => '<li data-n="' + H(p.name) + '"><div class=meta><div class=t>' + H(p.name) + '</div><div class=s>' + (p.n === 1 ? T('1 Titel') : T('%d Titel', p.n)) +
+      (p.saved ? ' · ' + H(p.saved) : '') + '</div></div><button data-a=load title="' + T('Laden und abspielen') + '">&#9654; ' + T('Laden') + '</button><button data-a=add title="' + T('Hinten anhängen') + '">+</button>' +
+      '<button data-a=exp title="' + T('Für die PC-Jukebox exportieren (.json)') + '">&#8599;</button>' +
+      '<button data-a=ren title="' + T('Umbenennen') + '" aria-label="' + T('Umbenennen') + '">&#9998;</button>' +
+      '<button data-a=del class=danger title="' + T('Löschen') + '" aria-label="' + T('Löschen') + '">&#128465;</button></li>').join('') || '<li class=hint>' + T('Noch keine Listen gespeichert.') + '</li>';
   } catch (e) { errToast(e); }
 }
 $('pls').onclick = async ev => {
@@ -913,16 +950,16 @@ $('pls').onclick = async ev => {
   if (!li) return;
   const name = li.dataset.n, a = b ? b.dataset.a : 'load';
   try {
-    if (a === 'del') { if (!confirm('Liste „' + name + '“ löschen?')) return; await api('playlist/delete', {name}); plsLoad(); return; }
+    if (a === 'del') { if (!confirm(T('Liste „%s“ löschen?', name))) return; await api('playlist/delete', {name}); plsLoad(); return; }
     if (a === 'exp') { exportShared(name); return; }
     if (a === 'ren') {
-      const nn = await ask('Neuer Name der Liste', name);
-      if (nn && nn.trim() && nn.trim() !== name) { await api('playlist/rename', {name, new: nn.trim()}); toast('Umbenannt'); plsLoad(); }
+      const nn = await ask(T('Neuer Name der Liste'), name);
+      if (nn && nn.trim() && nn.trim() !== name) { await api('playlist/rename', {name, new: nn.trim()}); toast(T('Umbenannt')); plsLoad(); }
       return;
     }
     const r = await api('playlist/load', {name, mode: a === 'add' ? 'add' : 'replace', play: true});
     store.set('plname', name);
-    toast(r.n + ' Titel ' + (a === 'add' ? 'angehängt' : 'geladen')); poll(); if (a !== 'add') tab('play');
+    toast(a === 'add' ? T('%d Titel angehängt', r.n) : T('%d Titel geladen', r.n)); poll(); if (a !== 'add') tab('play');
   } catch (e) { errToast(e); }
 };
 
@@ -942,14 +979,14 @@ async function showShow() {
 let BT = {devices: []};
 async function btShow() {
   try { BT = await api('bt?devices=1'); } catch (e) { $('btstate').textContent = e.message; return; }
-  if (!BT.present) { $('btstate').textContent = 'Bluetooth fehlt auf dem Pi (Pakete bluez und bluez-alsa-utils).'; $('btscan').disabled = $('bton').disabled = true; return; }
+  if (!BT.present) { $('btstate').textContent = T('Bluetooth fehlt auf dem Pi (Pakete bluez und bluez-alsa-utils).'); $('btscan').disabled = $('bton').disabled = true; return; }
   $('bton').checked = BT.on; $('bton').disabled = !BT.mac;
-  $('btstate').textContent = !BT.mac ? 'Noch keine Kopfhörer gekoppelt.'
-    : (BT.name || BT.mac) + ': ' + (BT.connected ? 'verbunden' : 'nicht verbunden') + (BT.active ? ' – der Ton läuft über die Kopfhörer' : BT.on ? ' – der Ton läuft über den Fernseher, bis sie verbunden sind' : '');
+  $('btstate').textContent = !BT.mac ? T('Noch keine Kopfhörer gekoppelt.')
+    : (BT.name || BT.mac) + ': ' + (BT.connected ? T('verbunden') : T('nicht verbunden')) + (BT.active ? ' – ' + T('der Ton läuft über die Kopfhörer') : BT.on ? ' – ' + T('der Ton läuft über den Fernseher, bis sie verbunden sind') : '');
   $('btdevs').innerHTML = BT.devices.map((d, k) => '<li data-k=' + k + '><div class=meta><div class=t>' + (d.mac === BT.mac ? '● ' : '') + H(d.name || d.mac) + '</div>' +
-    '<div class=s>' + (d.connected ? 'verbunden' : 'gekoppelt') + '</div></div>' +
-    (d.connected ? '<button data-a=disconnect>Trennen</button>' : '<button data-a=connect>Verbinden</button>') +
-    '<button data-a=forget class=danger title="Kopplung löschen">✕</button></li>').join('');
+    '<div class=s>' + (d.connected ? T('verbunden') : T('gekoppelt')) + '</div></div>' +
+    (d.connected ? '<button data-a=disconnect>' + T('Trennen') + '</button>' : '<button data-a=connect>' + T('Verbinden') + '</button>') +
+    '<button data-a=forget class=danger title="' + T('Kopplung löschen') + '">✕</button></li>').join('');
 }
 async function btAct(act, mac, extra) {
   try { await api('bt', Object.assign({act, mac}, extra || {})); } catch (e) { errToast(e); }
@@ -960,7 +997,7 @@ $('btdevs').onclick = ev => {
   const b = ev.target.closest('button'), li = ev.target.closest('li[data-k]');
   if (!b || !li) return;
   const d = BT.devices[+li.dataset.k];
-  if (b.dataset.a === 'forget' && !confirm('Kopplung mit „' + (d.name || d.mac) + '“ löschen?')) return;
+  if (b.dataset.a === 'forget' && !confirm(T('Kopplung mit „%s“ löschen?', d.name || d.mac))) return;
   b.disabled = true; b.textContent = '…';
   btAct(b.dataset.a, d.mac);
 };
@@ -970,19 +1007,19 @@ $('btscan').onclick = async () => {
     const r = await api('bt', {act: 'scan'});
     const found = await waitJob(r.job, p => { $('btstate').textContent = p; });
     $('btfound').innerHTML = found.length ? found.map(d => '<li data-mac="' + H(d.mac) + '"><div class=meta><div class=t>' + H(d.name || d.mac) + '</div><div class=s>' + H(d.mac) + '</div></div>' +
-      '<button data-a=pair class=primary>Koppeln</button></li>').join('') : '<li class=hint>Nichts gefunden – ist der Kopfhörer im Kopplungsmodus?</li>';
+      '<button data-a=pair class=primary>' + T('Koppeln') + '</button></li>').join('') : '<li class=hint>' + T('Nichts gefunden – ist der Kopfhörer im Kopplungsmodus?') + '</li>';
   } catch (e) { errToast(e); }
   $('btscan').disabled = false; btShow();
 };
 $('btfound').onclick = async ev => {
   const b = ev.target.closest('button'), li = ev.target.closest('li[data-mac]');
   if (!b || !li) return;
-  b.disabled = true; b.textContent = 'Kopple …';
+  b.disabled = true; b.textContent = T('Kopple …');
   try {
     const r = await api('bt', {act: 'pair', mac: li.dataset.mac});
     const d = await waitJob(r.job, p => { $('btstate').textContent = p; });
-    toast('„' + (d.name || li.dataset.mac) + '“ gekoppelt und verbunden'); li.remove();
-  } catch (e) { errToast(e); b.disabled = false; b.textContent = 'Koppeln'; }
+    toast(T('„%s“ gekoppelt und verbunden', d.name || li.dataset.mac)); li.remove();
+  } catch (e) { errToast(e); b.disabled = false; b.textContent = T('Koppeln'); }
   btShow();
 };
 /* the HDMI output (service c64pi-hdmi): every change is taken over at once */
@@ -1029,16 +1066,16 @@ function cecShow() {
   let t = '';
   if (c.on) {
     if (s.err) t = '<span class=warn>' + H(s.err) + '</span>';
-    else if (!s.ready) t = 'Warte auf den Fernseher … (eingeschaltet und am HDMI-Kabel?)';
-    else t = '<span class=okc>bereit</span> · Adresse ' + H(s.phys || '?') + (s.active ? ' · der Fernseher zeigt den Pi' : '') +
-      ((s.recent || []).length ? ' · zuletzt: ' + H(s.recent.slice(-4).join(', ')) : '') +
-      (c.pi_off && s.tv ? ' · Fernseher ' + (s.tv === 'on' ? 'an' : 'aus') : '') +
-      (s.pi_off_in != null ? ' · <span class=warn>Pi geht in ' + s.pi_off_in + ' s aus</span>' : '');
+    else if (!s.ready) t = T('Warte auf den Fernseher … (eingeschaltet und am HDMI-Kabel?)');
+    else t = '<span class=okc>' + T('bereit') + '</span> · ' + T('Adresse %s', H(s.phys || '?')) + (s.active ? ' · ' + T('der Fernseher zeigt den Pi') : '') +
+      ((s.recent || []).length ? ' · ' + T('zuletzt: %s', H(s.recent.slice(-4).join(', '))) : '') +
+      (c.pi_off && s.tv ? ' · ' + (s.tv === 'on' ? T('Fernseher an') : T('Fernseher aus')) : '') +
+      (s.pi_off_in != null ? ' · <span class=warn>' + T('Pi geht in %d s aus', s.pi_off_in) + '</span>' : '');
   }
   $('cecstate').innerHTML = t;
 }
 async function cecSave(d) {
-  try { const r = await api('cec', d); HD.cec = r.cec; cecShow(); toast('Übernommen'); } catch (e) { errToast(e); }
+  try { const r = await api('cec', d); HD.cec = r.cec; cecShow(); toast(T('Übernommen')); } catch (e) { errToast(e); }
 }
 $('con').onchange = () => cecSave({on: $('con').checked});
 $('ctvon').onchange = () => cecSave({tv_on: $('ctvon').checked});
@@ -1051,26 +1088,26 @@ $('ctvsb').onclick = () => cecSave({tv: 'standby'});
 function hdmiState() {
   const s = HD.status || {}, c = HD.cfg;
   let t;
-  if (!c.on) t = 'aus – am HDMI-Ausgang steht die Textanzeige des Pi';
-  else if (s.age == null || s.age > 10) t = '<span class=warn>Der HDMI-Dienst meldet sich nicht</span> (läuft er? <code>systemctl status c64pi-hdmi</code>)';
+  if (!c.on) t = T('aus – am HDMI-Ausgang steht die Textanzeige des Pi');
+  else if (s.age == null || s.age > 10) t = '<span class=warn>' + T('Der HDMI-Dienst meldet sich nicht') + '</span> (' + T('läuft er?') + ' <code>systemctl status c64pi-hdmi</code>)';
   else {
-    t = '<span class=okc>läuft</span>, ' + s.fps + ' Bilder/s' + (s.screen ? ' · ' + H(s.screen) : '');
-    t += s.audio_age != null && s.audio_age < 2 ? ' · Ton kommt an' : ' · <span class=warn>kein Ton</span> (Stream-Verteiler/Ultimate)';
-    if (c.bg === 'video') t += s.video_age != null && s.video_age < 2 ? ' · Bild des C64 kommt an' : ' · <span class=warn>kein Bild vom C64</span>' + (s.video_msg ? ' (' + H(s.video_msg) + ')' : '');
-    if (s.sid_want) t += s.sid_age != null && s.sid_age < 2 ? ' · SID-Daten kommen an' + (s.sid && s.sid.chips.length ? ' (' + H(s.sid.chips.join(', ')) + ')' : '')
-      : ' · <span class=warn>keine SID-Daten vom Ultimate</span>' + (s.sid_msg ? ' (' + H(s.sid_msg) + ')' : '');
-    else if (s.mode === 'sidvoices' && c.bg === 'video') t += ' · <span class=warn>SID-Stimmen gehen nicht zusammen mit dem C64-Bild</span>';
-    if (c.sound) t += s.sound ? ' · Ton über HDMI' : ' · <span class=warn>Ton über HDMI startet nicht</span>' + (s.sound_msg ? ' (' + H(s.sound_msg) + ')' : '');
+    t = '<span class=okc>' + T('läuft') + '</span>, ' + T('%s Bilder/s', s.fps) + (s.screen ? ' · ' + H(s.screen) : '');
+    t += s.audio_age != null && s.audio_age < 2 ? ' · ' + T('Ton kommt an') : ' · <span class=warn>' + T('kein Ton') + '</span> (' + T('Stream-Verteiler/Ultimate') + ')';
+    if (c.bg === 'video') t += s.video_age != null && s.video_age < 2 ? ' · ' + T('Bild des C64 kommt an') : ' · <span class=warn>' + T('kein Bild vom C64') + '</span>' + (s.video_msg ? ' (' + H(s.video_msg) + ')' : '');
+    if (s.sid_want) t += s.sid_age != null && s.sid_age < 2 ? ' · ' + T('SID-Daten kommen an') + (s.sid && s.sid.chips.length ? ' (' + H(s.sid.chips.join(', ')) + ')' : '')
+      : ' · <span class=warn>' + T('keine SID-Daten vom Ultimate') + '</span>' + (s.sid_msg ? ' (' + H(s.sid_msg) + ')' : '');
+    else if (s.mode === 'sidvoices' && c.bg === 'video') t += ' · <span class=warn>' + T('SID-Stimmen gehen nicht zusammen mit dem C64-Bild') + '</span>';
+    if (c.sound) t += s.sound ? ' · ' + T('Ton über HDMI') : ' · <span class=warn>' + T('Ton über HDMI startet nicht') + '</span>' + (s.sound_msg ? ' (' + H(s.sound_msg) + ')' : '');
     if (s.msg) t += ' · ' + H(s.msg);
   }
   $('hstate').innerHTML = t;
 }
 function hdmiSyncShow(job, n) {
-  let t = n + ' Bild' + (n === 1 ? '' : 'er') + ' von der Quelle übernommen';
-  if (job && !job.done) t = 'gleicht ab … ' + H(job.progress || '');
+  let t = n === 1 ? T('1 Bild von der Quelle übernommen') : T('%d Bilder von der Quelle übernommen', n);
+  if (job && !job.done) t = T('gleicht ab …') + ' ' + H(job.progress || '');
   else if (job && job.error) t = '<span class=warn>' + H(job.error) + '</span>';
   else if (job && job.progress) t = H(job.progress);
-  $('hsyncmsg').innerHTML = t + ' · alle 10 min wird erneut abgeglichen';
+  $('hsyncmsg').innerHTML = t + ' · ' + T('alle 10 min wird erneut abgeglichen');
 }
 async function hdmiSyncWatch(id) {
   try { await waitJob(id, (p, j) => hdmiSyncShow(j, 0)); } catch (e) { errToast(e); }
@@ -1079,13 +1116,13 @@ async function hdmiSyncWatch(id) {
 function hdmiImages(list) {
   $('hlist').innerHTML = list.length ? list.map(i => '<figure><img loading="lazy" alt="" src="/api/hdmi/image?name=' +
     encodeURIComponent(i.name) + '"><figcaption>' + H(i.name) + '</figcaption><button class="danger" data-n="' + H(i.name) +
-    '" title="Löschen" aria-label="Löschen">&#10005;</button></figure>').join('') : '<p class="hint">Noch keine Bilder.</p>';
+    '" title="' + T('Löschen') + '" aria-label="' + T('Löschen') + '">&#10005;</button></figure>').join('') : '<p class="hint">' + T('Noch keine Bilder.') + '</p>';
 }
 const hdTimer = {op: null, vol: null};        /* one per slider: one must not cancel the other's save */
 async function hdmiSave(d) {
   try {
     const r = await api('hdmi', d);
-    HD.cfg = r.cfg; hdmiShow(); toast('Übernommen');
+    HD.cfg = r.cfg; hdmiShow(); toast(T('Übernommen'));
     if (r.job) hdmiSyncWatch(r.job);
   } catch (e) { errToast(e); }
 }
@@ -1125,16 +1162,16 @@ $('nevery').onchange = () => hdmiSave({news_s: +$('nevery').value || 15});
 const NF = {dirty: false};
 function newsRows(feeds) {
   $('nfeeds').innerHTML = feeds.map(f => '<div class="erow nrow"><input type=checkbox class=non' + (f.on !== false ? ' checked' : '') +
-    ' title="anzeigen" aria-label="anzeigen"><input class=nl placeholder="Name" value="' + H(f.label || '') +
-    '" aria-label="Name"><input class=nu placeholder="https://…/rss.xml" value="' + H(f.url || '') + '" aria-label="Adresse" autocapitalize=off>' +
-    '<span class="hint nfs">' + (f.on === false ? 'aus' : f.err ? '<span class=warn>' + H(f.err) + '</span>' : f.n != null ? f.n + ' Meldungen' : '') + '</span>' +
-    '<div class=eend><button class="danger nx" type=button title="Entfernen" aria-label="Entfernen">&#10005;</button></div></div>').join('');
+    ' title="' + T('anzeigen') + '" aria-label="' + T('anzeigen') + '"><input class=nl placeholder="' + T('Name') + '" value="' + H(f.label || '') +
+    '" aria-label="' + T('Name') + '"><input class=nu placeholder="https://…/rss.xml" value="' + H(f.url || '') + '" aria-label="' + T('Adresse') + '" autocapitalize=off>' +
+    '<span class="hint nfs">' + (f.on === false ? T('aus') : f.err ? '<span class=warn>' + H(f.err) + '</span>' : f.n != null ? T('%d Meldungen', f.n) : '') + '</span>' +
+    '<div class=eend><button class="danger nx" type=button title="' + T('Entfernen') + '" aria-label="' + T('Entfernen') + '">&#10005;</button></div></div>').join('');
 }
 function newsState(n) {
   if (!n) return;
   const on = $('nidle').checked || $('nticker').checked;
-  $('nstate').textContent = n.busy ? 'lädt …' : on ? n.n + ' Meldungen geladen' + (n.default ? ' (Standard-Quellen)' : '') + ' · alle 30 min neu'
-    : 'aus – zum Einschalten einen Haken setzen';
+  $('nstate').textContent = n.busy ? T('lädt …') : on ? T('%d Meldungen geladen', n.n) + (n.default ? ' ' + T('(Standard-Quellen)') : '') + ' · ' + T('alle 30 min neu')
+    : T('aus – zum Einschalten einen Haken setzen');
 }
 function newsCollect() {
   return [...$('nfeeds').querySelectorAll('.nrow')].map(r => ({on: r.querySelector('.non').checked,
@@ -1154,7 +1191,7 @@ $('nsave').onclick = async () => {
 };
 $('ndefault').onclick = async () => { NF.dirty = false; await hdmiSave({news_feeds: []}); };
 $('nload').onclick = async () => {
-  $('nstate').textContent = 'lädt … (bis 30 s)';
+  $('nstate').textContent = T('lädt … (bis 30 s)');
   try { const r = await api('hdmi/news', {}); HD.news = r.news; NF.dirty = false; newsRows(r.news.feeds); newsState(r.news); }
   catch (e) { errToast(e); }
 };
@@ -1164,7 +1201,7 @@ const isPic = e => !e.d && /\.(jpe?g|png)$/i.test(e.n);
 let P = {src: '', path: '/', items: [], token: 0};
 async function picOpen() {
   try { SRC = (await api('sources')).sources; } catch (e) { errToast(e); return; }
-  if (!SRC.length) { toast('Noch keine Quelle – im Tab „Dateien“ oben „+ Quelle“ anlegen'); return; }
+  if (!SRC.length) { toast(T('Noch keine Quelle – im Tab „Dateien“ oben „+ Quelle“ anlegen')); return; }
   const c = HD.cfg, s = SRC.find(x => x.id === (c.img_src || store.get('picsrc', ''))) || SRC[0];
   $('picsub').checked = !!c.img_sub; $('picfilter').value = '';
   $('picdlg').showModal();
@@ -1180,7 +1217,7 @@ async function picDir(src, path) {
   let html = '<a href="#" data-p="/">' + H(s ? s.label : '/') + '</a>', acc = '';
   parts.forEach(p => { acc += '/' + p; html += '<span class=sep>›</span><a href="#" data-p="' + H(acc) + '">' + H(p) + '</a>'; });
   $('piccrumbs').innerHTML = html;
-  $('picstatus').textContent = 'Lese Ordner …'; $('piclist').innerHTML = '';
+  $('picstatus').textContent = T('Lese Ordner …'); $('piclist').innerHTML = '';
   try {
     const r = await api('ls?src=' + encodeURIComponent(src) + '&path=' + encodeURIComponent(P.path));
     if (token !== P.token) return;
@@ -1195,8 +1232,8 @@ function picRender() {
   const f = $('picfilter').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const v = P.items.filter(e => f.every(w => e.n.toLowerCase().includes(w)));
   const pics = P.items.filter(isPic).length, dirs = P.items.filter(e => e.d).length;
-  $('picstatus').textContent = pics + ' Bild' + (pics === 1 ? '' : 'er') + (dirs ? ', ' + dirs + ' Ordner' : '') +
-    (v.length < P.items.length ? ' – ' + v.length + ' passen zum Filter' : '') + (pics ? '' : ' – in diesem Ordner liegen keine Bilder');
+  $('picstatus').textContent = (pics === 1 ? T('1 Bild') : T('%d Bilder', pics)) + (dirs ? ', ' + (dirs === 1 ? T('1 Ordner') : T('%d Ordner', dirs)) : '') +
+    (v.length < P.items.length ? ' – ' + T('%d passen zum Filter', v.length) : '') + (pics ? '' : ' – ' + T('in diesem Ordner liegen keine Bilder'));
   $('piclist').innerHTML = v.map((e, k) => e.d
     ? '<li class=dir data-p="' + H(e.p) + '"><span class=ico>&#128193;</span><div class=meta><div class=t>' + H(e.n) + '</div></div><span class=chev>›</span></li>'
     : '<li class=img><img loading=lazy alt="" src="/api/hdmi/thumb?src=' + encodeURIComponent(P.src) + '&path=' + encodeURIComponent(e.p) +
@@ -1217,16 +1254,16 @@ $('hfiles').onchange = async () => {
   const files = [...$('hfiles').files];
   let n = 0;
   for (const f of files) {
-    $('hupmsg').textContent = 'lade hoch … ' + (n + 1) + ' von ' + files.length;
+    $('hupmsg').textContent = T('lade hoch … %d von %d', n + 1, files.length);
     try { const r = await api('hdmi/upload?name=' + encodeURIComponent(f.name), await f.arrayBuffer(), true); hdmiImages(r.images); n++; }
     catch (e) { errToast(e); }
   }
-  $('hupmsg').textContent = n + ' Bild' + (n === 1 ? '' : 'er') + ' hochgeladen';
+  $('hupmsg').textContent = n === 1 ? T('1 Bild hochgeladen') : T('%d Bilder hochgeladen', n);
   $('hfiles').value = '';
 };
 $('hlist').onclick = async ev => {
   const b = ev.target.closest('button[data-n]'); if (!b) return;
-  if (!confirm('Bild „' + b.dataset.n + '“ löschen?')) return;
+  if (!confirm(T('Bild „%s“ löschen?', b.dataset.n))) return;
   try { hdmiImages((await api('hdmi/delete', {name: b.dataset.n})).images); } catch (e) { errToast(e); }
 };
 setInterval(async () => {
@@ -1242,19 +1279,19 @@ async function partyShow() {
     $('pon').checked = p.on;
     if (document.activeElement !== $('pssid')) $('pssid').value = p.ssid;
     $('psaved').innerHTML = p.saved.map(s => '<option value="' + H(s) + '">').join('');
-    $('ppw').placeholder = p.pw_set ? 'gespeichert (leer lassen)' : 'leer = das im Pi gespeicherte';
+    $('ppw').placeholder = p.pw_set ? T('gespeichert (leer lassen)') : T('leer = das im Pi gespeicherte');
     const s = p.state || {};
     $('pstate').innerHTML = !p.on ? '' : s.state === 'aktiv'
-      ? '<span class=okc>läuft</span>: WLAN „' + H(s.ssid) + '“, Seite unter http://' + H(s.ap_ip) + '/' +
-        (s.eth ? ' · Ultimate am Kabel: ' + H(s.u64) : ' · am Kabel noch kein Ultimate (es dauert 40 s nach dem Einstecken)')
+      ? '<span class=okc>' + T('läuft') + '</span>: ' + T('WLAN „%s“', H(s.ssid)) + ', ' + T('Seite unter %s', 'http://' + H(s.ap_ip) + '/') +
+        (s.eth ? ' · ' + T('Ultimate am Kabel: %s', H(s.u64)) : ' · ' + T('am Kabel noch kein Ultimate (es dauert 40 s nach dem Einstecken)'))
       : s.state === 'fehler' ? '<span class=warn>' + H(s.why) + '</span>'
-      : 'wartet' + (s.why ? ': ' + H(s.why) : '') + ' – zu Hause bleibt er still';
+      : T('wartet') + (s.why ? ': ' + H(s.why) : '') + ' – ' + T('zu Hause bleibt er still');
   } catch (e) { $('pstate').textContent = e.message; }
 }
 $('psave2').onclick = async () => {
   try {
     await api('party', {on: $('pon').checked, ssid: $('pssid').value.trim(), pw: $('ppw').value});
-    $('ppw').value = ''; toast('Party-Modus gespeichert'); partyShow();
+    $('ppw').value = ''; toast(T('Party-Modus gespeichert')); partyShow();
   } catch (e) { errToast(e); }
 };
 async function netShow() {
@@ -1262,14 +1299,14 @@ async function netShow() {
   try { NET = await api('wlan'); } catch (e) { NET = {mode: 'unknown'}; }
   const n = NET, m = n.mode;
   let t;
-  if (m === 'lan') t = '<span class=okc>Netzwerkkabel</span>, Adresse ' + H(n.eth_ip);
-  else if (m === 'wlan') t = '<span class=okc>WLAN „' + H(n.wlan_ssid) + '“</span>, Adresse ' + H(n.wlan_ip);
-  else if (m === 'ap' && n.ap) t = '<span class=warn>Eigenes WLAN „' + H(n.ap.ssid) + '“</span> (Passwort ' + H(n.ap.pw) + '), Seite unter http://' + H(n.ap.ip) + '/';
-  else if (m === 'party' && n.ap) t = '<span class=okc>Party-Modus: WLAN „' + H(n.ap.ssid) + '“</span>, Seite unter http://' + H(n.ap.ip) + '/';
-  else if (m === 'party') t = '<span class=okc>Party-Modus</span> startet …';
-  else if (m === 'none') t = '<span class=warn>Kein Netz – sucht …</span>';
-  else t = '<span class=hint>Der Netzwerk-Dienst meldet sich nicht (läuft er? <code>systemctl status c64pi-net</code>)</span>';
-  if (n.radio === false && m === 'lan') t += ' <span class=hint>(WLAN ist ausgeschaltet)</span>';
+  if (m === 'lan') t = '<span class=okc>' + T('Netzwerkkabel') + '</span>, ' + T('Adresse %s', H(n.eth_ip));
+  else if (m === 'wlan') t = '<span class=okc>' + T('WLAN „%s“', H(n.wlan_ssid)) + '</span>, ' + T('Adresse %s', H(n.wlan_ip));
+  else if (m === 'ap' && n.ap) t = '<span class=warn>' + T('Eigenes WLAN „%s“', H(n.ap.ssid)) + '</span> (' + T('Passwort %s', H(n.ap.pw)) + '), ' + T('Seite unter %s', 'http://' + H(n.ap.ip) + '/');
+  else if (m === 'party' && n.ap) t = '<span class=okc>' + T('Party-Modus') + ': ' + T('WLAN „%s“', H(n.ap.ssid)) + '</span>, ' + T('Seite unter %s', 'http://' + H(n.ap.ip) + '/');
+  else if (m === 'party') t = '<span class=okc>' + T('Party-Modus') + '</span> ' + T('startet …');
+  else if (m === 'none') t = '<span class=warn>' + T('Kein Netz – sucht …') + '</span>';
+  else t = '<span class=hint>' + T('Der Netzwerk-Dienst meldet sich nicht') + ' (' + T('läuft er?') + ' <code>systemctl status c64pi-net</code>)</span>';
+  if (n.radio === false && m === 'lan') t += ' <span class=hint>(' + T('WLAN ist ausgeschaltet') + ')</span>';
   $('netstate').innerHTML = t;
   $('wforget').hidden = m !== 'wlan';
   $('wapnote').hidden = m !== 'ap';
@@ -1281,20 +1318,20 @@ function dispShow() {
   const d = CFG.display || {};
   $('dtype').value = d.type === 'ssd1306' ? 'auto' : (d.type || 'auto'); $('doff').value = d.off_min != null ? d.off_min : 10;
   $('dflip').checked = !!d.flip; $('dtouch').value = d.touch === 'shared' ? 'shared' : 'own'; $('ddc').value = String(d.dc || 24); $('dtft').hidden = $('dtype').value !== 'tft';
-  $('dstate').textContent = S && S.display ? 'Display: ' + S.display +
-    (d.type === 'tft' && !d.cal ? ' – Touch noch nicht eingerichtet: auf die Kreuze am Display tippen' : '') : '';
+  $('dstate').textContent = S && S.display ? T('Display: %s', S.display) +
+    (d.type === 'tft' && !d.cal ? ' – ' + T('Touch noch nicht eingerichtet: auf die Kreuze am Display tippen') : '') : '';
 }
 $('dtype').onchange = () => { $('dtft').hidden = $('dtype').value !== 'tft'; };
 $('dcal').onclick = async () => {
-  try { await api('display/calibrate', {}); toast('Am Display nacheinander genau auf die drei Kreuze tippen'); }
+  try { await api('display/calibrate', {}); toast(T('Am Display nacheinander genau auf die drei Kreuze tippen')); }
   catch (e) { errToast(e); }
 };
 function netList(list) {
   $('wlist').innerHTML = list.map(x => '<button type=button data-ssid="' + H(x.ssid) + '" data-open="' + (x.sec ? 0 : 1) + '">' + H(x.ssid) +
-    ' <span class=sig>' + x.signal + ' %' + (x.sec ? '' : ', offen') + '</span></button>').join('');
+    ' <span class=sig>' + x.signal + ' %' + (x.sec ? '' : ', ' + T('offen')) + '</span></button>').join('');
 }
 $('wscan').onclick = async () => {
-  $('wmsg').textContent = 'Suche … (bis 20 s)';
+  $('wmsg').textContent = T('Suche … (bis 20 s)');
   try { const r = await api('wlan', {action: 'scan'}); $('wmsg').textContent = r.msg; netList(r.scan || []); }
   catch (e) { $('wmsg').textContent = e.message; }
 };
@@ -1302,39 +1339,39 @@ $('wlist').onclick = async ev => {
   const b = ev.target.closest('button[data-ssid]'); if (!b) return;
   const ssid = b.dataset.ssid;
   let pw = '';
-  if (b.dataset.open !== '1') { pw = await ask('Passwort für „' + ssid + '“', ''); if (!pw) return; }
-  if (!confirm('Mit „' + ssid + '“ verbinden? Hängt der Pi am Kabel, bleibt er auch darüber erreichbar; sonst ist er danach unter einer neuen Adresse im WLAN „' + ssid + '“.')) return;
-  $('wmsg').textContent = 'Verbinde … (bis 1 min)';
+  if (b.dataset.open !== '1') { pw = await ask(T('Passwort für „%s“', ssid), ''); if (!pw) return; }
+  if (!confirm(T('Mit „%s“ verbinden? Hängt der Pi am Kabel, bleibt er auch darüber erreichbar; sonst ist er danach unter einer neuen Adresse im WLAN „%s“.', ssid, ssid))) return;
+  $('wmsg').textContent = T('Verbinde … (bis 1 min)');
   try { const r = await api('wlan', {action: 'connect', ssid, pw}); $('wmsg').textContent = r.msg; netShow(); }
   catch (e) { $('wmsg').textContent = e.message; }
 };
 $('wforget').onclick = async () => {
-  if (!NET || !confirm('WLAN „' + NET.wlan_ssid + '“ vergessen? Ohne Kabel öffnet der Pi danach sein eigenes WLAN.')) return;
+  if (!NET || !confirm(T('WLAN „%s“ vergessen? Ohne Kabel öffnet der Pi danach sein eigenes WLAN.', NET.wlan_ssid))) return;
   try { const r = await api('wlan', {action: 'forget', ssid: NET.wlan_ssid}); $('wmsg').textContent = r.msg; netShow(); }
   catch (e) { $('wmsg').textContent = e.message; }
 };
 $('netsave').onclick = async () => {
   try {
     CFG = (await api('config', {wlan: {ap: $('apon').checked, ap_ssid: $('apssid').value.trim(), ap_pw: $('appw').value}})).config;
-    toast('Gespeichert'); setTimeout(netShow, 1500);
+    toast(T('Gespeichert')); setTimeout(netShow, 1500);
   } catch (e) { errToast(e); }
 };
 $('dsave').onclick = async () => {
   try {
     CFG = (await api('config', {display: {type: $('dtype').value, off_min: +$('doff').value || 0, flip: $('dflip').checked, touch: $('dtouch').value, dc: +$('ddc').value}})).config;
-    toast('Gespeichert'); setTimeout(async () => { await poll(); dispShow(); }, 1500);
+    toast(T('Gespeichert')); setTimeout(async () => { await poll(); dispShow(); }, 1500);
   } catch (e) { errToast(e); }
 };
 function u64Rows() {
   $('u64rows').innerHTML = CFG.ultimates.map((u, i) => '<div class="erow u64r" data-i=' + i + '>' +
-    '<input class=ul placeholder="Name" value="' + H(u.label) + '" aria-label="Name">' +
-    '<input class=ua placeholder="Adresse, z. B. 192.168.1.168" value="' + H(u.addr) + '" aria-label="Adresse" autocapitalize=off>' +
-    '<input class=up type=password placeholder="Netzwerk-Passwort" value="' + H(u.pw) + '" aria-label="Netzwerk-Passwort" autocomplete=new-password>' +
-    '<div class=eend><label title="Dieses Ultimate spielt"><input type=radio name=u64sel value=' + i + (i === CFG.u64_sel ? ' checked' : '') + '> aktiv</label>' +
-    '<button class=uon title="Über das WLAN einschalten (Wake-Up on WiFi)">&#9211; Ein</button>' +
-    '<button class=uoff title="Ausschalten">Aus</button>' +
-    '<button class="danger ux" title="Entfernen" aria-label="Entfernen">&#10005;</button></div>' +
-    '<input class=uw placeholder="WLAN-MAC zum Einschalten über WLAN (wird gemerkt)" value="' + H(u.wmac || '') + '" aria-label="WLAN-MAC" autocapitalize=off spellcheck=false></div>').join('');
+    '<input class=ul placeholder="' + T('Name') + '" value="' + H(u.label) + '" aria-label="' + T('Name') + '">' +
+    '<input class=ua placeholder="' + T('Adresse, z. B. 192.168.1.168') + '" value="' + H(u.addr) + '" aria-label="' + T('Adresse') + '" autocapitalize=off>' +
+    '<input class=up type=password placeholder="' + T('Netzwerk-Passwort') + '" value="' + H(u.pw) + '" aria-label="' + T('Netzwerk-Passwort') + '" autocomplete=new-password>' +
+    '<div class=eend><label title="' + T('Dieses Ultimate spielt') + '"><input type=radio name=u64sel value=' + i + (i === CFG.u64_sel ? ' checked' : '') + '> ' + T('aktiv') + '</label>' +
+    '<button class=uon title="' + T('Über das WLAN einschalten (Wake-Up on WiFi)') + '">&#9211; ' + T('Ein') + '</button>' +
+    '<button class=uoff title="' + T('Ausschalten') + '">' + T('Aus') + '</button>' +
+    '<button class="danger ux" title="' + T('Entfernen') + '" aria-label="' + T('Entfernen') + '">&#10005;</button></div>' +
+    '<input class=uw placeholder="' + T('WLAN-MAC zum Einschalten über WLAN (wird gemerkt)') + '" value="' + H(u.wmac || '') + '" aria-label="' + T('WLAN-MAC') + '" autocapitalize=off spellcheck=false></div>').join('');
 }
 function u64Read() {
   return [...document.querySelectorAll('#u64rows .erow')].map(r => ({label: r.querySelector('.ul').value.trim(), addr: r.querySelector('.ua').value.trim(), pw: r.querySelector('.up').value,
@@ -1345,7 +1382,7 @@ $('u64rows').onclick = async ev => {
   const on = ev.target.closest('.uon'), off = ev.target.closest('.uoff');
   if (!on && !off) return;
   const i = +ev.target.closest('.erow').dataset.i, u = CFG.ultimates[i] || {};
-  if (off && !confirm('\u201e' + (u.label || u.addr) + '\u201c ausschalten? Die Wiedergabe stoppt.')) return;
+  if (off && !confirm(T('„%s“ ausschalten? Die Wiedergabe stoppt.', u.label || u.addr))) return;
   try { const r = await api('u64/power', {i, on: !!on}); $('u64power').textContent = r.msg; toast(r.msg); poll(); }
   catch (e) { errToast(e); }
 };
@@ -1354,35 +1391,35 @@ $('u64save').onclick = async () => {
   const sel = document.querySelector('input[name=u64sel]:checked');
   try {
     CFG = (await api('config', {ultimates: u64Read(), u64_sel: sel ? +sel.value : 0})).config;
-    u64Rows(); toast('Gespeichert'); poll();
+    u64Rows(); toast(T('Gespeichert')); poll();
   } catch (e) { errToast(e); }
 };
 $('u64scan').onclick = async () => {
-  $('u64found').innerHTML = '<p class=hint>Suche im Netz …</p>';
+  $('u64found').innerHTML = '<p class=hint>' + T('Suche im Netz …') + '</p>';
   try {
     const r = await api('scan/u64', {});
     const res = await waitJob(r.job, (p, j) => { $('u64found').innerHTML = scanHtml(j, /Ultimate/i); });
-    $('u64found').innerHTML = res.length ? '<p class=hint>Gefunden – antippen zum Übernehmen:</p><div class=chips>' + res.map(h => '<button data-ip="' + H(h.ip) + '" data-n="' + H(h.u64.product || h.name) + '">' +
-      H(h.u64.product || 'Ultimate') + ' <span class=hint>' + H(h.ip) + (h.alt ? ' (WLAN: ' + H(h.alt) + ')' : '') + '</span></button>').join('') + '</div>'
-      : '<p class=hint>Kein Ultimate gefunden. Im Ultimate muss die Web-Fernsteuerung (Network → Web Remote Control) an sein.</p>';
+    $('u64found').innerHTML = res.length ? '<p class=hint>' + T('Gefunden – antippen zum Übernehmen:') + '</p><div class=chips>' + res.map(h => '<button data-ip="' + H(h.ip) + '" data-n="' + H(h.u64.product || h.name) + '">' +
+      H(h.u64.product || 'Ultimate') + ' <span class=hint>' + H(h.ip) + (h.alt ? ' (' + T('WLAN: %s', H(h.alt)) + ')' : '') + '</span></button>').join('') + '</div>'
+      : '<p class=hint>' + T('Kein Ultimate gefunden. Im Ultimate muss die Web-Fernsteuerung (Network → Web Remote Control) an sein.') + '</p>';
   } catch (e) { $('u64found').innerHTML = '<p class=bad>' + H(e.message) + '</p>'; }
 };
 $('u64found').onclick = ev => {
   const b = ev.target.closest('button'); if (!b) return;
   CFG.ultimates = u64Read();
-  if (CFG.ultimates.some(u => u.addr === b.dataset.ip)) { toast('Schon eingetragen'); return; }
+  if (CFG.ultimates.some(u => u.addr === b.dataset.ip)) { toast(T('Schon eingetragen')); return; }
   const empty = CFG.ultimates.find(u => !u.addr);
   if (empty) { empty.addr = b.dataset.ip; empty.label = empty.label || b.dataset.n; } else CFG.ultimates.push({label: b.dataset.n, addr: b.dataset.ip, pw: ''});
-  u64Rows(); toast('Übernommen – noch „Speichern“ drücken');
+  u64Rows(); toast(T('Übernommen – noch „Speichern“ drücken'));
 };
 function picoRows() {
-  $('picorows').innerHTML = (CFG.picos.length ? '' : '<p class=hint>Noch kein Pico eingetragen. Unten unter „Geräte im Netz“ antippen oder „+ Pico“.</p>') +
+  $('picorows').innerHTML = (CFG.picos.length ? '' : '<p class=hint>' + T('Noch kein Pico eingetragen. Unten unter „Geräte im Netz“ antippen oder „+ Pico“.') + '</p>') +
     CFG.picos.map((p, i) => '<div class="erow pico" data-i=' + i + '>' +
-    '<input class=pa placeholder="c64viz.local oder IP" value="' + H(p.addr) + '" aria-label="Adresse" autocapitalize=off>' +
-    '<select class=pn aria-label="Titelmeldung"><option value=udp>Titel per UDP</option><option value=http>Titel per Webseite</option><option value=off>keine Titel</option></select>' +
-    '<input class=pp type=password placeholder="Web-Passwort (für Webseite)" value="' + H(p.pw || '') + '" aria-label="Web-Passwort" autocomplete=new-password>' +
-    '<div class=eend><label title="Audio-Stream an diesen Pico weiterreichen"><input type=checkbox class=ps' + (p.stream !== false ? ' checked' : '') + '> Stream</label>' +
-    '<button class="danger px" title="Entfernen" aria-label="Entfernen">&#10005;</button></div></div>').join('');
+    '<input class=pa placeholder="' + T('c64viz.local oder IP') + '" value="' + H(p.addr) + '" aria-label="' + T('Adresse') + '" autocapitalize=off>' +
+    '<select class=pn aria-label="' + T('Titelmeldung') + '"><option value=udp>' + T('Titel per UDP') + '</option><option value=http>' + T('Titel per Webseite') + '</option><option value=off>' + T('keine Titel') + '</option></select>' +
+    '<input class=pp type=password placeholder="' + T('Web-Passwort (für Webseite)') + '" value="' + H(p.pw || '') + '" aria-label="' + T('Web-Passwort') + '" autocomplete=new-password>' +
+    '<div class=eend><label title="' + T('Audio-Stream an diesen Pico weiterreichen') + '"><input type=checkbox class=ps' + (p.stream !== false ? ' checked' : '') + '> Stream</label>' +
+    '<button class="danger px" title="' + T('Entfernen') + '" aria-label="' + T('Entfernen') + '">&#10005;</button></div></div>').join('');
   document.querySelectorAll('#picorows .erow').forEach((r, i) => { r.querySelector('.pn').value = CFG.picos[i].np || 'udp'; });
 }
 function picoRead() {
@@ -1394,7 +1431,7 @@ $('picorows').onclick = ev => {
 };
 $('picoadd').onclick = () => { CFG.picos = picoRead(); CFG.picos.push({addr: '', stream: true, np: 'udp', pw: ''}); picoRows(); };
 $('picosave').onclick = async () => {
-  try { CFG = (await api('config', {picos: picoRead()})).config; picoRows(); toast('Gespeichert'); poll(); } catch (e) { errToast(e); }
+  try { CFG = (await api('config', {picos: picoRead()})).config; picoRows(); toast(T('Gespeichert')); poll(); } catch (e) { errToast(e); }
 };
 $('pnews').onchange = async () => {
   try { CFG = (await api('config', {pico_news: $('pnews').checked})).config; poll(); } catch (e) { errToast(e); }
@@ -1409,12 +1446,12 @@ function stShow() {
   if (S.power_msg) $('u64power').textContent = S.power_msg;
   $('pnews').checked = !!(CFG && CFG.pico_news);
   const pn = S.pico_news || {};
-  $('pnstate').innerHTML = !$('pnews').checked ? '' : pn.n ? pn.n + ' Schlagzeilen, alle 15 Minuten neu – Picos ohne Stream vom Pi brauchen „Titel per Webseite“ (mit Passwort)'
-    : 'Noch keine Schlagzeilen – Quellen in „Anzeige“ → Retro-News';
-  let t = st.on ? (st.active ? '<span class=okc>Stream kommt: ' + st.pps + ' Pakete/s von ' + H(st.from) + '</span>' : '<span class=warn>Wartet auf den Stream …</span>') : 'Aus – der Pi reicht keinen Stream weiter.';
+  $('pnstate').innerHTML = !$('pnews').checked ? '' : pn.n ? T('%d Schlagzeilen, alle 15 Minuten neu – Picos ohne Stream vom Pi brauchen „Titel per Webseite“ (mit Passwort)', pn.n)
+    : T('Noch keine Schlagzeilen – Quellen in „Anzeige“ → Retro-News');
+  let t = st.on ? (st.active ? '<span class=okc>' + T('Stream kommt: %d Pakete/s von %s', st.pps, H(st.from)) + '</span>' : '<span class=warn>' + T('Wartet auf den Stream …') + '</span>') : T('Aus – der Pi reicht keinen Stream weiter.');
   if (st.msg) t += ' <span class=hint>(' + H(st.msg) + ')</span>';
-  if (st.foreign) t += '<br><span class=warn>' + st.foreign + ' Pakete von ' + H(st.foreign_ip) + ' verworfen</span> – Stream nur von den eingetragenen Adressen (Kabel) der Ultimates';
-  if (st.on && st.targets.length) t += '<br>' + st.targets.map(x => H(x.addr) + ': ' + (x.ip ? x.pps + '/s' : '<span class=bad>Name nicht gefunden</span>') + (x.np ? ', Titel ' + H(x.np) : '') + (x.dropped ? ' <span class=hint>(' + x.dropped + ' verworfen – Gerät aus?)</span>' : '')).join('<br>');
+  if (st.foreign) t += '<br><span class=warn>' + T('%d Pakete von %s verworfen', st.foreign, H(st.foreign_ip)) + '</span> – ' + T('Stream nur von den eingetragenen Adressen (Kabel) der Ultimates');
+  if (st.on && st.targets.length) t += '<br>' + st.targets.map(x => H(x.addr) + ': ' + (x.ip ? x.pps + '/s' : '<span class=bad>' + T('Name nicht gefunden') + '</span>') + (x.np ? ', ' + T('Titel %s', H(x.np)) : '') + (x.dropped ? ' <span class=hint>' + T('(%d verworfen – Gerät aus?)', x.dropped) + '</span>' : '')).join('<br>');
   $('ststate').innerHTML = t;
 }
 $('devq').onclick = () => api('devices/query', {}).then(() => setTimeout(devLoad, 900)).catch(errToast);
@@ -1423,7 +1460,7 @@ async function devLoad() {
   try { r = await api('devices'); } catch (e) { return; }
   const L2 = (r.list || []).map(e => { try { const d = JSON.parse(e.j); d.self = !!e.self; d.age = e.age; return d; } catch (x) { return null; } }).filter(d => d && d.ip);
   const by = {}; L2.forEach(d => { by[d.ip] = d; });
-  const kind = d => ({audio: 'Audio-Empfänger', viz: 'Visualizer', pi: 'Raspberry Pi'}[d.t] || d.t || '?');
+  const kind = d => ({audio: T('Audio-Empfänger'), viz: 'Visualizer', pi: 'Raspberry Pi'}[d.t] || d.t || '?');
   const who = (d, ip) => by[ip] ? H(by[ip].n) : (ip && ip === d.src ? H(d.srcl || 'Ultimate') + ' (' + H(ip) + ')' : H(ip));
   /* the stream's way, as a tree: whoever gets it from a device we know hangs under that device */
   const walk = (d, seen) => {
@@ -1432,40 +1469,40 @@ async function devLoad() {
     return H(d.n) + ' <b>' + d.rx + '/s</b>' + (kids.length ? ' &rarr; ' + (kids.length > 1 ? '[' + kids.map(k => walk(k, seen)).join(', ') + ']' : walk(kids[0], seen)) : '');
   };
   const roots = L2.filter(d => d.rx > 0 && !by[d.from]);
-  $('devchain').innerHTML = roots.length ? 'Weg des Tons: ' + roots.map(d => who(d, d.from) + ' &rarr; ' + walk(d, {})).join('<br>') : 'Gerade fließt kein Audio-Stream.';
+  $('devchain').innerHTML = roots.length ? T('Weg des Tons: %s', roots.map(d => who(d, d.from) + ' &rarr; ' + walk(d, {})).join('<br>')) : T('Gerade fließt kein Audio-Stream.');
   const known = new Set((CFG ? CFG.picos : []).map(p => p.addr.replace(/\.local$/, '')));
   $('devlist').innerHTML = L2.map(d => '<div class=dev><a href="http://' + H(d.n) + '.local/" target=_blank rel=noopener>' + H(d.n) + '</a> – ' + H(kind(d)) + ', ' + H(d.ip) +
-    (d.self ? ' (dieser Pi)' : '') + (d.b ? ' <span class=hint>Stand ' + H(String(d.b).replace(/:\d\d$/, '')) + '</span>' : '') +
-    (d.age > 15 ? ' <span class=warn>(seit ' + d.age + ' s still)</span>' : '') + '<br>' +
-    (d.rx > 0 ? 'Stream ' + d.rx + '/s von ' + who(d, d.from) : (d.st ? 'wartet auf Stream' : 'Stream aus')) +
-    (d.fw && d.st ? ' &rarr; leitet weiter an ' + H(d.fw) + (d.fp ? ' (' + d.fp + '/s)' : '') : '') +
+    (d.self ? ' (' + T('dieser Pi') + ')' : '') + (d.b ? ' <span class=hint>' + T('Stand %s', H(String(d.b).replace(/:\d\d$/, ''))) + '</span>' : '') +
+    (d.age > 15 ? ' <span class=warn>' + T('(seit %d s still)', d.age) + '</span>' : '') + '<br>' +
+    (d.rx > 0 ? T('Stream %d/s von %s', d.rx, who(d, d.from)) : (d.st ? T('wartet auf Stream') : T('Stream aus'))) +
+    (d.fw && d.st ? ' &rarr; ' + T('leitet weiter an %s', H(d.fw)) + (d.fp ? ' (' + d.fp + '/s)' : '') : '') +
     (d.title ? '<br>♪ ' + H(d.title) : '') +
-    (!d.self && d.t !== 'pi' && !known.has(d.n) && !known.has(d.ip) ? '<br><button data-add="' + H(d.n) + '.local">als Pico eintragen</button>' : '') + '</div>').join('') || 'Keine Geräte gefunden.';
+    (!d.self && d.t !== 'pi' && !known.has(d.n) && !known.has(d.ip) ? '<br><button data-add="' + H(d.n) + '.local">' + T('als Pico eintragen') + '</button>' : '') + '</div>').join('') || T('Keine Geräte gefunden.');
 }
 $('devlist').onclick = ev => {
   const b = ev.target.closest('button[data-add]'); if (!b || !CFG) return;
   CFG.picos = picoRead(); CFG.picos.push({addr: b.dataset.add, stream: true, np: 'udp', pw: ''}); picoRows(); b.remove();
-  toast('Eingetragen – noch „Speichern“ drücken');
+  toast(T('Eingetragen – noch „Speichern“ drücken'));
 };
 
 /* ---------------------------------------------------------------- settings */
 /* the timer ("Zeitplan"): weekdays + time -> play a list / stop, the TV with it */
-const DAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+const DAYS = () => [T('Mo'), T('Di'), T('Mi'), T('Do'), T('Fr'), T('Sa'), T('So')];
 let SCH = {entries: [], lists: []};
 function schRow(e) {
-  const lists = '<option value="">aktuelle Liste</option>' + SCH.lists.map(n => '<option' + (n === e.list ? ' selected' : '') + '>' + H(n) + '</option>').join('');
-  return '<div class="srow" data-id="' + H(e.id || '') + '"><label><input type="checkbox" class="son"' + (e.on !== false ? ' checked' : '') + '> an</label>' +
-    '<span class="days">' + DAYS.map((d, i) => '<label><input type="checkbox" value="' + i + '"' + ((e.days || []).includes(i) ? ' checked' : '') + '>' + d + '</label>').join('') + '</span>' +
-    '<input type="time" class="stime" value="' + H(e.time || '18:00') + '" aria-label="Uhrzeit">' +
-    '<select class="sdo"><option value="play"' + (e.do !== 'stop' ? ' selected' : '') + '>abspielen</option><option value="stop"' + (e.do === 'stop' ? ' selected' : '') + '>stoppen</option></select>' +
+  const lists = '<option value="">' + T('aktuelle Liste') + '</option>' + SCH.lists.map(n => '<option' + (n === e.list ? ' selected' : '') + '>' + H(n) + '</option>').join('');
+  return '<div class="srow" data-id="' + H(e.id || '') + '"><label><input type="checkbox" class="son"' + (e.on !== false ? ' checked' : '') + '> ' + T('an') + '</label>' +
+    '<span class="days">' + DAYS().map((d, i) => '<label><input type="checkbox" value="' + i + '"' + ((e.days || []).includes(i) ? ' checked' : '') + '>' + d + '</label>').join('') + '</span>' +
+    '<input type="time" class="stime" value="' + H(e.time || '18:00') + '" aria-label="' + T('Uhrzeit') + '">' +
+    '<select class="sdo"><option value="play"' + (e.do !== 'stop' ? ' selected' : '') + '>' + T('abspielen') + '</option><option value="stop"' + (e.do === 'stop' ? ' selected' : '') + '>' + T('stoppen') + '</option></select>' +
     '<select class="slist"' + (e.do === 'stop' ? ' hidden' : '') + '>' + lists + '</select>' +
-    '<label><input type="checkbox" class="stv"' + (e.tv ? ' checked' : '') + '> Fernseher mit</label>' +
-    '<button class="danger sx" type="button" title="Eintrag löschen" aria-label="Eintrag löschen">&#10005;</button></div>';
+    '<label><input type="checkbox" class="stv"' + (e.tv ? ' checked' : '') + '> ' + T('Fernseher mit') + '</label>' +
+    '<button class="danger sx" type="button" title="' + T('Eintrag löschen') + '" aria-label="' + T('Eintrag löschen') + '">&#10005;</button></div>';
 }
 function schShow(d) {
   SCH = d;
-  $('schrows').innerHTML = d.entries.map(schRow).join('') || '<p class="hint">Noch keine Einträge.</p>';
-  $('schstate').textContent = [d.next ? 'Als Nächstes: ' + d.next : '', d.last ? 'Zuletzt: ' + d.last : ''].filter(Boolean).join(' · ');
+  $('schrows').innerHTML = d.entries.map(schRow).join('') || '<p class="hint">' + T('Noch keine Einträge.') + '</p>';
+  $('schstate').textContent = [d.next ? T('Als Nächstes: %s', d.next) : '', d.last ? T('Zuletzt: %s', d.last) : ''].filter(Boolean).join(' · ');
 }
 async function schLoad() { try { schShow(await api('schedule')); } catch (e) { errToast(e); } }
 function schCollect() {
@@ -1486,7 +1523,7 @@ $('schrows').onchange = ev => {
   if (ev.target.classList.contains('sdo')) ev.target.closest('.srow').querySelector('.slist').hidden = ev.target.value === 'stop';
 };
 $('schsave').onclick = async () => {
-  try { schShow(await api('schedule', {entries: schCollect()})); toast('Zeitplan gespeichert'); } catch (e) { errToast(e); }
+  try { schShow(await api('schedule', {entries: schCollect()})); toast(T('Zeitplan gespeichert')); } catch (e) { errToast(e); }
 };
 async function setShow() {
   schLoad();
@@ -1496,13 +1533,14 @@ async function setShow() {
   $('ploop').value = p.loopfind || 'suggest'; $('pname').value = p.hvsc_name || 'suggest';
   $('ver').textContent = 'C64-Jukebox ' + (S ? S.version : '');
   $('updon').checked = !CFG || CFG.updates !== false;
+  $('lang').value = LANG;
   slShow(); netShow(); plShow();
 }
 function slShow() {
   const c = S ? S.sl : {hvsc: 0, custom: 0}, o = CFG ? CFG.songlengths : {};
-  const line = (k, title) => '<div class=row><span><b>' + title + ':</b> ' + (c[k] ? c[k] + ' Einträge' + (o[k] && o[k].label ? ' <span class=hint>(' + H(o[k].label) + ')</span>' : '') : '<span class=hint>keine</span>') +
-    '</span><span class=grow></span>' + (c[k] ? '<button data-slc=' + k + '>Entfernen</button>' : '') + '</div>';
-  $('slstate').innerHTML = line('hvsc', 'HVSC') + line('custom', 'Eigene Längen (Vorrang)') + line('stil', 'STIL (Hintergründe)');
+  const line = (k, title) => '<div class=row><span><b>' + title + ':</b> ' + (c[k] ? T('%d Einträge', c[k]) + (o[k] && o[k].label ? ' <span class=hint>(' + H(o[k].label) + ')</span>' : '') : '<span class=hint>' + T('keine') + '</span>') +
+    '</span><span class=grow></span>' + (c[k] ? '<button data-slc=' + k + '>' + T('Entfernen') + '</button>' : '') + '</div>';
+  $('slstate').innerHTML = line('hvsc', 'HVSC') + line('custom', T('Eigene Längen (Vorrang)')) + line('stil', T('STIL (Hintergründe)'));
   hvtShow();
 }
 /* a newer version on GitHub: a hint (hidden per version once closed) */
@@ -1512,27 +1550,30 @@ function updShow() {
   const v = S && S.update, u = (S && S.upd) || {}, last = u.last;
   let txt = '';
   updKey = '';
-  if (u.running) txt = 'Das Update läuft – die Jukebox startet dabei neu, die Seite meldet sich danach wieder.';
-  else if (last && last.state === 'ok' && last.ver === S.version && updSeen() !== 'ok' + last.at) { txt = 'Version ' + last.ver + ' ist installiert.'; updKey = 'ok' + last.at; }
-  else if (last && last.state === 'fail' && updSeen() !== 'fail' + last.at) { txt = 'Update fehlgeschlagen: ' + last.msg; updKey = 'fail' + last.at; }
-  else if (v && updSeen() !== v) { txt = 'Version ' + v + ' der Jukebox ist auf GitHub erschienen (installiert: ' + S.version + ').'; updKey = v; }
+  if (u.running) txt = T('Das Update läuft – die Jukebox startet dabei neu, die Seite meldet sich danach wieder.');
+  else if (last && last.state === 'ok' && last.ver === S.version && updSeen() !== 'ok' + last.at) { txt = T('Version %s ist installiert.', last.ver); updKey = 'ok' + last.at; }
+  else if (last && last.state === 'fail' && updSeen() !== 'fail' + last.at) { txt = T('Update fehlgeschlagen: %s', last.msg); updKey = 'fail' + last.at; }
+  else if (v && updSeen() !== v) { txt = T('Version %s der Jukebox ist auf GitHub erschienen (installiert: %s).', v, S.version); updKey = v; }
   $('updbar').hidden = !txt;
   $('updtxt').textContent = txt;
   $('updx').hidden = u.running;
   $('updgo').hidden = $('updinst').hidden = !v || u.running;
-  if (u.running) $('updstate').textContent = 'Das Update läuft …';
+  if (u.running) $('updstate').textContent = T('Das Update läuft …');
 }
 $('updx').onclick = () => { try { localStorage.setItem('c64upd', updKey); } catch (e) { /* private mode */ } $('updbar').hidden = true; };
 $('updgo').onclick = $('updinst').onclick = async () => {
-  if (!confirm('Version ' + S.update + ' jetzt installieren? Die Jukebox startet dabei neu, das dauert einige Minuten.')) return;
-  try { await api('update/install', {}); toast('Das Update läuft'); poll(); } catch (e) { errToast(e); }
+  if (!confirm(T('Version %s jetzt installieren? Die Jukebox startet dabei neu, das dauert einige Minuten.', S.update))) return;
+  try { await api('update/install', {}); toast(T('Das Update läuft')); poll(); } catch (e) { errToast(e); }
+};
+$('lang').onchange = async () => {
+  try { await api('config', {lang: $('lang').value}); location.reload(); } catch (e) { errToast(e); }
 };
 $('updon').onchange = () => api('config', {updates: $('updon').checked}).catch(errToast);
 $('updchk').onclick = async () => {
-  $('updstate').textContent = 'Frage GitHub …';
+  $('updstate').textContent = T('Frage GitHub …');
   try {
     const r = await api('update/check', {});
-    $('updstate').textContent = r.newer ? 'Version ' + r.ver + ' ist erschienen (installiert: ' + r.installed + ')' : 'Aktuell – auf GitHub ist ' + r.ver + ', installiert ' + r.installed;
+    $('updstate').textContent = r.newer ? T('Version %s ist erschienen (installiert: %s)', r.ver, r.installed) : T('Aktuell – auf GitHub ist %s, installiert %s', r.ver, r.installed);
     poll();
   } catch (e) { $('updstate').textContent = e.message; }
 };
@@ -1543,8 +1584,8 @@ async function plShow() {
   $('plver').value = g.ver || '3.5'; $('ploff').value = g.off_s || 30;
   try {
     const r = await api('power');
-    $('pwrstate').textContent = !r.can ? 'Der Pi darf sich noch nicht selbst ausschalten – Installationsskript noch einmal ausführen.' :
-      r.plug ? 'Fährt den Pi herunter; die Steckdose schaltet ' + r.off_s + ' s später ab.' : 'Fährt den Pi herunter (ohne Steckdose: Netzteil danach selbst ausstecken).';
+    $('pwrstate').textContent = !r.can ? T('Der Pi darf sich noch nicht selbst ausschalten – Installationsskript noch einmal ausführen.') :
+      r.plug ? T('Fährt den Pi herunter; die Steckdose schaltet %d s später ab.', r.off_s) : T('Fährt den Pi herunter (ohne Steckdose: Netzteil danach selbst ausstecken).');
     $('pwroff').disabled = !r.can;
   } catch (e) { $('pwrstate').textContent = e.message; }
 }
@@ -1552,29 +1593,29 @@ function plCollect() {
   return {ip: $('plip').value.trim(), id: $('plid').value.trim(), key: $('plkey').value.trim(), ver: $('plver').value, off_s: +$('ploff').value || 30};
 }
 $('plsave').onclick = async () => {
-  try { CFG = (await api('config', {plug: plCollect()})).config; toast('Steckdose gespeichert'); plShow(); } catch (e) { errToast(e); }
+  try { CFG = (await api('config', {plug: plCollect()})).config; toast(T('Steckdose gespeichert')); plShow(); } catch (e) { errToast(e); }
 };
 $('plchk').onclick = async () => {
-  $('plstate').textContent = 'Frage die Steckdose …';
+  $('plstate').textContent = T('Frage die Steckdose …');
   try {
     CFG = (await api('config', {plug: plCollect()})).config;
     const r = await waitJob((await api('plug/check', {})).job);
-    $('plstate').textContent = 'Steckdose ' + (r.on ? 'an' : 'aus') + ' (' + r.ip + ', Version ' + r.ver + ')' + (r.watt != null ? ', ' + r.watt + ' W' : '') +
-      (r.timer ? '' : ' – sie hat keinen Ausschalt-Timer, der Strom bleibt nach dem Herunterfahren an');
+    $('plstate').textContent = (r.on ? T('Steckdose an') : T('Steckdose aus')) + ' (' + r.ip + ', ' + T('Version %s', r.ver) + ')' + (r.watt != null ? ', ' + r.watt + ' W' : '') +
+      (r.timer ? '' : ' – ' + T('sie hat keinen Ausschalt-Timer, der Strom bleibt nach dem Herunterfahren an'));
     CFG = await api('config'); $('plip').value = CFG.plug.ip || '';
   } catch (e) { $('plstate').textContent = e.message; }
 };
 /* "Jukebox ausschalten": the card in the settings and the button at the top */
 async function piOff() {
   const plug = (CFG && CFG.plug && CFG.plug.id) || (S && S.plug);
-  if (!confirm('Die Jukebox jetzt ausschalten?' + (plug ? ' Die Steckdose schaltet danach ab.' : ''))) return;
+  if (!confirm(T('Die Jukebox jetzt ausschalten?') + (plug ? ' ' + T('Die Steckdose schaltet danach ab.') : ''))) return;
   try {
     let r;
     try { r = await api('power/off', {}); } catch (e) {
-      if (!/Steckdose/.test(e.message) || !confirm(e.message + '\n\nTrotzdem herunterfahren? (Der Strom bleibt dann an.)')) throw e;
+      if (!/Steckdose|plug/i.test(e.message) || !confirm(e.message + '\n\n' + T('Trotzdem herunterfahren? (Der Strom bleibt dann an.)'))) throw e;
       r = await api('power/off', {force: true});
     }
-    const t = 'Die Jukebox fährt herunter' + (r.timer ? ', die Steckdose schaltet in ' + r.secs + ' s ab.' : '.');
+    const t = r.timer ? T('Die Jukebox fährt herunter, die Steckdose schaltet in %d s ab.', r.secs) : T('Die Jukebox fährt herunter.');
     $('pwrstate').textContent = t; toast(t);
     $('pwroff').disabled = true;
   } catch (e) { errToast(e); }
@@ -1583,15 +1624,15 @@ $('pwroff').onclick = piOff;
 /* the button at the top: TV, Ultimate and jukebox on / off - from every tab */
 $('topoff').onclick = () => {
   const i = S ? S.sel : 0, u = S && S.ultimates[i], name = u ? (u.label || u.addr) : 'Ultimate';
-  const tv = what => api('cec', {tv: what}).then(r => { if (HD) HD.cec = r.cec; toast(what === 'on' ? 'Fernseher wird eingeschaltet' : 'Fernseher wird ausgeschaltet'); })
-    .catch(e => errToast(e.message === 'HDMI-CEC ist nicht bereit' ? new Error('Fernseher: zuerst im Tab „Anzeige“ die TV-Fernbedienung (HDMI-CEC) einschalten') : e));
+  const tv = what => api('cec', {tv: what}).then(r => { if (HD) HD.cec = r.cec; toast(what === 'on' ? T('Fernseher wird eingeschaltet') : T('Fernseher wird ausgeschaltet')); })
+    .catch(e => errToast(/^HDMI-CEC (ist nicht bereit|is not ready)/.test(e.message) ? new Error(T('Fernseher: zuerst im Tab „Anzeige“ die TV-Fernbedienung (HDMI-CEC) einschalten')) : e));
   const u64 = on => api('u64/power', {i, on}).then(r => { toast(r.msg); poll(); }).catch(errToast);
-  menu('Ein / Aus', [
-    {label: 'Fernseher einschalten', fn: () => tv('on')},
-    {label: 'Fernseher ausschalten', fn: () => tv('standby')},
-    {label: '\u201e' + H(name) + '\u201c einschalten', fn: () => u64(true)},
-    {label: '\u201e' + H(name) + '\u201c ausschalten', fn: () => { if (confirm('\u201e' + name + '\u201c ausschalten? Die Wiedergabe stoppt.')) u64(false); }},
-    {label: 'Jukebox ausschalten', danger: true, fn: piOff},
+  menu(T('Ein / Aus'), [
+    {label: T('Fernseher einschalten'), fn: () => tv('on')},
+    {label: T('Fernseher ausschalten'), fn: () => tv('standby')},
+    {label: T('„%s“ einschalten', H(name)), fn: () => u64(true)},
+    {label: T('„%s“ ausschalten', H(name)), fn: () => { if (confirm(T('„%s“ ausschalten? Die Wiedergabe stoppt.', name))) u64(false); }},
+    {label: T('Jukebox ausschalten'), danger: true, fn: piOff},
   ]);
 };
 /* titles of the whole HVSC for the search: read once in the background */
@@ -1601,16 +1642,16 @@ async function hvtShow() {
   try {
     const r = await api('hvsc/titles');
     if (r.job) { hvtWait(r.job); return; }
-    $('hvtstate').innerHTML = '<span class=hint>Suche über die ganze HVSC: ' + (r.n || 0).toLocaleString('de-DE') + ' von ' + r.of.toLocaleString('de-DE') +
-      ' Titeln mit Titel und Komponist' + (r.n < r.of ? ' (die übrigen nur über Dateiname und Ordner)' : '') + '</span>';
+    $('hvtstate').innerHTML = '<span class=hint>' + T('Suche über die ganze HVSC: %s von %s Titeln mit Titel und Komponist', (r.n || 0).toLocaleString(LOC()), r.of.toLocaleString(LOC())) +
+      (r.n < r.of ? ' ' + T('(die übrigen nur über Dateiname und Ordner)') : '') + '</span>';
     $('hvtgo').hidden = r.n >= r.of;
   } catch (e) { $('hvtstate').textContent = e.message; }
 }
 async function hvtWait(id) {
   $('hvtgo').hidden = true;
   try {
-    const res = await waitJob(id, (p, j) => { $('hvtstate').innerHTML = '<span class=hint>Lese HVSC-Titel … ' + H(p) + '</span>'; });
-    toast(res.n.toLocaleString('de-DE') + ' HVSC-Titel eingelesen');
+    const res = await waitJob(id, (p, j) => { $('hvtstate').innerHTML = '<span class=hint>' + T('Lese HVSC-Titel …') + ' ' + H(p) + '</span>'; });
+    toast(T('%s HVSC-Titel eingelesen', res.n.toLocaleString(LOC())));
   } catch (e) { errToast(e); }
   hvtShow();
 }
@@ -1618,14 +1659,14 @@ $('hvtgo').onclick = async () => {
   try { hvtWait((await api('hvsc/titles', {})).job); } catch (e) { errToast(e); }
 };
 $('slstate').onclick = async ev => {
-  const b = ev.target.closest('[data-slc]'); if (!b || !confirm(b.dataset.slc === 'stil' ? 'STIL entfernen?' : 'Songlängen entfernen?')) return;
+  const b = ev.target.closest('[data-slc]'); if (!b || !confirm(b.dataset.slc === 'stil' ? T('STIL entfernen?') : T('Songlängen entfernen?'))) return;
   try { await api(b.dataset.slc === 'stil' ? 'stil/clear' : 'songlengths/clear', {kind: b.dataset.slc}); await poll(); slShow(); } catch (e) { errToast(e); }
 };
 async function slUpload(input, kind) {
   const f = input.files[0]; if (!f) return;
   try {
     const r = await api('songlengths/upload?kind=' + kind + '&name=' + encodeURIComponent(f.name), await f.arrayBuffer(), true);
-    toast(r.n + ' Songlängen geladen'); await poll(); CFG = await api('config'); slShow();
+    toast(T('%d Songlängen geladen', r.n)); await poll(); CFG = await api('config'); slShow();
   } catch (e) { errToast(e); }
   input.value = '';
 }
@@ -1634,7 +1675,7 @@ $('slupc').onchange = () => slUpload($('slupc'), 'custom');
 /* data of the PC program: play counts, favorites, own song lengths (merged) */
 async function pcUpload(input, path) {
   const f = input.files[0]; if (!f) return;
-  try { const r = await api(path, await f.text(), true); toast(r.msg || (r.added + ' neu, ' + r.changed + ' geändert, ' + r.kept + ' behalten')); LS.rows.clear(); await poll(); CFG = await api('config'); slShow(); }
+  try { const r = await api(path, await f.text(), true); toast(r.msg || T('%d neu, %d geändert, %d behalten', r.added, r.changed, r.kept)); LS.rows.clear(); await poll(); CFG = await api('config'); slShow(); }
   catch (e) { errToast(e); }
   input.value = '';
 }
@@ -1644,30 +1685,32 @@ $('pclens').onchange = () => pcUpload($('pclens'), 'songlengths/upload?kind=cust
 $('psave').onclick = async () => {
   try {
     await api('config', {player: {limit_min: +$('plim').value || 0, silence: $('psil').checked, silence_s: +$('psils').value || 5, subsongs: $('psub').value, sidauto: $('psid').checked, loopfind: $('ploop').value, hvsc_name: $('pname').value}});
-    toast('Gespeichert'); poll();
+    toast(T('Gespeichert')); poll();
   } catch (e) { errToast(e); }
 };
 $('pnsave').onclick = async () => {
-  try { CFG = (await api('config', {name: $('pname').value})).config; $('pname').value = CFG.name; toast('Gespeichert'); } catch (e) { errToast(e); }
+  try { CFG = (await api('config', {name: $('pname').value})).config; $('pname').value = CFG.name; toast(T('Gespeichert')); } catch (e) { errToast(e); }
 };
 $('pwsave').onclick = async () => {
-  try { await api('password', {old: $('pwold').value, new: $('pwnew').value}); $('pwold').value = $('pwnew').value = ''; toast('Passwort geändert'); poll(); }
+  try { await api('password', {old: $('pwold').value, new: $('pwnew').value}); $('pwold').value = $('pwnew').value = ''; toast(T('Passwort geändert')); poll(); }
   catch (e) { errToast(e); }
 };
 $('bkup').onchange = async () => {
   const f = $('bkup').files[0]; if (!f) return;
-  if (!confirm('Sicherung „' + f.name + '“ einspielen? Die jetzigen Einstellungen werden ersetzt.')) { $('bkup').value = ''; return; }
+  if (!confirm(T('Sicherung „%s“ einspielen? Die jetzigen Einstellungen werden ersetzt.', f.name))) { $('bkup').value = ''; return; }
   try { const r = await api('restore', await f.text(), true); toast(r.msg); setShow(); poll(); } catch (e) { errToast(e); }
   $('bkup').value = '';
 };
 
 /* ---------------------------------------------------------------- start */
 let timer = null, ticks = 0;
+let langDone = false;
 async function start() {
-  try {
-    const h = await api('hello');
-    if (!h.login) { showLogin(); return; }
-  } catch (e) { showLogin(); return; }
+  let h = {};
+  try { h = await api('hello'); } catch (e) { /* offline: the login shows */ }
+  if (!langDone) { await langInit(h.lang); langDone = true; }
+  if (!h.login) { showLogin(); return; }
+  if (!h.lang) api('config', {lang: LANG}).catch(() => {});       // not chosen yet: the browser's language for all
   $('login').hidden = true; $('app').hidden = false;
   await poll();
   tab(store.get('tab', 'play'));
@@ -1678,12 +1721,12 @@ start();
 
 /* the SID addresses of the Ultimate (like "Check SID Addresses..." of the PC jukebox) */
 $('psidchk').onclick = async () => {
-  $('psidcfg').textContent = 'lese …';
+  $('psidcfg').textContent = T('lese …');
   try {
     const r = await api('sidcfg');
     const rows = Object.entries(r.cfg || {}).filter(([k]) => /address/i.test(k)).map(([k, v]) => H(k.replace(' Address', '')) + ': <b>' + H(v) + '</b>');
-    $('psidcfg').innerHTML = (rows.join(' · ') || 'keine Angaben') +
-      (r.pending ? '<br>gerade umgestellt: Sockel ' + r.pending.sock + ' auf ' + H(r.pending.new) + ' (sonst ' + H(r.pending.orig) + ')' : '') +
+    $('psidcfg').innerHTML = (rows.join(' · ') || T('keine Angaben')) +
+      (r.pending ? '<br>' + T('gerade umgestellt: Sockel %s auf %s (sonst %s)', r.pending.sock, H(r.pending.new), H(r.pending.orig)) : '') +
       (r.msg ? '<br>' + H(r.msg) : '');
   } catch (e) { $('psidcfg').innerHTML = '<span class=bad>' + H(e.message) + '</span>'; }
 };

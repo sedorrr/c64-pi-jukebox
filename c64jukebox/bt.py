@@ -8,6 +8,8 @@ import re
 import signal
 import shutil
 
+from .i18n import tr
+
 MAC_RE = re.compile(r"^[0-9A-F]{2}(:[0-9A-F]{2}){5}$")
 AUDIO_ICONS = ("audio-headset", "audio-headphones", "audio-card")
 SCAN_S = 12
@@ -68,7 +70,7 @@ class Bluetooth:
         except asyncio.TimeoutError:
             p.kill()
             await p.wait()
-            return False, "keine Antwort von Bluetooth"
+            return False, tr("keine Antwort von Bluetooth")
         return p.returncode == 0, _clean(out)
 
     async def _run_until(self, p, until, timeout):
@@ -90,7 +92,7 @@ class Bluetooth:
             except OSError:
                 pass
         await p.wait()
-        return (hit is not None or p.returncode == 0), _clean(out) or "keine Antwort von Bluetooth"
+        return (hit is not None or p.returncode == 0), _clean(out) or tr("keine Antwort von Bluetooth")
 
     async def power(self):
         ok, out = await self.run("power", "on")
@@ -98,8 +100,8 @@ class Bluetooth:
 
     async def _need_power(self):
         if not await self.power():
-            raise ValueError("Bluetooth lässt sich nicht einschalten – gesperrt (rfkill)? Das Installationsskript "
-                             "hebt die Sperre auf: noch einmal ausführen")
+            raise ValueError(tr("Bluetooth lässt sich nicht einschalten – gesperrt (rfkill)? Das Installationsskript "
+                                "hebt die Sperre auf: noch einmal ausführen"))
 
     async def info(self, mac):
         ok, out = await self.run("info", mac, timeout=5)
@@ -146,7 +148,8 @@ class Bluetooth:
         """pair + trust (it may connect by itself later) + connect; headphones need no PIN ("just works")"""
         await self._need_power()
         if not await self.find(mac):
-            raise ValueError("Kopfhörer %s nicht mehr gefunden – noch im Kopplungsmodus? Danach noch einmal suchen" % mac)
+            raise ValueError(tr("Kopfhörer %s nicht mehr gefunden – noch im Kopplungsmodus? Danach noch einmal suchen")
+                             % mac)
         # trusted first: BlueZ then keeps the device - a found one is "temporary" and gone 30 s after pairing if
         # the headphones did not bond (seen with Beats Fit Pro: "Pairing successful", then "not available")
         await self.run("trust", mac)
@@ -158,7 +161,7 @@ class Bluetooth:
         self.msg = _last(out)
         i = await self.info(mac)
         if not i or not i["paired"]:
-            raise ValueError("Koppeln fehlgeschlagen – ist der Kopfhörer im Kopplungsmodus? (%s)" % _last(out))
+            raise ValueError(tr("Koppeln fehlgeschlagen – ist der Kopfhörer im Kopplungsmodus? (%s)") % _last(out))
         return await self.connect(mac)
 
     async def connect(self, mac):
@@ -167,7 +170,7 @@ class Bluetooth:
                                  until=r"Connection successful|Failed to connect|not available")
         i = await self.info(mac)
         if not i or not i["connected"]:
-            raise ValueError("Verbinden fehlgeschlagen – ist der Kopfhörer eingeschaltet? (%s)" % _last(out))
+            raise ValueError(tr("Verbinden fehlgeschlagen – ist der Kopfhörer eingeschaltet? (%s)") % _last(out))
         return i
 
     async def disconnect(self, mac):
@@ -185,4 +188,4 @@ def _last(out):
     """bluetoothctl's answer to the command - not the [NEW]/[DEL]/[CHG] lines a running search adds"""
     lines = [x.strip() for x in out.splitlines() if x.strip() and not re.match(r"\[(NEW|DEL|CHG)\]", x.strip())]
     key = [x for x in lines if re.search(r"Fail|Error|succe|not available", x)]
-    return (key or lines or ["keine Meldung"])[-1][:100]
+    return (key or lines or [tr("keine Meldung")])[-1][:100]

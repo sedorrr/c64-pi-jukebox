@@ -13,6 +13,8 @@ import os
 import socket
 import sys
 
+from .i18n import tr
+
 PYTHON = "/usr/bin/python3"              # None: switched off (the tests)
 AUDIO_LEN = 770                          # 2 bytes sequence + 192 stereo frames int16 (stream.py)
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -62,7 +64,7 @@ class LoopWatch:
                     pass
             last = err.decode("utf-8", "replace").strip().splitlines()[-1:] or [str(e) or type(e).__name__]
             self.failed = last[0][:200]
-            self.log("Wiederholungssuche nicht verfügbar: %s" % self.failed)
+            self.log(tr("Wiederholungssuche nicht verfügbar: %s") % self.failed)
             self.proc, self.port = None, None
             return False
         self._reader = asyncio.get_running_loop().create_task(self._read())

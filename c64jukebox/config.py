@@ -14,6 +14,7 @@ MASK = "••••"     # passwords leave the Pi only as this; saving it back 
 DEFAULTS = {
     "version": 1,
     "name": "c64pi",
+    "lang": "",                       # "de" / "en" (i18n.py); empty: not chosen yet - the page sets its browser's
     "web": {"pw_hash": "", "secret": ""},
     "ultimates": [{"label": "Ultimate", "addr": "", "pw": ""}],
     "u64_sel": 0,

@@ -151,6 +151,9 @@ Am Handy stehen „Wiedergabe“, „Anzeige“, „Einstellungen“ und „Hilf
 Tab-Leiste. Die runden **?**-Knöpfe in
 den Tabs springen an die passende Stelle des Handbuchs.
 
+Die Sprache (Deutsch / Englisch) wählt man unter **Einstellungen → System → Sprache / Language**; sie gilt für die Seite,
+das Menü am Fernseher, die Displays und dieses Handbuch.
+
 **Als App auf dem Startbildschirm:** Am iPhone/iPad in Safari **Teilen → Zum Home-Bildschirm**, am Android-Handy in
 Chrome **⋮ → Zum Startbildschirm hinzufügen**. Die Jukebox bekommt ein eigenes Symbol (die Note) und öffnet sich ohne
 Adressleiste wie eine App – ein App Store ist dafür nicht nötig. Sie bleibt eine Webseite: Das Handy muss im selben

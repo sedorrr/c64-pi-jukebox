@@ -1,24 +1,27 @@
-"""The styles and their German names - without pygame, so the jukebox (web page, settings) can use them too."""
+"""The styles and their German names - without pygame, so the jukebox (web page, settings) can use them too. The
+names are marked with tr() for tools/i18n_check.py (at import the language is still German, so they stay German here);
+where a name is shown it goes through tr(name) again."""
+from ..i18n import tr
 
 MODES = {
-    "none": "Nur Hintergrund (z. B. nur das C64-Bild)",
-    "bars": "Balken",
-    "net": "Netz",
-    "cloud": "Wolke",
-    "oscilloscope": "Oszilloskop",
-    "radial": "Strahlen",
-    "rain": "Regen / Matrix",
-    "c64": "C64 Retro",
-    "kaleidoscope": "Kaleidoskop",
-    "vu": "Stereo-VU-Meter",
-    "waveform_history": "Wellenverlauf",
-    "vinyl": "Schallplatte",
-    "sid3voice": "3-Stimmen-SID",
-    "sidvoices": "SID-Stimmen (Noten, vom Ultimate)",
-    "neon_grid": "Neon-Gitter",
-    "cyberpunk": "Night City Glitch",
-    "shadowrun": "Cyberdeck-Matrix",
-    "milkdrop": "Milkdrop",
+    "none": tr("Nur Hintergrund (z. B. nur das C64-Bild)"),
+    "bars": tr("Balken"),
+    "net": tr("Netz"),
+    "cloud": tr("Wolke"),
+    "oscilloscope": tr("Oszilloskop"),
+    "radial": tr("Strahlen"),
+    "rain": tr("Regen / Matrix"),
+    "c64": tr("C64 Retro"),
+    "kaleidoscope": tr("Kaleidoskop"),
+    "vu": tr("Stereo-VU-Meter"),
+    "waveform_history": tr("Wellenverlauf"),
+    "vinyl": tr("Schallplatte"),
+    "sid3voice": tr("3-Stimmen-SID"),
+    "sidvoices": tr("SID-Stimmen (Noten, vom Ultimate)"),
+    "neon_grid": tr("Neon-Gitter"),
+    "cyberpunk": tr("Night City Glitch"),
+    "shadowrun": tr("Cyberdeck-Matrix"),
+    "milkdrop": tr("Milkdrop"),
 }
 BACKGROUNDS = ("none", "images", "video")
 DEFAULTS = {"on": False, "mode": "bars", "auto": False, "auto_s": 180, "auto_modes": [], "bg": "none",

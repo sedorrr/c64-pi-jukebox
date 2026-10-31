@@ -115,6 +115,7 @@ def test_plug_not_answering_keeps_the_pi_on(tmp_path):
         assert "Schlüssel" in (await job(c, r["job"]))["error"]
         s, r = await post(c, "/api/power/off", {})
         assert not r["ok"] and "bleibt an" in r["msg"] and not jb.powering_off
+        assert r["plug"] is True                     # the page offers "anyway" by this flag, whatever the language
         s, r = await post(c, "/api/power/off", {"force": True})                # the page asked: shut down anyway
         assert r["ok"] and not r["timer"]
     run(tmp_path, t)
@@ -126,7 +127,7 @@ def test_not_allowed_to_switch_off(tmp_path):
         await login(c)
         assert (await get(c, "/api/power"))[1]["can"] is False
         s, r = await post(c, "/api/power/off", {})
-        assert not r["ok"] and "Installationsskript" in r["msg"]
+        assert not r["ok"] and "Installationsskript" in r["msg"] and not r["plug"]
     run(tmp_path, t)
 
 

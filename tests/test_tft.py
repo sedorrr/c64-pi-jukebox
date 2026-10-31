@@ -371,3 +371,56 @@ def test_dc_on_pin_31():
 def test_level_page_without_data():
     img = TftScreen().render({"name": "c64pi", "player": {"state": "stop"}}, "level")
     assert img.size == (320, 240)                                 # no levels yet: empty meters, no error
+
+
+def test_pages_in_english(monkeypatch):
+    """every page in English (previews tests/web/tft_en_*.png): the texts translated and none cut short with …"""
+    from PIL import ImageDraw
+    from c64jukebox import i18n
+    said = []
+    orig = ImageDraw.ImageDraw.text
+
+    def text(self, xy, t, *a, **k):
+        said.append(t)
+        return orig(self, xy, t, *a, **k)
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", text)
+    i18n._tables.clear()
+    i18n.set_lang("en")
+    try:
+        scr = TftScreen()
+        stopped = {"name": "c64pi", "player": {"state": "stop", "total": 3}, "stream": {"on": False}, "net": {"mode": "none"}}
+        pages = [("play", "play", PLAY, {}), ("power", "power", dict(PLAY, tvctl={"ready": True, "tv": "on"}), {}),
+                 ("power_armed", "power", dict(PLAY, armed=True), {}), ("level", "level", PLAY, {}),
+                 ("net", "net", PLAY, {}), ("ap", "net", AP, {}), ("stop", "play", stopped, {}),
+                 ("net_none", "net", stopped, {}),
+                 ("cal", "cal", PLAY, {"cal_step": 1, "note": i18n.tr("Nicht erkannt – bitte noch einmal")})]
+        for name, page, st, kw in pages:
+            img = scr.render(st, page, kw.get("cal_step", 0), kw.get("note", ""))
+            img.resize((640, 480), 0).save(os.path.join(HERE, "web", "tft_en_%s.png" % name))
+        for t in ("Sub-tune 1/17", "Stream 251/s → 3 Picos", "On / Off", "TV on", "TV off", "Back", "Switch off jukebox",
+                  "Tap again: switch off", "Level", "Tap: next page", "Network", "Network cable", "Stream 251/s to 3 Picos",
+                  "Tap: back to playback", "The Pi's own Wi-Fi", "Wi-Fi name", "Password", "Then in the browser",
+                  "no cable, no known Wi-Fi", "Set up touch (2/3)", "Not recognised – please try again", "Stop",
+                  "Ready", "3 tunes in the play list", "no network", "searching …", "Stream relay off"):
+            assert t in said, t
+        assert not [t for t in said if t.endswith("…") and t != "searching …"]        # nothing cut short
+        assert not [t for t in said if "Fernseher" in t or "Tippen" in t or "Netz" in t]
+    finally:
+        i18n.set_lang("de")
+        i18n._tables.clear()
+
+
+def test_display_message_in_english():
+    from c64jukebox import i18n
+    i18n._tables.clear()
+    i18n.set_lang("en")
+    try:
+        d = Display(lambda: {"type": "tft", "cal": [1, 0, 0, 0, 1, 0]}, hw=FakeHw(), touch_thread=False)
+        d.tick(PLAY)
+        assert d.msg == "2.8″ display (ILI9341) on SPI 0.0, touch on SPI 1.0"
+        d = Display(lambda: {"type": "off"})
+        d.tick(PLAY)
+        assert d.msg == "off"
+    finally:
+        i18n.set_lang("de")
+        i18n._tables.clear()

@@ -37,6 +37,7 @@ und wird komplett über eine **Weboberfläche** gesteuert – am Handy wie am PC
   Komponisten – auf der Seite (🔍 HVSC) und am Fernseher mit der Bildschirmtastatur
 - **Als App auf dem Handy:** „Zum Home-Bildschirm“ (iPhone/Android) gibt der Seite ein eigenes Symbol und Vollbild
 - **Bluetooth-Kopfhörer:** suchen, koppeln, verbinden auf der Seite; der Fernsehton läuft über sie, solange sie verbunden sind
+- **Deutsch oder Englisch:** Seite, Fernsehmenü, Displays und Handbuch – Auswahl unter Einstellungen → System
 - **Updates auf Befehl:** eine neue Version auf GitHub zeigen Seite und Fernsehmenü an; „Installieren“ dort lädt sie und führt das Installationsskript aus (klappt es nicht, kommt das alte Programm zurück)
 - **Ausschalten:** „Jukebox ausschalten“ (⏻ oben auf der Seite, im Fernsehmenü oder am Touch-Display) fährt den Pi sauber herunter; an einer Tuya-Steckdose (z. B. Antela, App „Smart Life“) stellt er vorher ihren Timer, der Strom geht aus, wenn der Pi aus ist – wieder an per App oder Sprachassistent
 - **Nicht mehr spielen:** Sperrliste je Datei (MD5) – Weiterschalten, Zufall, Entdecken und Zusammenstellungen
