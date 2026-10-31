@@ -144,6 +144,8 @@ class Demo:
         self.jb.plug = Plug(lib=self.plug)
         self.jb.power_can_cmd = [sys.executable, "-c", "print('s \"yes\"')"]
         self.jb.power_cmd = [sys.executable, "-c", "pass"]
+        self.jb.update_can_cmd = [sys.executable, "-c", "print('loaded')"]           # the update: nothing installed
+        self.jb.update_cmd = [sys.executable, "-c", "pass"]
         c = self.jb.config.data
         if c["ultimates"][0]["addr"] == "":
             c["ultimates"] = [{"label": "Elite II", "addr": self.u64.addr, "pw": ""}]

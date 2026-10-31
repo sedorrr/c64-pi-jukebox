@@ -2,10 +2,11 @@
 does it, back or left goes back. Choose the music: a source and its folders (play a folder, with sub-folders, add it,
 play from a file on), the presets of "Listen zusammenstellen", the saved lists (which can also be renamed, with a
 keyboard on the screen, and deleted); shuffle, repeat, the effect and its automatic change, sound over HDMI and its
-volume, the title card; which Ultimate plays (a network search adds more) and that one on (over its WLAN) and off.
+volume, the title card; which Ultimate plays (a network search adds more) and that one on (over its WLAN) and off;
+a newer version on GitHub (looked for here too) installed on request.
 Closed after 30 s without a key (60 s at the keyboard). Only the logic - the HDMI service draws what view() returns
 (hdmi-in.json "menu")."""
-from . import plug, sidfile, smartlist
+from . import VERSION, plug, sidfile, smartlist
 from .hdmi.modes import MODES
 from .sources import SourceError
 
@@ -158,11 +159,22 @@ class TvMenu:
             ("Ultimate einschalten", name, ("power", True)),
             ("Ultimate ausschalten", name + " ›", ("ask", "„%s“ ausschalten?" % name, "Ja, ausschalten",
                                                       ("power", False), "main")),
+            self._update_entry(),
             ("Pi ausschalten", "›", ("ask", "Jukebox-Pi ausschalten?" + (" Die Steckdose schaltet danach ab."
                                                                           if plug.configured(c["plug"]) else ""),
                                      "Ja, ausschalten", ("pioff",), "main")),
             ("Schließen", "", ("close",)),
         ]
+
+    def _update_entry(self):
+        u = self.core.update
+        if self.core.update_running():
+            return ("Update", "läuft …", ("updcheck",))
+        if u and u["newer"]:
+            return ("Update auf %s installieren" % u["ver"], "›",
+                    ("ask", "Version %s installieren? Die Jukebox startet dabei neu, das dauert einige Minuten."
+                     % u["ver"], "Ja, installieren", ("update",), "main"))
+        return ("Nach Update sehen", "Version %s ›" % VERSION, ("updcheck",))
 
     def _check_value(self):
         j = self.job
@@ -503,6 +515,22 @@ class TvMenu:
                 it = await core.block()
                 self.note = "„%s“ gesperrt – nächstes Stück" % (it.get("title") or it.get("name", ""))
                 self.close_at = self.clock() + DONE_S
+            except ValueError as e:
+                self.note = str(e)
+            self.level, self.confirm = "main", None
+        elif kind == "updcheck":
+            if self.core.update_running():
+                self.note = "Das Update läuft – die Jukebox startet gleich neu"
+                return
+            self.note = "Frage GitHub …"
+            u = await self.core.update_check()
+            self.note = "GitHub nicht erreichbar" if not u else \
+                "Version %s ist erschienen – mit OK installieren" % u["ver"] if u["newer"] else \
+                "Aktuell – Version %s" % VERSION
+        elif kind == "update":
+            try:
+                r = await core.update_install()
+                self.note = "Update auf %s läuft – die Jukebox startet gleich neu" % r["ver"]
             except ValueError as e:
                 self.note = str(e)
             self.level, self.confirm = "main", None

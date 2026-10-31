@@ -97,15 +97,28 @@ Das Skript
 
 ### Aktualisieren
 
-Auf dem Pi im Projektordner `git pull` und danach `sudo ./install/install.sh` – bzw. den neuen Stand als ZIP holen
-oder vom PC aus `./install/deploy.sh` erneut aufrufen. Einstellungen, Listen und Songlängen in `/var/lib/c64jukebox`
-bleiben erhalten.
-
 Ob es eine neue Version gibt, sieht die Jukebox selbst nach: einmal am Tag liest sie die Versionsnummer des
 veröffentlichten Programms auf GitHub (`github.com/sedorrr/c64-pi-jukebox`, nur diese eine kleine Datei, ohne
 Angaben über den Pi). Ist sie höher als die installierte, steht oben auf der Seite ein blauer Hinweis (✕ blendet ihn
-für diese Version aus). Installiert wird dabei nichts. Abschalten oder sofort prüfen: *Einstellungen → System →
-Updates*.
+für diese Version aus), und im Menü am Fernseher heißt die Zeile **Nach Update sehen** dann **Update auf … installieren**.
+Abschalten oder sofort prüfen: *Einstellungen → System → Updates* bzw. im Menü am Fernseher **Nach Update sehen**.
+
+**Installieren auf Befehl.** Von selbst installiert die Jukebox nichts. Erst **Installieren** im blauen Hinweis bzw.
+unter *Updates* oder **Update auf … installieren** im Menü am Fernseher (beides fragt nach) startet das Update:
+
+1. Der Pi lädt das veröffentlichte Programm von GitHub (das ZIP des Zweigs `main`).
+2. Danach läuft dessen Installationsskript wie bei einem Update von Hand (mit `--keep-hostname`, der Rechnername
+   bleibt). Es holt fehlende Pakete und startet die Jukebox neu. Das dauert einige Minuten, die Musik vom Fernseher
+   setzt so lange aus.
+3. Danach meldet sich die Seite mit der neuen Version, und am Fernseher zeigt das Menü „Update auf … installiert“.
+
+Klappt die Installation nicht, kommt das alte Programm zurück, und Seite und Fernseher nennen den Grund. Das Protokoll
+steht in `/var/lib/c64jukebox/update.log`. Einstellungen, Listen und Songlängen bleiben in jedem Fall erhalten.
+
+Dafür darf die Jukebox, die sonst ohne Rechte läuft, genau einen Dienst starten (`c64jukebox-update`, polkit-Regel aus
+dem Installationsskript). Den richtet erst ein Installationsskript ab dieser Version ein. Wer von einer älteren
+Version kommt, aktualisiert deshalb **einmal von Hand**: Auf dem Pi im Projektordner `git pull` und danach
+`sudo ./install/install.sh`, oder vom PC aus `./install/deploy.sh` erneut aufrufen.
 
 ### Erster Aufruf
 
@@ -950,6 +963,9 @@ obersten: schließen). Nach 30 s ohne Taste schließt es von selbst. Darin:
   Ein Netzwerk-Passwort trägt man auf der Webseite nach.
 - **Ultimate einschalten / ausschalten** – das gewählte Ultimate über sein WLAN wecken bzw. ausschalten (Ausschalten
   fragt nach, siehe [Ultimates](#ultimates)).
+- **Nach Update sehen** – fragt GitHub nach einer neuen Version (rechts steht die installierte). Gibt es eine, heißt
+  die Zeile **Update auf … installieren**: OK fragt nach und installiert sie, die Jukebox startet dabei neu (siehe
+  [Aktualisieren](#aktualisieren)).
 - **Pi ausschalten** – fragt nach und fährt den Pi herunter; mit eingerichteter Steckdose geht danach auch der Strom aus
   (siehe [Ausschalten und Steckdose](#ausschalten-und-steckdose)).
 - Eine **gespeicherte Liste** in „Musik wählen“ öffnet ein kleines Menü: **Abspielen**, **Hinten anhängen**,
@@ -1180,6 +1196,7 @@ Wer das nicht möchte, trägt in `/etc/systemd/system/c64jukebox.service` hinter
 | `POST /api/search` `{"src","path","q"}` | Suche (Auftrag; in der HVSC sofort aus dem Verzeichnis) |
 | `GET /api/hvsc/titles`, `POST /api/hvsc/titles` | Wie viele HVSC-Dateien die Suche mit Titel kennt (`n` von `of`) / Titel einlesen (Auftrag) |
 | `POST /api/update/check` | Jetzt auf GitHub nach einer neuen Version sehen (`ver`, `newer`, `installed`) |
+| `POST /api/update/install` | Die neuere Version installieren (Dienst `c64jukebox-update`, die Jukebox startet dabei neu); Fortschritt und Ergebnis in `/api/state` unter `upd` (`running`, `last`) |
 | `GET /api/power`, `POST /api/power/off` `{"force"}` | Darf der Pi sich ausschalten, ist eine Steckdose eingerichtet / Steckdosen-Timer stellen und herunterfahren (`timer`, `secs`) |
 | `POST /api/plug/check` | Steckdose fragen (Auftrag: `ip`, `ver`, `on`, `timer`, `secs`, `watt`) |
 | `GET /api/bt?devices=1`, `POST /api/bt` `{"act","mac"}` | Bluetooth-Kopfhörer: Zustand und gekoppelte Geräte / `scan`, `pair` (Aufträge), `connect`, `disconnect`, `forget`, `on` + `on` |

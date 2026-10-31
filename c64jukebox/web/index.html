@@ -33,7 +33,8 @@
 <div id="pwwarn" class="warnbar" hidden>Das Web-Passwort ist noch das Standardpasswort – bitte unter
   <a href="#" onclick="tab('set');return false">Einstellungen</a> ändern.</div>
 <div id="updbar" class="warnbar info" hidden><span id="updtxt"></span>
-  <a href="#" onclick="help('aktualisieren');return false">So geht das Update</a>
+  <a href="#" onclick="help('aktualisieren');return false">Was passiert dabei?</a>
+  <button id="updgo" type="button">Installieren</button>
   <button id="updx" type="button" aria-label="Hinweis ausblenden">✕</button></div>
 <nav class="tabs" id="tabs">
   <button data-t="play" aria-label="Wiedergabe"><span class="tl">Wiedergabe</span><span class="ti">&#9654;&#xFE0E;</span></button>
@@ -506,8 +507,9 @@
   <div class="card">
     <div class="row"><h3>Updates</h3><span class="grow"></span>
       <a class="hl" href="#" onclick="help('aktualisieren');return false" title="Hilfe">?</a></div>
-    <label><input type="checkbox" id="updon"> Einmal am Tag auf GitHub nach einer neuen Version sehen (nur ein Hinweis, installiert wird nichts)</label>
-    <div class="row"><span id="updstate" class="hint grow"></span><button id="updchk" type="button">Jetzt prüfen</button></div>
+    <label><input type="checkbox" id="updon"> Einmal am Tag auf GitHub nach einer neuen Version sehen (installiert wird nur auf Befehl)</label>
+    <div class="row"><span id="updstate" class="hint grow"></span><button id="updchk" type="button">Jetzt prüfen</button>
+      <button id="updinst" type="button" hidden>Installieren</button></div>
   </div>
 
   <div class="card">

@@ -34,9 +34,11 @@ from .stream import StreamHub, local_ip
 from .ultimate import STREAM_PORT, Ultimate, UltimateError
 
 SEARCH_MAX = 500
-# the published program: its VERSION is compared with ours once a day (a hint on the page, nothing is installed)
+# the published program: its VERSION is compared with ours once a day (a hint; installed only on request)
 UPDATE_URL = "https://raw.githubusercontent.com/sedorrr/c64-pi-jukebox/main/c64jukebox/__init__.py"
 UPDATE_EVERY_S = 86400
+UPDATE_UNIT = "c64jukebox-update.service"   # root, from install.sh: downloads the program and runs install.sh (update.sh)
+UPDATE_NOTE_S = 3600                        # its result shown on the page and the TV this long after it ended
 TV_BOOT_S = 90             # TV on at the start (cec.tv_on_boot): only this long after it - later, the TV seen
                            # for the first time is someone switching it on, not to be pulled to the Pi
 PI_OFF_S = 60               # TV to standby -> Pi off (cec.pi_off); the TV on again within it keeps the Pi on
@@ -155,6 +157,11 @@ class Jukebox:
         self.power_can_cmd = ["busctl", "call", "org.freedesktop.login1", "/org/freedesktop/login1",
                               "org.freedesktop.login1.Manager", "CanPowerOff"]
         self.powering_off = False
+        # the update on request: the service may start this one unit (polkit rule from install.sh), nothing else
+        self.update_cmd = ["systemctl", "start", "--no-block", UPDATE_UNIT]
+        self.update_can_cmd = ["systemctl", "show", "-p", "LoadState", "--value", UPDATE_UNIT]
+        self.updating = False
+        self._update_mtime = None
         self.bt_conn = False                              # the chosen headphones are connected
         self.bt_at = 0.0
         self.power_msg = ""                               # what switching an Ultimate on/off did last
@@ -306,6 +313,7 @@ class Jukebox:
                     self._hdmi_sync_due()
                     self._news_due()
                     self._update_due()
+                    self._update_watch()
                     self._cec_tick()
                     self._party_check()
                     for e in schedule.due(self.config["schedule"], time.localtime(self.wall()), self.sched_fired):
@@ -1363,7 +1371,8 @@ class Jukebox:
             self._side("update", self.update_check)
 
     async def update_check(self):
-        """the VERSION of the published program; newer than ours -> a hint on the page (update: git pull + install.sh)"""
+        """the VERSION of the published program; newer than ours -> a hint on the page and in the TV menu (installed
+        only on request: update_install)"""
         try:
             async with self.session.get(UPDATE_URL, timeout=aiohttp.ClientTimeout(total=15)) as r:
                 text = await r.text() if r.status == 200 else ""
@@ -1377,6 +1386,77 @@ class Jukebox:
         if self.update["newer"]:
             events.log("Neue Version %s auf GitHub (installiert: %s)" % (m.group(1), VERSION))
         return self.update
+
+    def _update_path(self):
+        return os.path.join(self.data_dir, "update.json")
+
+    def update_file(self):
+        """what update.sh wrote: {"state": "run"|"ok"|"fail", "ver", "from", "msg", "at", "seen"?} or None"""
+        try:
+            with open(self._update_path(), encoding="utf-8") as f:
+                d = json.load(f)
+        except (OSError, ValueError):
+            return None
+        return d if isinstance(d, dict) else None
+
+    def update_running(self):
+        st = self.update_file()
+        return self.updating or bool(st and st.get("state") == "run" and time.time() - st.get("at", 0) < 3600)
+
+    async def update_install(self):
+        """install the newer version from GitHub: the root unit from install.sh downloads it and runs install.sh,
+        which restarts this service; a failed install puts the old program back (update.sh)"""
+        if self.update_running():
+            raise ValueError("Das Update läuft schon")
+        if not (self.update and self.update["newer"]):
+            raise ValueError("Keine neuere Version bekannt – zuerst nach einem Update sehen")
+        ok, out = await self._cmd(self.update_can_cmd, timeout=5)
+        if not (ok and out.strip() == "loaded"):
+            raise ValueError("Das Update auf Befehl ist noch nicht eingerichtet – dieses eine Mal von Hand "
+                             "aktualisieren (Installationsskript)")
+        ok, out = await self._cmd(self.update_cmd)
+        if not ok:
+            raise ValueError("Update ließ sich nicht starten: " + out[-120:])
+        self.updating = True
+        events.log("Update auf %s gestartet (installiert: %s)" % (self.update["ver"], VERSION))
+        return {"ver": self.update["ver"]}
+
+    def _update_watch(self):
+        """the end of an update (update.json changed): reported once - in the log and in the menu on the TV"""
+        try:
+            m = os.stat(self._update_path()).st_mtime
+        except OSError:
+            return
+        if m == self._update_mtime:
+            return
+        self._update_mtime = m
+        st = self.update_file()
+        if not st or st.get("state") not in ("ok", "fail"):
+            return
+        self.updating = False
+        if st.get("seen") or time.time() - st.get("at", 0) > UPDATE_NOTE_S:
+            return
+        msg = "Update auf %s installiert" % st.get("ver", "?") if st["state"] == "ok" else \
+            "Update fehlgeschlagen: %s" % (st.get("msg") or "?")
+        events.log(msg)
+        self.menu.open()                                 # whoever started it is waiting in front of the TV
+        self.menu.note = msg
+        st["seen"] = True
+        try:
+            tmp = self._update_path() + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(st, f)
+            os.replace(tmp, self._update_path())
+            self._update_mtime = os.stat(self._update_path()).st_mtime
+        except OSError:
+            pass
+
+    def update_state(self):
+        """for the page: the last update's result (within UPDATE_NOTE_S) and whether one runs"""
+        st = self.update_file()
+        last = {k: st.get(k) for k in ("state", "ver", "from", "msg", "at")} \
+            if st and time.time() - st.get("at", 0) < UPDATE_NOTE_S else None
+        return {"running": self.update_running(), "last": last}
 
     def _news_due(self):
         if self.news_wanted() and self.news.due() and self.session:
@@ -2615,5 +2695,6 @@ class Jukebox:
             "version": VERSION,
             "update": self.update["ver"] if self.update and self.update["newer"] and self.config.data.get("updates", True)
             else None,
+            "upd": self.update_state(),
             "display": self.display.msg,
         }

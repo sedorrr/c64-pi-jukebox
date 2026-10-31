@@ -93,9 +93,12 @@ function help(h) { tab('help'); helpLoad(h); }
 
 /* ---------------------------------------------------------------- state, now playing */
 let S = null;
+let pageVer = '';
 async function poll() {
   if (document.visibilityState === 'hidden') return;
   try { S = await api('state'); } catch (e) { return; }
+  if (pageVer && S.version !== pageVer) { location.reload(); return; }        // updated: the page of the new version
+  pageVer = S.version;
   $('fhvsc').hidden = !S.hvsc;
   updShow();
   nowShow();
@@ -1504,12 +1507,26 @@ function slShow() {
 }
 /* a newer version on GitHub: a hint (hidden per version once closed) */
 function updSeen() { try { return localStorage.getItem('c64upd') || ''; } catch (e) { return ''; } }
+let updKey = '';      // what the bar shows now: ✕ hides that one (a version, or the result of one update)
 function updShow() {
-  const v = S && S.update;
-  $('updbar').hidden = !v || updSeen() === v;
-  if (v) $('updtxt').textContent = 'Version ' + v + ' der Jukebox ist auf GitHub erschienen (installiert: ' + S.version + ').';
+  const v = S && S.update, u = (S && S.upd) || {}, last = u.last;
+  let txt = '';
+  updKey = '';
+  if (u.running) txt = 'Das Update läuft – die Jukebox startet dabei neu, die Seite meldet sich danach wieder.';
+  else if (last && last.state === 'ok' && last.ver === S.version && updSeen() !== 'ok' + last.at) { txt = 'Version ' + last.ver + ' ist installiert.'; updKey = 'ok' + last.at; }
+  else if (last && last.state === 'fail' && updSeen() !== 'fail' + last.at) { txt = 'Update fehlgeschlagen: ' + last.msg; updKey = 'fail' + last.at; }
+  else if (v && updSeen() !== v) { txt = 'Version ' + v + ' der Jukebox ist auf GitHub erschienen (installiert: ' + S.version + ').'; updKey = v; }
+  $('updbar').hidden = !txt;
+  $('updtxt').textContent = txt;
+  $('updx').hidden = u.running;
+  $('updgo').hidden = $('updinst').hidden = !v || u.running;
+  if (u.running) $('updstate').textContent = 'Das Update läuft …';
 }
-$('updx').onclick = () => { try { localStorage.setItem('c64upd', S.update || ''); } catch (e) { /* private mode */ } $('updbar').hidden = true; };
+$('updx').onclick = () => { try { localStorage.setItem('c64upd', updKey); } catch (e) { /* private mode */ } $('updbar').hidden = true; };
+$('updgo').onclick = $('updinst').onclick = async () => {
+  if (!confirm('Version ' + S.update + ' jetzt installieren? Die Jukebox startet dabei neu, das dauert einige Minuten.')) return;
+  try { await api('update/install', {}); toast('Das Update läuft'); poll(); } catch (e) { errToast(e); }
+};
 $('updon').onchange = () => api('config', {updates: $('updon').checked}).catch(errToast);
 $('updchk').onclick = async () => {
   $('updstate').textContent = 'Frage GitHub …';

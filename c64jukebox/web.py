@@ -233,6 +233,12 @@ def make_app(jb, trust_local=False):
             return fail("GitHub nicht erreichbar")
         return ok(ver=u["ver"], newer=u["newer"], installed=VERSION)
 
+    async def update_install_post(req):
+        try:
+            return ok(**await j.update_install())
+        except ValueError as e:
+            return fail(str(e))
+
     async def power_get(req):
         return ok(**await j.power_state())
 
@@ -822,6 +828,7 @@ def make_app(jb, trust_local=False):
     r.add_get("/api/bt", bt_get)
     r.add_post("/api/bt", bt_post)
     r.add_post("/api/update/check", update_post)
+    r.add_post("/api/update/install", update_install_post)
     r.add_get("/api/hvsc/titles", hvsc_titles_get)
     r.add_post("/api/hvsc/titles", hvsc_titles_post)
     r.add_post("/api/cec", cec_post)

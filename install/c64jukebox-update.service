@@ -1,0 +1,10 @@
+[Unit]
+Description=C64-Jukebox: Update von GitHub (gestartet von der Seite oder dem Fernsehmenü)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# as root: install.sh installs packages and replaces the program; the jukebox itself may only start this unit (polkit)
+ExecStart=/bin/bash /opt/c64jukebox/update.sh
+TimeoutStartSec=30min

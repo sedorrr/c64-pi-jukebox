@@ -700,3 +700,32 @@ def test_switch_off_with_the_plug(browser, demo):
     demo.jb.powering_off = False
     demo.jb.config.data["plug"].update(ip="", id="", key="")
     assert not page.errors
+
+
+def test_update_on_request(browser, demo):
+    import json
+    import os
+    import time
+    from c64jukebox import VERSION
+    demo.jb.update = {"ver": "9.9", "newer": True, "at": 0}
+    page = new_page(browser, demo, PHONE)
+    page.on("dialog", lambda d: d.accept())
+    page.wait_for_selector("#updbar:not([hidden]):has-text('Version 9.9')")
+    no_overflow(page)
+    page.click("#updgo")                                          # asks, then the root unit (harmless in the demo)
+    page.wait_for_selector("#updtxt:has-text('Das Update läuft')")
+    assert page.is_hidden("#updgo") and page.is_hidden("#updx") and demo.jb.updating
+    path = os.path.join(demo.jb.data_dir, "update.json")
+    with open(path, "w") as f:                                    # update.sh is done, the service runs again
+        json.dump({"state": "ok", "ver": VERSION, "from": "1.0", "msg": "", "at": int(time.time())}, f)
+    demo.jb.update = None
+    page.wait_for_selector("#updtxt:has-text('Version %s ist installiert')" % VERSION)
+    assert not demo.jb.updating
+    page.click("#updx")
+    page.reload()
+    page.wait_for_selector("#app:not([hidden])")
+    page.wait_for_timeout(1500)
+    assert page.is_hidden("#updbar")
+    os.remove(path)
+    demo.jb.menu.close()
+    assert not page.errors

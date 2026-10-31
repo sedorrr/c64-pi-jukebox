@@ -51,6 +51,7 @@ label:has(> input.num) > input.num { display: inline-block; width: 5.5em; margin
 .warnbar.info { background: #1d4566; color: #d8ecff; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .warnbar.info a { color: #9fd3ff; }
 .warnbar.info button { margin-left: auto; min-width: 36px; padding: 2px 8px; }
+.warnbar.info button + button { margin-left: 0; }
 .tabs { display: flex; overflow-x: auto; gap: 4px; padding: 8px 12px 0; background: var(--bg); position: sticky; top: 0; z-index: 5;
   scrollbar-width: none; max-width: 1180px; margin: 0 auto; }
 .tabs button { border-radius: 8px 8px 0 0; border-bottom: 0; background: #30256f; flex: 0 0 auto; }

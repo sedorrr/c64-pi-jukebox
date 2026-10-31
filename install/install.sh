@@ -43,7 +43,8 @@ if [ -f /etc/bluetooth/main.conf ] && ! grep -q '^ControllerMode = bredr' /etc/b
         sed -i 's/^\[General\]$/[General]\nControllerMode = bredr/' /etc/bluetooth/main.conf
     systemctl restart bluetooth || true
 fi
-# "Pi ausschalten" on the page and the TV: the service (no root, NoNewPrivileges) asks logind - polkit lets it
+# "Pi ausschalten" and "Update installieren" on the page and the TV: the service (no root, NoNewPrivileges) asks
+# logind / systemd - polkit lets it
 DEBIAN_FRONTEND=noninteractive apt-get install -y -qq polkitd >/dev/null || true
 if [ -d /etc/polkit-1/rules.d ]; then
     cat > /etc/polkit-1/rules.d/50-c64jukebox.rules <<'RULE'
@@ -52,9 +53,15 @@ polkit.addRule(function(action, subject) {
     if (action.id.indexOf("org.freedesktop.login1.power-off") == 0 && subject.user == "c64jukebox")
         return polkit.Result.YES;
 });
+// ... and start its update (page / TV menu "Update installieren": update.sh as root, nothing else)
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" && subject.user == "c64jukebox" &&
+            action.lookup("unit") == "c64jukebox-update.service" && action.lookup("verb") == "start")
+        return polkit.Result.YES;
+});
 RULE
 else
-    echo "   (polkit fehlt – „Pi ausschalten“ geht dann nicht)"
+    echo "   (polkit fehlt – „Pi ausschalten“ und das Update auf Befehl gehen dann nicht)"
 fi
 # (EGL/GLES from Mesa: SDL draws through them on KMS/DRM - Raspberry Pi OS Lite comes without)
 # I2C for the small OLED, SPI for the 2.8" touch display (both take effect completely after the next restart)
@@ -75,6 +82,7 @@ systemctl stop "$SVC" 2>/dev/null || true
 mkdir -p "$APP" "$DATA" /media/usb
 rm -rf "$APP/c64jukebox" "$APP/docs"
 cp -r "$SRC/c64jukebox" "$SRC/docs" "$SRC/requirements.txt" "$APP/"
+install -m 755 "$SRC/install/update.sh" "$APP/update.sh"
 find "$APP/c64jukebox" -name __pycache__ -prune -exec rm -rf {} +
 [ -x "$APP/venv/bin/python" ] || python3 -m venv "$APP/venv"
 "$APP/venv/bin/pip" install -q --disable-pip-version-check -r "$APP/requirements.txt"
@@ -86,6 +94,7 @@ echo "== Dienst und USB-Sticks"
 install -m 644 "$SRC/install/c64jukebox.service" /etc/systemd/system/c64jukebox.service
 install -m 644 "$SRC/install/c64pi-net.service" /etc/systemd/system/c64pi-net.service
 install -m 644 "$SRC/install/c64pi-hdmi.service" /etc/systemd/system/c64pi-hdmi.service
+install -m 644 "$SRC/install/c64jukebox-update.service" /etc/systemd/system/c64jukebox-update.service
 install -m 644 "$SRC/install/99-c64jukebox-usb.rules" /etc/udev/rules.d/99-c64jukebox-usb.rules
 udevadm control --reload-rules
 
