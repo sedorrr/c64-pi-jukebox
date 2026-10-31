@@ -2,4 +2,4 @@
 network shares (SMB, FTP), the Ultimate's own USB stick or a local folder, and distributes the audio stream to
 the Pico visualizers and receivers."""
 
-VERSION = "1.22"
+VERSION = "1.23"

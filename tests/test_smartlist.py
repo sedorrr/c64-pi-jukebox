@@ -81,6 +81,9 @@ def test_page_plays_and_saves(tmp_path):
                 await asyncio.sleep(0.05)
             info = await (await c.get("/api/smart")).json()
             assert info["hvsc"] == 6 and info["root"] == "Pi: /C64Music"
+            jb.config.data["songlengths"]["hvsc"] = {"src": "pi", "path": "/DOCUMENTS/Songlengths.md5"}
+            assert (await (await c.get("/api/smart")).json())["root"] == "Pi"      # at the source's top: no empty path
+            jb.config.data["songlengths"]["hvsc"] = {"src": "pi", "path": "/C64Music/DOCUMENTS/Songlengths.md5"}
             r = await (await c.post("/api/smart", json={"filter": {"text": "hubbard", "sort": "path"}}, headers=H)).json()
             assert r["ok"] and r["n"] == 2
             assert [i["name"] for i in jb.player.items] == ["Commando.sid", "Delta.sid"] and jb.player.state == "play"

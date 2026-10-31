@@ -44,8 +44,8 @@
 
 <section class="cover">
   <h1>C64-Jukebox – Bedienung</h1>
-  <div class="sub">Die SID-Jukebox auf dem Raspberry Pi bedienen: an der Weboberfläche (Handy oder PC) und am Fernseher
-    mit seiner Fernbedienung</div>
+  <div class="sub">Die SID-Jukebox auf dem Raspberry Pi bedienen: an der Weboberfläche (Handy oder PC), am Fernseher
+    mit seiner Fernbedienung und am Touch-Display</div>
   <figure><img src="bilder/web_pc.png" alt=""><figcaption>Die Weboberfläche am PC: laufender Titel und
     Wiedergabeliste</figcaption></figure>
   <div class="grid2" style="margin-top:8pt">
@@ -64,10 +64,11 @@
     <div>9 · <a href="#tv">Am Fernseher</a></div>
     <div>10 · <a href="#fernbedienung">Fernbedienung und Menü</a></div>
     <div>11 · <a href="#touch">Touch-Display am Pi</a></div>
-    <div>12 · <a href="#hilfe">Kleine Hilfen</a></div>
+    <div>12 · <a href="#einaus">Ein- und ausschalten</a></div>
+    <div>13 · <a href="#hilfe">Kleine Hilfen</a></div>
   </div>
-  <p class="small" style="margin-top:12pt">Diese Anleitung zeigt die Bedienung. Installation, Hardware und alle
-    Einzelheiten stehen im Handbuch der Jukebox – in der Weboberfläche im Tab <b>Hilfe</b> (jeder runde
+  <p class="small" style="margin-top:12pt">Diese Anleitung zeigt die Bedienung (Stand: Version 1.22). Installation,
+    Hardware und alle Einzelheiten stehen im Handbuch der Jukebox – in der Weboberfläche im Tab <b>Hilfe</b> (jeder runde
     <b>?</b>-Knopf springt an die passende Stelle) und als <code>docs/HANDBUCH.md</code>. Die Bilder zeigen Beispieldaten.</p>
 </section>
 
@@ -75,14 +76,15 @@
 <table>
   <tr><th style="width:24%">Womit</th><th>Was geht</th><th style="width:28%">Voraussetzung</th></tr>
   <tr><td><b>Weboberfläche</b><br><span class="small">Handy, Tablet, PC</span></td>
-    <td><b>Alles:</b> Musik auswählen und abspielen, Listen, Einstellungen, Fernseher, Ultimates, Picos.</td>
+    <td><b>Alles:</b> Musik auswählen und abspielen, Listen, Einstellungen, Fernseher, Ultimates, Picos, Ein/Aus.</td>
     <td>Browser im selben Netz, Adresse <b>http://c64pi.local/</b></td></tr>
   <tr><td><b>Fernbedienung des Fernsehers</b></td>
     <td>Abspielen, Stopp, Titel und Unterlied wechseln, Effekt wechseln – und über das <b>Menü am Fernseher</b>
-      Musik wählen, Zufall, Längen, Ultimate wählen, ein-/ausschalten.</td>
+      Musik wählen und in der HVSC suchen, Zufall, Bild und Ton, Ultimate, Update, Sprache, Ausschalten.</td>
     <td>Pi am HDMI-Eingang, HDMI-CEC am Fernseher eingeschaltet</td></tr>
   <tr><td><b>Touch-Display am Pi</b><br><span class="small">2,8″, optional</span></td>
-    <td>Anzeige von Titel, Pegel und Netz; Tasten ⏮ ■ ⏭.</td><td>Display angeschlossen</td></tr>
+    <td>Anzeige von Titel, Pegel und Netz; Tasten ⏮ ■ ⏭ und ⏻ (Fernseher an/aus, Jukebox ausschalten).</td>
+    <td>Display angeschlossen</td></tr>
 </table>
 <div class="box"><b>So kommt man auf die Weboberfläche:</b>
   <ol style="margin-top:4pt">
@@ -91,25 +93,46 @@
       scannen) und auf dem Display am Pi.</li>
     <li>Mit dem Web-Passwort anmelden (ab Werk <code>commodore64</code> – ein gelber Balken erinnert daran, es unter
       <i>Einstellungen → Web-Passwort</i> zu ändern).</li>
-    <li>Tipp fürs Handy: im Browser-Menü <b>„Zum Home-Bildschirm“</b> – dann öffnet sich die Jukebox wie eine App.</li>
+    <li><b>Als App aufs Handy:</b> am iPhone in Safari <i>Teilen → Zum Home-Bildschirm</i>, am Android-Handy in Chrome
+      <i>⋮ → Zum Startbildschirm hinzufügen</i>. Die Jukebox bekommt ein eigenes Symbol (die Note) und öffnet sich ohne
+      Adressleiste wie eine App – ganz ohne App Store.</li>
   </ol></div>
 <p>Die Jukebox spielt selbstständig weiter, auch wenn keine Seite offen ist. Alle offenen Seiten zeigen denselben
   Stand – man kann am Handy starten und am PC weitermachen.</p>
+<p><b>Deutsch oder Englisch:</b> Beim ersten Aufruf nimmt die Jukebox die Sprache des Browsers. Umstellen geht unter
+  <i>Einstellungen → System → Sprache / Language</i> oder im Menü am Fernseher unter <b>Sprache / Language</b>; die
+  Sprache gilt für die Seite, das Menü am Fernseher, die Displays und das Handbuch.</p>
 
-<h2 id="web" class="nb">2 · Die Weboberfläche</h2>
-<p>Ganz oben steht immer der <b>laufende Titel</b>. Darunter die Tabs – am Handy zum Teil als Zeichen:</p>
-<table>
-  <tr><th style="width:22%">Tab</th><th style="width:10%">Handy</th><th>Inhalt</th></tr>
-  <tr><td>Wiedergabe</td><td>▶</td><td>laufender Titel, Knöpfe, Unterlied, Zufall, Wiedergabeliste</td></tr>
-  <tr><td>Dateien</td><td>Dateien</td><td>Quellen (NAS, FTP, USB-Sticks), Ordner, Filter, Suche, Abspielen</td></tr>
-  <tr><td>Listen</td><td>Listen</td><td>gespeicherte Wiedergabelisten, fertige Zusammenstellungen, „Zuletzt gespielt“, Statistik</td></tr>
-  <tr><td>Geräte</td><td>Geräte</td><td>Ultimates (welches spielt, ein/aus), Picos und Stream-Verteiler, Geräte im Netz</td></tr>
-  <tr><td>Anzeige</td><td>📺</td><td>Fernseher (Effekte, Hintergrund, Ton, Retro-News, Fernbedienung) und Display am Pi</td></tr>
-  <tr><td>Einstellungen</td><td>⚙</td><td>Abspielen, Zeitplan, Songlängen, Netzwerk des Pi, Passwort, Sicherung</td></tr>
-  <tr><td>Hilfe</td><td>?</td><td>das Handbuch</td></tr>
-</table>
-<p>Kurze Meldungen („Gespeichert“, „Commando – spielt“) erscheinen unten für ein paar Sekunden. Die runden
-  <b>?</b>-Knöpfe auf den Karten öffnen das Handbuch an der passenden Stelle.</p>
+<h2 id="web">2 · Die Weboberfläche</h2>
+<div class="shots">
+  <figure class="phone"><img src="bilder/web_power.png" alt=""><figcaption>Der Knopf ⏻ oben rechts öffnet „Ein /
+    Aus“ – von jedem Tab aus</figcaption></figure>
+  <div class="side">
+    <p style="margin-top:0">Ganz oben steht immer der <b>laufende Titel</b>, rechts daneben der Knopf <b>⏻</b>:
+      <b>Fernseher einschalten</b> / <b>ausschalten</b> (über HDMI-CEC), das gewählte <b>Ultimate</b> ein- und
+      ausschalten und <b>Jukebox ausschalten</b> (siehe Abschnitt 12). Darunter die Tabs – am Handy zum Teil als
+      Zeichen:</p>
+    <table>
+      <tr><th style="width:24%">Tab</th><th style="width:12%">Handy</th><th>Inhalt</th></tr>
+      <tr><td>Wiedergabe</td><td>▶</td><td>laufender Titel, Knöpfe, Unterlied, Zufall, Wiedergabeliste</td></tr>
+      <tr><td>Dateien</td><td>Dateien</td><td>Quellen (NAS, FTP, USB-Sticks), Ordner, Filter, Suche (auch in der ganzen HVSC)</td></tr>
+      <tr><td>Listen</td><td>Listen</td><td>gespeicherte Listen, Zusammenstellungen, „Zuletzt gespielt“, Statistik, gesperrte Titel</td></tr>
+      <tr><td>Geräte</td><td>Geräte</td><td>Ultimates (welches spielt, ein/aus), Picos und Stream-Verteiler, Geräte im Netz</td></tr>
+      <tr><td>Anzeige</td><td>📺</td><td><i>Bild am Fernseher</i> · <i>Ton</i> (auch Bluetooth-Kopfhörer) · <i>Bedienung</i>
+        (TV-Fernbedienung, Display am Pi)</td></tr>
+      <tr><td>Einstellungen</td><td>⚙</td><td><i>Abspielen</i> · <i>Netzwerk des Pi</i> · <i>System</i> (Sprache,
+        Passwort, Ausschalten, Sicherung, Updates)</td></tr>
+      <tr><td>Hilfe</td><td>?</td><td>das Handbuch</td></tr>
+    </table>
+    <figure style="width:78%"><img src="bilder/web_update.png" alt=""><figcaption>Neue Version auf GitHub: blauer Hinweis mit
+      <b>Installieren</b> (✕ blendet ihn für diese Version aus)</figcaption></figure>
+    <p style="margin-top:6pt"><b>Updates:</b> Einmal am Tag sieht die Jukebox auf GitHub nach einer neuen Version.
+      Installiert wird nur auf Befehl – mit <b>Installieren</b> im Hinweis, unter <i>Einstellungen → System → Updates</i>
+      oder im Menü am Fernseher (<b>Nach Update sehen</b>). Das dauert einige Minuten; Einstellungen, Listen und
+      Songlängen bleiben erhalten, bei einem Fehler kommt das alte Programm zurück.</p>
+    <p>Kurze Meldungen („Gespeichert“, „Commando – spielt“) erscheinen unten für ein paar Sekunden.</p>
+  </div>
+</div>
 
 <h2 id="dateien">3 · Musik auswählen – Tab „Dateien“</h2>
 <div class="shots">
@@ -130,6 +153,9 @@
         müssen alle vorkommen, z. B. <code>hubbard 1986</code>).</li>
       <li><b>🔍 Unterordner</b> sucht das Wort in <b>allen Unterordnern</b> (bis 500 Treffer); „Ordner abspielen“ spielt
         dann die Treffer, ✕ in der Pfadzeile führt zurück.</li>
+      <li><b>🔍 HVSC</b> sucht sofort in der <b>ganzen HVSC</b>, ohne Ordner zu lesen (sobald die HVSC-Songlängen
+        geladen sind). Titel und Komponist aus den Dateien findet sie, nachdem einmal <i>Einstellungen → Songlängen →
+        Titel für die Suche einlesen</i> gelaufen ist.</li>
       <li>Gelb <b>2 SIDs</b> / <b>3 SIDs</b> markiert Stereo-Stücke.</li>
       <li><b>Songlängen und STIL:</b> im HVSC-Ordner <code>C64Music/DOCUMENTS</code> bei <code>Songlengths.md5</code>
         auf <b>als HVSC-Längen laden</b> tippen, bei <code>STIL.txt</code> auf <b>als STIL laden</b>. Dann wechselt die
@@ -158,6 +184,8 @@
       <li><b>Fortschrittsbalken:</b> mit bekannter Länge bis zum Ende, sonst bis zum Zeitlimit („max. 5:00“).</li>
       <li><b>⚑ Ende hier merken</b> erscheint, solange ein Titel ohne bekannte Länge läuft: am Ende des Stücks
         drücken – die Spielzeit wird seine Länge, und künftig spielt er genau so lange.</li>
+      <li><b>⊘ Nicht mehr spielen</b> springt zum nächsten Titel und setzt den laufenden auf die Sperrliste (siehe
+        Abschnitt 5).</li>
       <li><b>Vorschläge:</b> Findet die Jukebox selbst heraus, wann ein Stück von vorn anfängt („Fängt nach 1:35 von
         vorn an“), oder dasselbe Stück in der HVSC, steht hier <b>Übernehmen</b> / <b>Nein</b>.</li>
       <li>Unter dem Titel stehen die SID-Chips, die STIL-Hintergründe und ggf. eine SID-Umstellung („Sockel 2 für dieses
@@ -172,8 +200,8 @@
   <ul>
     <li><b>Abspielen:</b> doppelt antippen oder doppelklicken (am PC auch Enter).</li>
     <li><b>Auswählen:</b> antippen; am PC mit Strg/⌘ mehrere, mit Shift einen Bereich.</li>
-    <li><b>⋯</b> bei einem Titel (oder Rechtsklick): Abspielen, Als Nächstes, Stück wählen, Eigene Länge, Favorit, Im
-      Tab Dateien zeigen, Aus der Liste nehmen.</li>
+    <li><b>⋯</b> bei einem Titel (oder Rechtsklick): Abspielen, Als Nächstes, Stück wählen, Eigene Länge, Favorit,
+      Nicht mehr spielen, Im Tab Dateien zeigen, Aus der Liste nehmen.</li>
     <li><b>Als Nächstes</b> setzt die ausgewählten Titel direkt hinter den laufenden; <b>Entfernen</b> nimmt sie heraus.</li>
     <li><b>★</b> antippen macht einen Titel zum Favoriten; der ★-Haken über der Liste zeigt nur Favoriten.</li>
   </ul>
@@ -208,6 +236,11 @@
       <b>Als Wiedergabeliste übernehmen</b> macht aus dem Verlauf eine neue Liste, <b>Verlauf löschen</b> leert ihn.</p>
     <h3>Statistik</h3>
     <p>Wie oft was gespielt wurde – die Zähler und Favoriten gelten je Datei, auch in anderen Listen.</p>
+    <h3>Gesperrte Titel</h3>
+    <p>Stücke, die man mit <b>⊘ Nicht mehr spielen</b> gesperrt hat (Tab ▶, Menü ⋯ einer Zeile oder Menü am
+      Fernseher). Die Jukebox überspringt sie beim Weiterschalten, bei Zufall, „Entdecken“ und in den
+      Zusammenstellungen; in der Liste sind sie durchgestrichen. Von Hand gewählt spielen sie trotzdem.
+      <b>Wieder spielen</b> hebt die Sperre auf.</p>
   </div>
 </div>
 
@@ -219,7 +252,8 @@
       <li><b>Ultimates:</b> Name und <b>Ethernet-Adresse</b> jedes Ultimate (<b>Im Netz suchen</b> findet sie), ggf. das
         Netzwerk-Passwort. <b>aktiv</b> = dieses spielt. <b>Speichern</b> nicht vergessen.</li>
       <li><b>⏻ Ein / Aus:</b> <b>Aus</b> stoppt die Wiedergabe und schaltet das Ultimate aus, <b>Ein</b> weckt es über sein
-        WLAN (Ultimate 64-II). Die WLAN-MAC dafür merkt sich die Jukebox selbst.</li>
+        WLAN (Ultimate 64-II). Die WLAN-MAC dafür merkt sich die Jukebox selbst. Dasselbe geht über den Knopf ⏻ oben
+        auf jeder Seite.</li>
       <li><b>Picos und Stream-Verteiler:</b> der Pi reicht den Ton des Ultimate an Visualizer und Audio-Empfänger weiter
         und schickt ihnen Titel und Retro-News – Einrichtung siehe die Anleitung zum C64-Ökosystem.</li>
       <li><b>Geräte im Netz:</b> alle Picos und der Pi mit dem Weg des Tons; <b>als Pico eintragen</b> übernimmt ein
@@ -229,10 +263,12 @@
 </div>
 
 <h2 id="anzeige">7 · Anzeige: Fernseher und Display – Tab 📺</h2>
+<p>Der Tab hat drei Gruppen: <b>Bild am Fernseher</b> (HDMI, Hintergrund, Retro-News), <b>Ton</b> (Ton am Fernseher,
+  Bluetooth-Kopfhörer) und <b>Bedienung</b> (TV-Fernbedienung, Display am Pi).</p>
 <div class="shots">
   <figure class="phone"><img src="bilder/web_fernseher.png" alt=""><figcaption>Karte „Fernseher (HDMI)“</figcaption></figure>
   <div class="side">
-    <h3 style="margin-top:0">Fernseher (HDMI)</h3>
+    <h3 style="margin-top:0">Bild am Fernseher</h3>
     <ul>
       <li><b>Bild am HDMI-Ausgang des Pi zeigen</b> schaltet die Ausgabe ein. Jede Änderung gilt sofort – am Fernseher
         sieht man gleich, wie ein Effekt wirkt.</li>
@@ -243,10 +279,13 @@
       <li><b>Effekt automatisch wechseln:</b> Effekte ankreuzen und „während der Wiedergabe wechseln“ – alle 180 s ein
         anderer.</li>
     </ul>
-    <figure><img src="bilder/web_hintergrund.png" alt=""><figcaption>Karte „Hintergrund am Fernseher“</figcaption></figure>
+    <figure style="width:85%"><img src="bilder/web_hintergrund.png" alt=""><figcaption>Karte „Hintergrund am Fernseher“</figcaption></figure>
     <p style="margin-top:6pt"><b>Hintergrund:</b> keiner, <b>Bilder</b> (Diashow: hochladen oder einen Ordner einer
       Quelle wählen, z. B. vom NAS; Wechsel alle 20 s mit Überblenden) oder das <b>Bild des C64</b> live vom Ultimate.
       „Helligkeit des Hintergrunds“ dunkelt ihn ab.</p>
+    <p><b>Retro-News am Fernseher:</b> Schlagzeilen aus Retro-Seiten (Indie Retro News, amiga-news.de, Commodore News
+      …) <b>im Leerlauf</b> als große Karte, <b>als Laufband</b> unten während der Musik. Jede Quelle einzeln an- und
+      abschaltbar, eigene Feeds mit <b>+ Quelle</b>.</p>
   </div>
 </div>
 <div class="shots">
@@ -257,23 +296,35 @@
       macht ihn leiser, ohne die Fernbedienung zu suchen. Mit <b>am Titelende aus-, beim nächsten einblenden</b>
       gehen die Titel sanft ineinander über (nur am Fernseher; das Ultimate selbst spielt unverändert). Hängt am
       Ultimate auch eine Anlage, nur eines von beiden laut stellen – der Fernseher ist etwa 0,2 s später dran.</p>
-    <h3>Retro-News am Fernseher</h3>
-    <p>Schlagzeilen aus Retro-Seiten (Indie Retro News, amiga-news.de, Commodore News …): <b>im Leerlauf</b> als große
-      Karte, <b>als Laufband</b> unten während der Musik. Jede Quelle einzeln an- und abschaltbar, eigene Feeds mit
-      <b>+ Quelle</b>.</p>
-    <figure><img src="bilder/web_cec.png" alt=""><figcaption>Karte „TV-Fernbedienung (HDMI-CEC)“ – siehe Abschnitt 10</figcaption></figure>
-    <h3>Display am Pi</h3>
-    <p>Art des Displays (kleines OLED oder 2,8″ mit Touch), Touch einrichten, Bild drehen, nach wie vielen Minuten es
-      dunkel wird – siehe Abschnitt 11.</p>
+    <h3>Bluetooth-Kopfhörer</h3>
+    <p>Statt über den Fernseher kann der Ton auch über Bluetooth-Kopfhörer (oder einen Bluetooth-Lautsprecher) laufen:</p>
+    <ol>
+      <li>Kopfhörer in den <b>Kopplungsmodus</b> bringen (meist die Ein-Taste einige Sekunden halten).</li>
+      <li><b>Kopfhörer suchen</b> tippen, beim gefundenen Gerät <b>Koppeln</b>.</li>
+      <li>Danach geht der Ton an die Kopfhörer, sobald sie verbunden sind, und zurück an den Fernseher, wenn man sie
+        ausschaltet. Eingeschaltete Kopfhörer verbinden sich von selbst wieder.</li>
+    </ol>
+    <figure style="width:72%"><img src="bilder/web_bluetooth.png" alt=""><figcaption>Karte „Bluetooth-Kopfhörer“ mit gekoppelten,
+      verbundenen Kopfhörern</figcaption></figure>
+    <p class="small" style="margin-top:4pt">Der HDMI-Ausgang muss dafür eingeschaltet sein. Lautstärke und Ausblenden
+      gelten auch für die Kopfhörer; am Fernseher schaltet <b>Bild und Ton → Ton über Kopfhörer</b> um.</p>
   </div>
 </div>
+<h3>Bedienung</h3>
+<p><b>TV-Fernbedienung (HDMI-CEC):</b> die Jukebox mit der Fernbedienung des Fernsehers bedienen – siehe Abschnitt
+      10. Dazu, wann der Fernseher an- und ausgeht: beim Start der Musik, wenn der Pi startet, nach einer Weile
+      ohne Musik – und ob die Jukebox ausgeht, wenn der Fernseher ausgeht (siehe Abschnitt 12).</p>
+<p><b>Display am Pi:</b> Art des Displays (kleines OLED oder 2,8″ mit Touch), Touch einrichten, Bild drehen, nach
+      wie vielen Minuten es dunkel wird – siehe Abschnitt 11.</p>
 
 <h2 id="einstellungen">8 · Einstellungen – Tab ⚙</h2>
 <div class="shots">
   <figure class="phone"><img src="bilder/web_einstellungen.png" alt=""><figcaption>Abspielen: Wiedergabe und
     Zeitplan</figcaption></figure>
   <div class="side">
-    <h3 style="margin-top:0">Abspielen</h3>
+    <p style="margin-top:0">Drei Gruppen: <b>Abspielen</b> (Wiedergabe, Zeitplan, Songlängen, Daten der PC-Jukebox), <b>Netzwerk des Pi</b>
+  (WLAN, Party-Modus) und <b>System</b> (Sprache, Web-Passwort, Ausschalten und Steckdose, Sicherung, Updates).</p>
+    <h3>Abspielen</h3>
     <table>
       <tr><th style="width:42%">Einstellung</th><th>Wirkung</th></tr>
       <tr><td>Nächster Titel ohne bekannte Länge nach … Minuten</td><td>Zeitlimit (Standard 5, 0 = nie)</td></tr>
@@ -288,12 +339,24 @@
     <ul>
       <li><b>Zeitplan:</b> zu festen Zeiten eine Liste abspielen oder stoppen, z. B. werktags 18:00 „Feierabend“ – auf
         Wunsch mit Fernseher ein/aus.</li>
-      <li><b>Songlängen:</b> HVSC-Datei hochladen oder entfernen, eigene Längen herunterladen; STIL entfernen.</li>
+      <li><b>Songlängen:</b> HVSC-Datei hochladen oder entfernen, eigene Längen herunterladen, <b>Titel für die Suche
+        einlesen</b> (für 🔍 HVSC); STIL entfernen.</li>
       <li><b>Daten der PC-Jukebox übernehmen:</b> Zähler, Favoriten und eigene Längen aus der PC-Jukebox.</li>
       <li><b>WLAN und Netzwerk:</b> WLAN wählen (für den Pi ohne Kabel), eigenes WLAN des Pi;
         <b>Party-Modus</b> für unterwegs ohne Router.</li>
+    </ul>
+  </div>
+</div>
+<div class="shots">
+  <figure class="phone"><img src="bilder/web_sprache.png" alt=""><figcaption>Karte „Sprache / Language“</figcaption></figure>
+  <div class="side">
+    <h3 style="margin-top:0">System</h3>
+    <ul>
+      <li><b>Sprache / Language:</b> Deutsch oder Englisch – für Seite, Menü am Fernseher, Displays und Handbuch.</li>
       <li><b>Web-Passwort</b> ändern; <b>Sicherung</b> herunterladen und einspielen (alle Einstellungen, Quellen,
-        Listen und eigenen Längen in einer Datei).</li>
+        Listen, eigenen Längen und die Sperrliste in einer Datei).</li>
+      <li><b>Ausschalten und Steckdose:</b> Jukebox ausschalten, smarte Steckdose einrichten – siehe Abschnitt 12.</li>
+      <li><b>Updates:</b> einmal am Tag nachsehen (an/aus), <b>Jetzt prüfen</b>, <b>Installieren</b>.</li>
     </ul>
   </div>
 </div>
@@ -323,7 +386,10 @@
   nicht zusammen mit dem Hintergrund „Bild des C64“.</div>
 
 <h2 id="fernbedienung">10 · Fernbedienung und Menü am Fernseher</h2>
-<p><b>Einschalten:</b> Tab 📺, Karte <b>TV-Fernbedienung (HDMI-CEC)</b>, Haken bei „Jukebox mit der Fernbedienung des
+<div class="shots">
+  <figure class="phone"><img src="bilder/web_cec.png" alt=""><figcaption>Karte „TV-Fernbedienung (HDMI-CEC)“ – dort auch, wann der Fernseher an- und ausgeht</figcaption></figure>
+  <div class="side">
+<p style="margin-top:0"><b>Einschalten:</b> Tab 📺, Karte <b>TV-Fernbedienung (HDMI-CEC)</b>, Haken bei „Jukebox mit der Fernbedienung des
   Fernsehers bedienen“. Am Fernseher muss CEC an sein (bei den Herstellern z. B. <i>Anynet+</i>, <i>SimpLink</i>,
   <i>Bravia Sync</i>, <i>VIERA Link</i>). Die meisten Fernseher schicken die Tasten nur an das Gerät, das sie gerade
   zeigen – also auf den Eingang des Pi umschalten (oder in der Karte <b>Fernseher jetzt auf den Pi umschalten</b>).</p>
@@ -337,51 +403,61 @@
   <tr><td>Programm <span class="k">+</span> <span class="k">−</span></td><td>nächstes / voriges Unterlied</td></tr>
   <tr><td><span class="k">OK</span> oder eine Menü-Taste</td><td>öffnet das <b>Menü am Fernseher</b></td></tr>
 </table>
+  </div>
+</div>
 <p><b>Im Menü:</b> <span class="k">↑</span> <span class="k">↓</span> wählen, <span class="k">OK</span> oder
   <span class="k">→</span> ausführen bzw. öffnen, <span class="k">Zurück</span> oder <span class="k">←</span> eine Ebene
   zurück (in der obersten: schließen). Nach 30 s ohne Taste schließt es von selbst. ▶, ■, ⏭ und ⏮ wirken auch bei
   offenem Menü.</p>
-<div class="grid2">
+<div class="grid">
   <figure><img src="bilder/tv_menu.png" alt=""><figcaption>Das Hauptmenü</figcaption></figure>
-  <figure><img src="bilder/tv_musik.png" alt=""><figcaption>Musik wählen: Quellen, Zusammenstellungen, gespeicherte Listen</figcaption></figure>
+  <figure><img src="bilder/tv_musik.png" alt=""><figcaption>Musik wählen: HVSC-Suche, Quellen, Zusammenstellungen, Listen</figcaption></figure>
   <figure><img src="bilder/tv_ordner.png" alt=""><figcaption>In einer Quelle durch die Ordner blättern</figcaption></figure>
+  <figure><img src="bilder/tv_suche.png" alt=""><figcaption>In der HVSC suchen mit der Tastatur am Bildschirm: Pfeile
+    wählen, OK tippt, Zurück löscht, „Fertig“ sucht</figcaption></figure>
   <figure><img src="bilder/tv_effekt.png" alt=""><figcaption>Effekt wählen (● = der laufende)</figcaption></figure>
+  <figure><img src="bilder/tv_ausschalten.png" alt=""><figcaption>Ausschalten: Fernseher, Jukebox, Ultimate</figcaption></figure>
 </div>
 <table>
-  <tr><th style="width:34%">Menüpunkt</th><th>Was er tut</th></tr>
-  <tr><td>Musik wählen</td><td>Quellen („Ordner: …“) zum Durchblättern – <i>Diesen Ordner abspielen</i>, <i>… mit allen
-    Unterordnern</i>, <i>Ordner hinten anhängen</i>, eine Datei spielt den Ordner ab ihr –, die Zusammenstellungen
-    (★ Favoriten, Meistgespielt, Nie gespielt, Zufällige aus der HVSC, Kurze Stücke, Stücke für 2 oder 3 SIDs) und
-    alle gespeicherten Listen (Abspielen, Hinten anhängen, Umbenennen, Löschen)</td></tr>
+  <tr><th style="width:30%">Menüpunkt</th><th>Was er tut</th></tr>
+  <tr><td>Musik wählen ›</td><td>ganz oben <i>In der HVSC suchen</i> (Wörter eintippen, „Fertig“ zeigt bis 200 Treffer,
+    <i>Alle … abspielen</i>), dann die Quellen („Ordner: …“) zum Durchblättern – <i>Diesen Ordner abspielen</i>,
+    <i>… mit allen Unterordnern</i>, <i>Ordner hinten anhängen</i>, eine Datei spielt den Ordner ab ihr –, die
+    Zusammenstellungen und alle gespeicherten Listen (Abspielen, Hinten anhängen, Umbenennen, Löschen)</td></tr>
   <tr><td>Ende hier merken / Erkannte Länge übernehmen / HVSC-Länge übernehmen</td><td>nur bei einem Titel ohne
     bekannte Länge: die Spielzeit bzw. die gefundene Länge wird seine Länge</td></tr>
+  <tr><td>Titel nicht mehr spielen</td><td>fragt nach, setzt den Titel auf die Sperrliste, dann kommt der nächste</td></tr>
   <tr><td>Zufall, Wiederholen</td><td>an/aus</td></tr>
-  <tr><td>Effekt, Effekte automatisch wechseln</td><td>Effekt wählen bzw. den Wechsel an/aus</td></tr>
-  <tr><td>Ton am Fernseher, Lautstärke am Fernseher</td><td>Ton über HDMI an/aus; jedes OK eine Stufe leiser (100 → 90 … 10 → 100)</td></tr>
-  <tr><td>Titel einblenden</td><td>die Angaben oben rechts an/aus</td></tr>
+  <tr><td>Effekt ›</td><td>Effekt wählen (schaltet den automatischen Wechsel aus)</td></tr>
+  <tr><td>Bild und Ton ›</td><td>Effekte automatisch wechseln, Titel einblenden, Ton am Fernseher, Ton über Kopfhörer
+    (mit gekoppelten Kopfhörern), Lautstärke am Fernseher (jedes OK eine Stufe leiser: 100 → 90 … 10 → 100)</td></tr>
+  <tr><td>Ultimate ›</td><td>welches spielt (● = aktiv), <i>Einschalten</i> / <i>Ausschalten</i>, <i>Im Netzwerk
+    suchen</i>, neue mit „+ Name“ eintragen</td></tr>
   <tr><td>Längen prüfen</td><td>sucht fehlende Längen in der HVSC; danach „… HVSC-Längen übernehmen“</td></tr>
-  <tr><td>Ultimate</td><td>welches spielt (● = aktiv), <i>Im Netzwerk suchen</i>, neue mit „+ Name“ eintragen</td></tr>
-  <tr><td>Ultimate einschalten / ausschalten</td><td>über das WLAN wecken bzw. ausschalten (fragt nach)</td></tr>
+  <tr><td>Nach Update sehen</td><td>fragt GitHub nach einer neuen Version; gibt es eine, heißt die Zeile <i>Update auf
+    … installieren</i> (fragt nach, die Jukebox startet dabei neu)</td></tr>
+  <tr><td>Sprache / Language</td><td>wechselt zwischen Deutsch und Englisch</td></tr>
+  <tr><td>Ausschalten ›</td><td><i>Fernseher ausschalten</i> (sofort), <i>Jukebox ausschalten</i> und <i>Ultimate
+    ausschalten</i> (fragen nach) – direkt nach dem Öffnen mit zweimal <span class="k">↑</span> erreichbar</td></tr>
+  <tr><td>Schließen</td><td>schließt das Menü</td></tr>
 </table>
-<div class="shots">
-  <figure style="width:90mm"><img src="bilder/tv_keyboard.png" alt=""><figcaption>Liste umbenennen mit der Tastatur am
-    Bildschirm: Pfeile wählen, OK tippt, Zurück löscht, „Fertig“ übernimmt</figcaption></figure>
-  <div class="side">
-    <p>Hinweise erscheinen dezent über der Spielzeit, z. B. „Fängt nach 1:35 von vorn an · OK: als Länge übernehmen“ –
-      <span class="k">OK</span> öffnet das Menü dann gleich am passenden Punkt, ein zweites OK übernimmt.</p>
-    <p>In der Karte <b>TV-Fernbedienung</b> lässt sich außerdem einstellen, dass der Fernseher beim Start der Musik
-      angeht und auf den Pi schaltet, und dass er ausgeht, wenn eine Weile nichts mehr läuft.</p>
-  </div>
-</div>
+<p>Hinweise erscheinen dezent über der Spielzeit, z. B. „Fängt nach 1:35 von vorn an · OK: als Länge übernehmen“ –
+  <span class="k">OK</span> öffnet das Menü dann gleich am passenden Punkt, ein zweites OK übernimmt.</p>
 
 <h2 id="touch">11 · Touch-Display am Pi</h2>
-<div class="grid">
-  <figure><img src="bilder/tft_play.png" alt=""><figcaption>Wiedergabe mit den Tasten ⏮ ■ ⏭</figcaption></figure>
+<div class="grid4">
+  <figure><img src="bilder/tft_play.png" alt=""><figcaption>Wiedergabe mit den Tasten ⏮ ■ ⏭ ⏻</figcaption></figure>
+  <figure><img src="bilder/tft_power.png" alt=""><figcaption>Taste ⏻: die Seite „Ein / Aus“</figcaption></figure>
   <figure><img src="bilder/tft_level.png" alt=""><figcaption>Pegel links/rechts, darunter die letzten 15 s</figcaption></figure>
   <figure><img src="bilder/tft_net.png" alt=""><figcaption>Netz: Adresse, WLAN, Verteiler, Ultimate</figcaption></figure>
 </div>
 <ul>
-  <li><b>Tasten:</b> ⏮ voriger Titel, ■ Stopp (bzw. ▶ Abspielen, wenn nichts läuft), ⏭ nächster Titel.</li>
+  <li><b>Tasten:</b> ⏮ voriger Titel, ■ Stopp (bzw. ▶ Abspielen, wenn nichts läuft), ⏭ nächster Titel, ⏻ Ein / Aus.
+    Eine gedrückte Taste blinkt kurz auf.</li>
+  <li><b>Ein / Aus:</b> <b>Fernseher an</b> und <b>Fernseher aus</b> (über HDMI-CEC; ist die TV-Fernbedienung
+    ausgeschaltet, sind beide dunkel), <b>Jukebox ausschalten</b> (rot – erst ein zweiter Tipp innerhalb von 5 s
+    schaltet aus, die Taste sagt dann „Nochmal tippen“) und <b>Zurück</b>. Oben rechts steht, ob der Fernseher an ist;
+    nach 30 s ohne Tipp geht es zurück zur Wiedergabe.</li>
   <li><b>Ein Tipp außerhalb der Tasten</b> wechselt für 30 s zur nächsten Seite: Wiedergabe → Pegel → Netz.</li>
   <li>Nach 10 Minuten ohne Wiedergabe wird es dunkel (einstellbar); <b>der erste Tipp weckt</b> nur, erst der zweite
     bedient.</li>
@@ -390,7 +466,44 @@
   <li>Im eigenen WLAN des Pi zeigt das Display Name, Passwort und Adresse groß.</li>
 </ul>
 
-<h2 id="hilfe" class="nb">12 · Kleine Hilfen</h2>
+<h2 id="einaus">12 · Ein- und ausschalten</h2>
+<div class="shots">
+  <figure class="phone"><img src="bilder/web_steckdose.png" alt=""><figcaption>Karte „Ausschalten und Steckdose“
+    (Einstellungen → System)</figcaption></figure>
+  <div class="side">
+    <h3 style="margin-top:0">Jukebox ausschalten</h3>
+    <p>Den Pi immer sauber herunterfahren – einfach den Strom wegnehmen kann die SD-Karte beschädigen. Das geht überall:</p>
+    <table>
+      <tr><th style="width:34%">Wo</th><th>Wie</th></tr>
+      <tr><td>Weboberfläche</td><td>Knopf ⏻ oben → <b>Jukebox ausschalten</b>, oder <i>Einstellungen → Ausschalten
+        und Steckdose</i></td></tr>
+      <tr><td>Fernseher</td><td>Menü → <b>Ausschalten</b> → <b>Jukebox ausschalten</b> (fragt nach)</td></tr>
+      <tr><td>Touch-Display</td><td>⏻ → <b>Jukebox ausschalten</b>, zweimal tippen</td></tr>
+    </table>
+    <h3>Mit smarter Steckdose</h3>
+    <p>Hängt der Pi an einer <b>Tuya-Steckdose</b> (App „Smart Life“ oder „Tuya Smart“), stellt er vor dem
+      Herunterfahren ihren Ausschalt-Timer: nach <i>Strom aus nach</i> Sekunden (Standard 30) geht der Strom aus.
+      Eingeschaltet wird über die App oder per Sprache, z. B. „Alexa, schalte Jukebox ein“ – der Pi startet, sobald
+      Strom da ist. Zum Einrichten <b>Geräte-ID</b> und <b>Lokaler Schlüssel</b> der Steckdose eintragen (woher, steht
+      im Handbuch) und <b>Prüfen</b> tippen.</p>
+    <h3>Zusammen mit dem Fernseher</h3>
+    <p>In der Karte <b>TV-Fernbedienung</b> (Tab 📺):</p>
+    <ul>
+      <li><b>Fernseher einschalten …, wenn der Pi startet:</b> der Fernseher geht an und zeigt den Pi (in den ersten
+        90 s nach dem Start).</li>
+      <li><b>Jukebox ausschalten, wenn der Fernseher ausgeht:</b> eine Minute nach dem Standby des Fernsehers fährt der
+        Pi herunter, mit Steckdose geht danach der Strom aus – nicht, solange Bluetooth-Kopfhörer verbunden sind.</li>
+      <li>Außerdem: Fernseher einschalten, wenn die Wiedergabe beginnt; ausschalten, wenn eine Weile nichts läuft.</li>
+    </ul>
+    <p>So genügt „Alexa, schalte Jukebox ein“ für Pi und Fernseher, und die Fernbedienung des Fernsehers schaltet
+      abends alles wieder aus.</p>
+    <h3>Ultimate</h3>
+    <p>Ein- und ausschalten über den Knopf ⏻ oben, im Tab „Geräte“ oder im Menü am Fernseher (<i>Ultimate</i> bzw.
+      <i>Ausschalten</i>).</p>
+  </div>
+</div>
+
+<h2 id="hilfe">13 · Kleine Hilfen</h2>
 <table>
   <tr><th style="width:36%">Was man sieht</th><th>Was hilft</th></tr>
   <tr><td><code>c64pi.local</code> geht nicht</td><td>IP-Adresse nehmen: QR-Code am Fernseher oder Display am Pi, sonst
@@ -399,12 +512,16 @@
     Pi umschalten“); CEC am Fernseher einschalten; Haken in der Karte „TV-Fernbedienung“ prüfen.</td></tr>
   <tr><td>Am Fernseher kein Ton, Effekte bewegen sich nicht</td><td>Der Ton kommt als Stream vom Ultimate: Ultimate
     eingeschaltet und mit seiner Ethernet-Adresse eingetragen? Im Ultimate die <i>Data Streams</i> erlaubt?</td></tr>
+  <tr><td>Kopfhörer werden nicht gefunden oder bleiben still</td><td>Kopfhörer beim Suchen und Koppeln im
+    Kopplungsmodus halten; der HDMI-Ausgang muss eingeschaltet sein; sonst <b>Verbinden</b> tippen.</td></tr>
   <tr><td>Titel laufen immer 5 Minuten</td><td>Länge unbekannt: HVSC-Songlängen laden (Tab Dateien), am Ende
     „Ende hier merken“ drücken oder die Vorschläge übernehmen.</td></tr>
   <tr><td>Bei einem Stereo-Stück fehlt eine Stimme</td><td>„SID-Adressen bei Bedarf umstellen“ einschalten; ⚠ in der
     Spalte „SIDs“ zeigt Stücke, die nicht zur Einstellung des Ultimate passen.</td></tr>
   <tr><td>SID-Stimmen: Hinweis statt Noten</td><td>„Debug Stream Mode“ am Ultimate einschalten; nicht zusammen mit dem
     Hintergrund „Bild des C64“.</td></tr>
+  <tr><td>Ein Stück kommt nicht mehr von selbst</td><td>Es steht vielleicht auf der Sperrliste: Tab „Listen“ →
+    <b>Gesperrte Titel</b> → <b>Wieder spielen</b>.</td></tr>
   <tr><td>Passwort vergessen</td><td>siehe Handbuch, Kapitel „Passwort vergessen“ (Zurücksetzen per SSH).</td></tr>
 </table>
 <p class="small">C64-Jukebox · Copyright © 2026 Sedor (der-sedor.de) · freie Software unter der GNU General Public

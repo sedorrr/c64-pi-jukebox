@@ -391,7 +391,8 @@ class Jukebox:
         root = smartlist.hvsc_root(self.config["songlengths"].get("hvsc"))
         src = self.config.source(root[0]) if root else None
         return {"hvsc": len(await self.hvsc_list()) if root else 0,
-                "root": "%s: %s" % (src.get("label", root[0]), root[1]) if root and src else "",
+                "root": ("%s: %s" % (src.get("label", root[0]), root[1]) if root[1].strip("/") else  # the folder itself
+                         src.get("label", root[0])) if root and src else "",
                 "presets": {k: tr(v) for k, v in smartlist.PRESETS.items()}, "favs": len(self.stats.fav)}
 
     async def smart_items(self, f):

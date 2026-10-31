@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>C64 Jukebox – Operation</title>
-<!-- Source of docs/Operation_Pi-Jukebox.pdf (English version of bedienung.html) - build with: .venv/bin/python tools/make_bedienung.py -->
+<!-- Source of docs/Operation_Pi-Jukebox.pdf (English version of bedienung.html) - pictures in bilder_en/ - build with: .venv/bin/python tools/make_bedienung.py [--shots] -->
 <style>
   @page { size: A4; }
   :root { --ink: #1d1b2e; --muted: #5d5a78; --accent: #4b3fb5; --soft: #efedfb; --line: #d6d3ec; }
@@ -36,7 +36,6 @@
   .toc { columns: 2; font-size: 10pt; margin-top: 10pt; }
   .toc a { color: var(--ink); text-decoration: none; }
   .small { font-size: 8.5pt; color: var(--muted); }
-  .de { font-style: italic; }
   .k { display: inline-block; min-width: 14pt; padding: 0 4pt; border: 1px solid var(--line); border-radius: 4px;
        background: #fff; text-align: center; font-weight: bold; }
 </style>
@@ -45,12 +44,12 @@
 
 <section class="cover">
   <h1>C64 Jukebox – Operation</h1>
-  <div class="sub">Operating the SID jukebox on the Raspberry Pi: from the web page (phone or PC) and on the TV with its
-    remote control</div>
-  <figure><img src="bilder/web_pc.png" alt=""><figcaption>The web page on the PC: current tune and playlist</figcaption></figure>
+  <div class="sub">Operating the SID jukebox on the Raspberry Pi: from the web page (phone or PC), on the TV with its
+    remote control and on the touch display</div>
+  <figure><img src="bilder_en/web_pc.png" alt=""><figcaption>The web page on the PC: current tune and play list</figcaption></figure>
   <div class="grid2" style="margin-top:8pt">
-    <figure><img src="bilder/tv_titlecard.png" alt=""><figcaption>On the TV: a style with the “now playing” card</figcaption></figure>
-    <figure><img src="bilder/tv_menu.png" alt=""><figcaption>The menu on the TV, worked with the TV's remote</figcaption></figure>
+    <figure><img src="bilder_en/tv_titlecard.png" alt=""><figcaption>On the TV: an effect with the “Now playing” card</figcaption></figure>
+    <figure><img src="bilder_en/tv_menu.png" alt=""><figcaption>The menu on the TV, worked with the TV's remote</figcaption></figure>
   </div>
   <div class="toc">
     <div>1 · <a href="#ways">Three ways to operate it</a></div>
@@ -64,27 +63,27 @@
     <div>9 · <a href="#tv">On the TV</a></div>
     <div>10 · <a href="#remote">Remote control and menu</a></div>
     <div>11 · <a href="#touch">Touch display on the Pi</a></div>
-    <div>12 · <a href="#help">Quick help</a></div>
+    <div>12 · <a href="#power">Switching on and off</a></div>
+    <div>13 · <a href="#help">Quick help</a></div>
   </div>
-  <p class="small" style="margin-top:12pt">This guide shows how to operate the jukebox. Installation, hardware and all
-    details are in its manual (German) – in the web page under the tab <b>Hilfe</b> (every round <b>?</b> button jumps to
-    the right place) and as <code>docs/HANDBUCH.md</code>. <b>The web page and the TV menu are in German</b>; buttons and
-    menu items are quoted here as they appear, in <span class="de">italics</span> with a translation. The pictures show
-    sample data.</p>
+  <p class="small" style="margin-top:12pt">This guide shows how to operate the jukebox (version 1.22). Installation,
+    hardware and all details are in its manual – in the web page under the tab <b>Help</b> (every round <b>?</b> button
+    jumps to the right place) and as <code>docs/MANUAL.md</code>. The pictures show sample data.</p>
 </section>
 
 <h2 id="ways">1 · Three ways to operate it</h2>
 <table>
   <tr><th style="width:24%">With</th><th>What you can do</th><th style="width:28%">Requirement</th></tr>
   <tr><td><b>Web page</b><br><span class="small">phone, tablet, PC</span></td>
-    <td><b>Everything:</b> choose and play music, lists, settings, TV, Ultimates, Picos.</td>
+    <td><b>Everything:</b> choose and play music, lists, settings, TV, Ultimates, Picos, on/off.</td>
     <td>browser in the same network, address <b>http://c64pi.local/</b></td></tr>
   <tr><td><b>The TV's remote control</b></td>
-    <td>Play, stop, change tune and sub-tune, change the style – and through the <b>menu on the TV</b> choose music,
-      shuffle, lengths, choose the Ultimate, switch it on/off.</td>
+    <td>Play, stop, change tune and sub-tune, change the effect – and through the <b>menu on the TV</b> choose music
+      and search the HVSC, shuffle, picture and sound, Ultimate, update, language, switch off.</td>
     <td>Pi on an HDMI input, HDMI-CEC switched on at the TV</td></tr>
   <tr><td><b>Touch display on the Pi</b><br><span class="small">2.8″, optional</span></td>
-    <td>Shows tune, levels and network; buttons ⏮ ■ ⏭.</td><td>display connected</td></tr>
+    <td>Shows tune, levels and network; buttons ⏮ ■ ⏭ and ⏻ (TV on/off, switch off the jukebox).</td>
+    <td>display connected</td></tr>
 </table>
 <div class="box"><b>How to get to the web page:</b>
   <ol style="margin-top:4pt">
@@ -92,59 +91,80 @@
       IP address – it is shown on the TV next to the <b>QR code</b> (just scan it with the phone's camera) and on the
       Pi's display.</li>
     <li>Log in with the web password (factory setting <code>commodore64</code> – a yellow bar reminds you to change it
-      under <span class="de">Einstellungen → Web-Passwort</span>).</li>
-    <li>Tip for the phone: <b>“Add to Home Screen”</b> in the browser menu – the jukebox then opens like an app.</li>
+      under <i>Settings → Web password</i>).</li>
+    <li><b>As an app on the phone:</b> on an iPhone in Safari <i>Share → Add to Home Screen</i>, on an Android phone in
+      Chrome <i>⋮ → Add to Home screen</i>. The jukebox gets an icon of its own (the note) and opens without an address
+      bar like an app – no app store needed.</li>
   </ol></div>
 <p>The jukebox keeps playing on its own, even when no page is open. All open pages show the same state – start on the
   phone and carry on at the PC.</p>
+<p><b>English or German:</b> on the first visit the jukebox takes the browser's language. To change it, use
+  <i>Settings → System → Sprache / Language</i> or <b>Sprache / Language</b> in the TV menu; the language applies to
+  the page, the TV menu, the displays and the manual.</p>
 
-<h2 id="web" class="nb">2 · The web page</h2>
-<p>At the very top is always the <b>current tune</b>. Below are the tabs – on the phone partly as symbols:</p>
-<table>
-  <tr><th style="width:24%">Tab</th><th style="width:10%">Phone</th><th>Content</th></tr>
-  <tr><td><span class="de">Wiedergabe</span> (playback)</td><td>▶</td><td>current tune, buttons, sub-tune, shuffle, playlist</td></tr>
-  <tr><td><span class="de">Dateien</span> (files)</td><td>Dateien</td><td>sources (NAS, FTP, USB sticks), folders, filter, search, play</td></tr>
-  <tr><td><span class="de">Listen</span> (lists)</td><td>Listen</td><td>saved playlists, ready-made compilations, “recently played”, statistics</td></tr>
-  <tr><td><span class="de">Geräte</span> (devices)</td><td>Geräte</td><td>Ultimates (which one plays, on/off), Picos and stream distributor, devices in the network</td></tr>
-  <tr><td><span class="de">Anzeige</span> (display)</td><td>📺</td><td>TV (styles, background, sound, retro news, remote control) and the Pi's display</td></tr>
-  <tr><td><span class="de">Einstellungen</span> (settings)</td><td>⚙</td><td>playback, timer, song lengths, the Pi's network, password, backup</td></tr>
-  <tr><td><span class="de">Hilfe</span> (help)</td><td>?</td><td>the manual</td></tr>
-</table>
-<p>Short messages (“Gespeichert” – saved, “Commando – spielt” – playing) appear at the bottom for a few seconds. The round
-  <b>?</b> buttons on the cards open the manual at the right place.</p>
-
-<h2 id="files">3 · Choosing music – tab <span class="de">Dateien</span></h2>
+<h2 id="web">2 · The web page</h2>
 <div class="shots">
-  <figure class="phone"><img src="bilder/web_dateien.png" alt=""><figcaption>Sources at the top, below the open folder
+  <figure class="phone"><img src="bilder_en/web_power.png" alt=""><figcaption>The ⏻ button at the top right opens
+    “On / Off” – from every tab</figcaption></figure>
+  <div class="side">
+    <p style="margin-top:0">At the very top is always the <b>current tune</b>, with the <b>⏻</b> button to the right of
+      it: <b>Switch TV on</b> / <b>off</b> (over HDMI-CEC), switch the selected <b>Ultimate</b> on and off, and
+      <b>Switch off jukebox</b> (see section 12). Below are the tabs – on the phone partly as symbols:</p>
+    <table>
+      <tr><th style="width:24%">Tab</th><th style="width:12%">Phone</th><th>Content</th></tr>
+      <tr><td>Player</td><td>▶</td><td>current tune, buttons, sub-tune, shuffle, play list</td></tr>
+      <tr><td>Files</td><td>Files</td><td>sources (NAS, FTP, USB sticks), folders, filter, search (also in the whole HVSC)</td></tr>
+      <tr><td>Lists</td><td>Lists</td><td>saved play lists, built lists, “Recently played”, statistics, blocked tunes</td></tr>
+      <tr><td>Devices</td><td>Devices</td><td>Ultimates (which one plays, on/off), Picos and stream distributor, devices on the network</td></tr>
+      <tr><td>Display</td><td>📺</td><td><i>Picture on the TV</i> · <i>Sound</i> (also Bluetooth headphones) · <i>Controls</i>
+        (TV remote, display on the Pi)</td></tr>
+      <tr><td>Settings</td><td>⚙</td><td><i>Playback</i> · <i>The Pi's network</i> · <i>System</i> (language, password,
+        switching off, backup, updates)</td></tr>
+      <tr><td>Help</td><td>?</td><td>the manual</td></tr>
+    </table>
+    <figure style="width:78%"><img src="bilder_en/web_update.png" alt=""><figcaption>A new version on GitHub: a blue notice with
+      <b>Install</b> (✕ hides it for this version)</figcaption></figure>
+    <p style="margin-top:6pt"><b>Updates:</b> once a day the jukebox looks for a new version on GitHub. It installs only
+      when you say so – with <b>Install</b> in the notice, under <i>Settings → System → Updates</i> or in the TV menu
+      (<b>Check for update</b>). This takes a few minutes; settings, lists and song lengths are kept, and if something
+      goes wrong the old program comes back.</p>
+    <p>Short messages (“Saved”, “Commando – playing”) appear at the bottom for a few seconds.</p>
+  </div>
+</div>
+
+<h2 id="files">3 · Choosing music – tab “Files”</h2>
+<div class="shots">
+  <figure class="phone"><img src="bilder_en/web_dateien.png" alt=""><figcaption>Sources at the top, below the open folder
     with title, composer, year and sub-tunes</figcaption></figure>
   <div class="side">
     <ul>
       <li><b>Sources</b> are tiles at the top: a network share (NAS, Windows, Mac), an FTP server, the USB stick on the
-        Ultimate or a USB stick on the Pi. Tap to open, <b>✎</b> edits, <b>+ Quelle</b> (add source) sets up a new one
-        (with a network search). The jukebox remembers the last folder of each source.</li>
+        Ultimate or a USB stick on the Pi. Tap to open, <b>✎</b> edits, <b>+ Source</b> sets up a new one (with
+        “Search the network”). The jukebox remembers the last folder of each source.</li>
       <li>Tap a <b>folder</b> to open it; the path line above leads back with one tap.</li>
       <li><b>Tap a SID</b> (or ▶) to play it – and after it the other files of the folder. The current list is replaced.</li>
       <li><b>+</b> appends a file to the list without interrupting playback.</li>
-      <li><b>▶ <span class="de">Ordner abspielen</span></b> (play folder) takes all SIDs of the folder – with
-        <span class="de">mit Unterordnern</span> (with subfolders) from all subfolders too, with
-        <span class="de">Zufall</span> (shuffle) mixed. <b>+ Liste</b> appends them instead.</li>
+      <li><b>▶ Play folder</b> takes all SIDs of the folder – <b>with subfolders</b> from all subfolders too, with
+        <b>Shuffle</b> mixed. <b>+ List</b> appends them instead.</li>
       <li><b>Filter field:</b> works on the open folder at once (file name, title, composer, year; several words must all
         match, e.g. <code>hubbard 1986</code>).</li>
-      <li><b>🔍 <span class="de">Unterordner</span></b> searches the word in <b>all subfolders</b> (up to 500 hits);
-        “play folder” then plays the hits, ✕ in the path line leads back.</li>
+      <li><b>🔍 Subfolders</b> searches the word in <b>all subfolders</b> (up to 500 hits); “Play folder” then plays the
+        hits, ✕ in the path line leads back.</li>
+      <li><b>🔍 HVSC</b> searches the <b>whole HVSC</b> at once, without reading folders (as soon as the HVSC song lengths
+        are loaded). It finds title and composer from the files once <i>Settings → Song lengths → Read titles for the
+        search</i> has run.</li>
       <li>Yellow <b>2 SIDs</b> / <b>3 SIDs</b> marks stereo tunes.</li>
-      <li><b>Song lengths and STIL:</b> in the HVSC folder <code>C64Music/DOCUMENTS</code> tap <span class="de">als
-        HVSC-Längen laden</span> (load as HVSC lengths) at <code>Songlengths.md5</code> and <span class="de">als STIL
-        laden</span> at <code>STIL.txt</code>. The jukebox then changes exactly at the end of a tune and shows background
-        notes on the tunes.</li>
+      <li><b>Song lengths and STIL:</b> in the HVSC folder <code>C64Music/DOCUMENTS</code> tap <b>load as HVSC
+        lengths</b> at <code>Songlengths.md5</code> and <b>load as STIL</b> at <code>STIL.txt</code>. The jukebox then
+        changes exactly at the end of a tune and shows background notes on the tunes.</li>
     </ul>
   </div>
 </div>
 
 <h2 id="play">4 · Playback and the list – tab ▶</h2>
 <div class="shots">
-  <figure class="phone"><img src="bilder/web_wiedergabe.png" alt=""><figcaption>Current tune, buttons and the playlist
-    below (on the phone)</figcaption></figure>
+  <figure class="phone"><img src="bilder_en/web_wiedergabe.png" alt=""><figcaption>Current tune, buttons and the play
+    list below (on the phone)</figcaption></figure>
   <div class="side">
     <table>
       <tr><th style="width:30%">Button</th><th>Effect</th></tr>
@@ -152,180 +172,207 @@
       <tr><td>▶ / ❚❚</td><td>play or pause (the Ultimate is paused) and resume</td></tr>
       <tr><td>⏹</td><td>stop – the Ultimate is reset</td></tr>
       <tr><td>⏭</td><td>next tune</td></tr>
-      <tr><td>‹ Lied 1 von 3 ›</td><td>another sub-tune of the current tune</td></tr>
-      <tr><td><span class="de">Zufall</span></td><td>shuffle; tunes played less often come up sooner</td></tr>
-      <tr><td><span class="de">Liste wiederholen</span></td><td>repeat the list, otherwise the jukebox stops at its end</td></tr>
+      <tr><td>‹ Song 1 of 3 ›</td><td>another sub-tune of the current tune</td></tr>
+      <tr><td>Shuffle</td><td>mixes the order; tunes played less often come up sooner</td></tr>
+      <tr><td>Repeat list</td><td>start again at the end, otherwise the jukebox stops</td></tr>
       <tr><td>Ultimate</td><td>with several Ultimates: which one plays</td></tr>
     </table>
     <ul>
       <li><b>Progress bar:</b> with a known length to the end, otherwise to the time limit (“max. 5:00”).</li>
-      <li><b>⚑ <span class="de">Ende hier merken</span></b> (remember the end here) appears while a tune without a known
-        length plays: press it at the end of the tune – the playing time becomes its length, and from then on it plays
-        exactly that long.</li>
-      <li><b>Suggestions:</b> if the jukebox finds out by itself where a tune starts over (“Fängt nach 1:35 von vorn an”),
-        or finds the same tune in the HVSC, it shows <span class="de">Übernehmen</span> (accept) / <span class="de">Nein</span>.</li>
-      <li>Below the title: the SID chips, the STIL notes and, if needed, a SID socket change (“Sockel 2 für dieses Stück
-        auf $D420”).</li>
+      <li><b>⚑ Mark end here</b> appears while a tune without a known length plays: press it at the end of the tune –
+        the playing time becomes its length, and from then on it plays exactly that long.</li>
+      <li><b>⊘ Never play again</b> skips to the next tune and puts the current one on the block list (see section 5).</li>
+      <li><b>Suggestions:</b> if the jukebox finds out by itself where a tune starts again, or finds the same tune in the
+        HVSC, it offers to use that length (accept or <b>No</b>).</li>
+      <li>Below the title: the SID chips, the STIL notes and, if needed, a SID socket change (“socket 2 at $D420 for this
+        tune”).</li>
     </ul>
   </div>
 </div>
-<h3>The playlist</h3>
-<figure><img src="bilder/web_pc.png" alt=""><figcaption>On the PC the list shows all columns: file name, title, composer,
+<h3>The play list</h3>
+<figure><img src="bilder_en/web_pc.png" alt=""><figcaption>On the PC the list shows all columns: file name, title, composer,
   sub-tune, SIDs, length, times played, favourite. The current tune is yellow, a green ▸ marks the next one.</figcaption></figure>
 <div class="grid2">
   <ul>
     <li><b>Play:</b> double-tap or double-click (on the PC also Enter).</li>
     <li><b>Select:</b> tap; on the PC with Ctrl/⌘ several, with Shift a range.</li>
-    <li><b>⋯</b> at a tune (or right-click): play, play next, choose sub-tune, own length, favourite, show in the files
-      tab, remove from the list.</li>
-    <li><b><span class="de">Als Nächstes</span></b> (next) puts the selected tunes right after the current one;
-      <b><span class="de">Entfernen</span></b> removes them.</li>
+    <li><b>⋯</b> at a tune (or right-click): play, play next, choose sub-tune, own length, favourite, never play again,
+      show in the Files tab, remove from the list.</li>
+    <li><b>Play next</b> puts the selected tunes right after the current one; <b>Remove</b> takes them out.</li>
     <li>Tap <b>★</b> to make a tune a favourite; the ★ tick above the list shows favourites only.</li>
   </ul>
   <ul>
     <li><b>Sort:</b> tap a column header; on the PC drag rows with the mouse.</li>
     <li><b>Search:</b> the field above the list searches file name, title and composer.</li>
     <li><b>Lengths</b> in the column: <code>3:05</code> from the HVSC, <code>3:05*</code> own, <code>(5:00)</code> grey =
-      unknown (the time limit applies). <b><span class="de">Längen prüfen</span></b> (check lengths) looks for missing
-      lengths in the HVSC.</li>
-    <li><b><span class="de">Speichern …</span></b> saves the list under a name (see tab “Listen”).</li>
-    <li><b><span class="de">Mehr</span> ▾</b> (more): import/export a playlist of the PC jukebox,
-      <span class="de">Entdecken</span> (discover a rarely played tune), <span class="de">Stopp nach …</span> (stop after
-      a number of tunes or minutes), select all, clear the list.</li>
+      unknown (the time limit applies). <b>Check lengths</b> looks for missing lengths in the HVSC.</li>
+    <li><b>Save …</b> stores the list under a name (see tab “Lists”).</li>
+    <li><b>More ▾:</b> import/export a play list of the PC jukebox, <b>Discover</b> (a rarely played tune),
+      <b>Stop after …</b> (tunes or minutes), select all, clear the list.</li>
     <li><b>Keys on the PC:</b> <span class="k">Space</span> play/pause, <span class="k">←</span>
       <span class="k">→</span> previous/next tune.</li>
   </ul>
 </div>
 
-<h2 id="lists">5 · Lists – tab <span class="de">Listen</span></h2>
+<h2 id="lists">5 · Lists – tab “Lists”</h2>
 <div class="shots">
-  <figure class="phone"><img src="bilder/web_listen.png" alt=""><figcaption>Saved lists, compilations and “recently
-    played”</figcaption></figure>
+  <figure class="phone"><img src="bilder_en/web_listen.png" alt=""><figcaption>Saved play lists, built lists and
+    “Recently played”</figcaption></figure>
   <div class="side">
-    <h3 style="margin-top:0">Saved playlists</h3>
-    <p><b>▶ <span class="de">Laden</span></b> (load) replaces the current list and plays it, <b>+</b> appends it,
-      <b>↗</b> exports it for the PC jukebox, <b>✎</b> renames, <b>🗑</b> deletes. Lists are saved in the tab ▶ with
-      <span class="de">Speichern …</span>.</p>
-    <h3>Ready-made compilations</h3>
-    <p>One tap plays at once: <b>★ Favoriten</b> (favourites), <b>Meistgespielt</b> (most played), <b>Nie gespielt</b>
-      (never played), <b>Zufällige aus der HVSC</b> (random from the HVSC), <b>Kurze Stücke</b> (short tunes),
-      <b>Stücke für 2 oder 3 SIDs</b> (tunes for 2 or 3 SIDs). Under <span class="de">Eigene Auswahl aus der HVSC</span>
-      (own selection) you can choose by area (musicians, games, demos), composer, length, number of SIDs, STIL notes and
-      “never played”. This needs the HVSC song lengths loaded from a source.</p>
+    <h3 style="margin-top:0">Saved play lists</h3>
+    <p><b>▶ Load</b> replaces the current list and plays it, <b>+</b> appends it, <b>↗</b> exports it for the PC
+      jukebox, <b>✎</b> renames, <b>🗑</b> deletes. Lists are saved in the tab ▶ with <b>Save …</b>.</p>
+    <h3>Build lists</h3>
+    <p>One tap plays at once: <b>★ Favourites</b>, <b>Most played</b>, <b>Never played</b>, <b>Random from the
+      HVSC</b>, <b>Short tunes</b>, <b>Tunes for 2 or 3 SIDs</b>. Under <b>Own selection from the HVSC</b> you can choose
+      by area (musicians, games, demos), composer, length, number of SIDs, STIL notes and “never played”. This needs the
+      HVSC song lengths loaded from a source.</p>
     <h3>Recently played</h3>
-    <p>The last 100 tunes with the time, newest first. <b>▶</b> plays one next, <b>+</b> appends it,
-      <span class="de">Als Wiedergabeliste übernehmen</span> turns the history into a new list,
-      <span class="de">Verlauf löschen</span> clears it.</p>
+    <p>The last 100 tunes with the time, newest first. <b>▶</b> plays one next, <b>+</b> appends it, <b>Use as play
+      list</b> turns the history into a new list, <b>Clear history</b> empties it.</p>
     <h3>Statistics</h3>
     <p>How often what was played – counts and favourites belong to the file, also in other lists.</p>
+    <h3>Blocked tunes</h3>
+    <p>Tunes blocked with <b>⊘ Never play again</b> (tab ▶, the ⋯ menu of a row or the TV menu). The jukebox skips them
+      when moving on, with shuffle, “Discover” and in the built lists; in the play list they are crossed out. Chosen by
+      hand they play anyway. <b>Play again</b> lifts the block.</p>
   </div>
 </div>
 
-<h2 id="devices" class="nb">6 · Devices – tab <span class="de">Geräte</span></h2>
+<h2 id="devices" class="nb">6 · Devices – tab “Devices”</h2>
 <div class="shots">
-  <figure class="phone"><img src="bilder/web_ultimates.png" alt=""><figcaption>Card “Ultimates”</figcaption></figure>
+  <figure class="phone"><img src="bilder_en/web_ultimates.png" alt=""><figcaption>Card “Ultimates”</figcaption></figure>
   <div class="side">
     <ul>
-      <li><b>Ultimates:</b> name and <b>Ethernet address</b> of each Ultimate (<span class="de">Im Netz suchen</span> –
-        search the network – finds them), the network password if set. <span class="de">aktiv</span> (active) = this one
-        plays. Don't forget <span class="de">Speichern</span> (save).</li>
-      <li><b>⏻ <span class="de">Ein / Aus</span></b> (on/off): <i>Aus</i> stops playback and switches the Ultimate off,
-        <i>Ein</i> wakes it over its WLAN (Ultimate 64-II). The jukebox learns the WLAN MAC for this itself.</li>
+      <li><b>Ultimates:</b> name and <b>Ethernet address</b> of each Ultimate (<b>Search the network</b> finds them), the
+        network password if set. <b>active</b> = this one plays. Don't forget <b>Save</b>.</li>
+      <li><b>⏻ On / Off:</b> <b>Off</b> stops playback and switches the Ultimate off, <b>On</b> wakes it over its Wi-Fi
+        (Ultimate 64-II). The jukebox learns the Wi-Fi MAC for this itself. The ⏻ button at the top of every page does
+        the same.</li>
       <li><b>Picos and stream distributor:</b> the Pi passes the Ultimate's sound on to visualizers and audio receivers
         and sends them titles and retro news – setup see the guide to the C64 ecosystem.</li>
-      <li><b>Devices in the network:</b> all Picos and the Pi with the way of the sound;
-        <span class="de">als Pico eintragen</span> (add as Pico) adds a device to the distributor's list.</li>
+      <li><b>Devices on the network:</b> all Picos and the Pi with the way of the sound; <b>add as Pico</b> adds a
+        device to the distributor's list.</li>
     </ul>
   </div>
 </div>
 
 <h2 id="show">7 · Display: TV and screen – tab 📺</h2>
+<p>The tab has three groups: <b>Picture on the TV</b> (HDMI, background, retro news), <b>Sound</b> (sound on the TV,
+  Bluetooth headphones) and <b>Controls</b> (TV remote, display on the Pi).</p>
 <div class="shots">
-  <figure class="phone"><img src="bilder/web_fernseher.png" alt=""><figcaption>Card “Fernseher (HDMI)”</figcaption></figure>
+  <figure class="phone"><img src="bilder_en/web_fernseher.png" alt=""><figcaption>Card “TV (HDMI)”</figcaption></figure>
   <div class="side">
-    <h3 style="margin-top:0">TV (HDMI)</h3>
+    <h3 style="margin-top:0">Picture on the TV</h3>
     <ul>
-      <li><span class="de">Bild am HDMI-Ausgang des Pi zeigen</span> (show a picture on the Pi's HDMI output) switches
-        the output on. Every change applies at once – you see on the TV right away how a style looks.</li>
-      <li><b><span class="de">Effekt</span></b> (style): one of 17 (as in the PC jukebox) or “background only”.</li>
+      <li><b>Show a picture on the Pi's HDMI output</b> switches the output on. Every change applies at once – you see on
+        the TV right away how an effect looks.</li>
+      <li><b>Effect</b>: one of 17 (as in the PC jukebox) or “background only”.</li>
       <li><b>Overlays:</b> title, SID chips and playing time; STIL notes at the bottom left; a QR code when nothing plays;
-        the big <b>“now playing” card</b> for every new tune (duration adjustable).</li>
-      <li><b>Hide styles</b> when no music plays (after 20 s).</li>
-      <li><b>Change style automatically:</b> tick styles and <span class="de">während der Wiedergabe wechseln</span> –
-        a different one every 180 s.</li>
+        the big <b>“Now playing” card</b> for every new tune (duration adjustable).</li>
+      <li><b>Hide effects</b> when no music plays (after 20 s).</li>
+      <li><b>Change effect automatically:</b> tick effects and <b>change during playback</b> – a different one every
+        180 s.</li>
     </ul>
-    <figure><img src="bilder/web_hintergrund.png" alt=""><figcaption>Card “Hintergrund am Fernseher” (background on the TV)</figcaption></figure>
+    <figure style="width:85%"><img src="bilder_en/web_hintergrund.png" alt=""><figcaption>Card “Background on the TV”</figcaption></figure>
     <p style="margin-top:6pt"><b>Background:</b> none, <b>pictures</b> (slide show: upload them or choose a folder of a
-      source, e.g. on the NAS; change every 20 s with cross-fade) or the <b>C64's picture</b> live from the Ultimate.
-      “Brightness of the background” dims it.</p>
+      source, e.g. on the NAS; change every 20 s with cross-fade) or the <b>C64 picture</b> live from the Ultimate.
+      “Background brightness” dims it.</p>
+    <p><b>Retro news on the TV:</b> headlines from retro pages (Indie Retro News, amiga-news.de, Commodore News …)
+      <b>when idle</b> as a big card, <b>as a ticker</b> at the bottom during the music. Every source can be switched on
+      and off, own feeds with <b>+ Source</b>.</p>
   </div>
 </div>
 <div class="shots">
-  <figure class="phone"><img src="bilder/web_tvton.png" alt=""><figcaption>Card “Ton am Fernseher” (sound on the TV)</figcaption></figure>
+  <figure class="phone"><img src="bilder_en/web_tvton.png" alt=""><figcaption>Card “Sound on the TV”</figcaption></figure>
   <div class="side">
     <h3 style="margin-top:0">Sound on the TV</h3>
-    <p><span class="de">Ton über HDMI zum Fernseher</span> plays the Ultimate's sound through the TV.
-      <b>Volume</b> (0–100 %) makes it quieter without looking for the remote. With <span class="de">am Titelende aus-,
-      beim nächsten einblenden</span> the tunes fade into each other (only on the TV; the Ultimate itself plays
-      unchanged). If a stereo is connected to the Ultimate as well, turn up only one of them – the TV is about 0.2 s
-      later.</p>
-    <h3>Retro news on the TV</h3>
-    <p>Headlines from retro pages (Indie Retro News, amiga-news.de, Commodore News …): <b>in idle mode</b> as a big card,
-      <b>as a ticker</b> at the bottom during the music. Every source can be switched on and off, own feeds with
-      <b>+ Quelle</b>.</p>
-    <figure><img src="bilder/web_cec.png" alt=""><figcaption>Card “TV-Fernbedienung (HDMI-CEC)” – see section 10</figcaption></figure>
-    <h3>Display on the Pi</h3>
-    <p>Type of display (small OLED or 2.8″ with touch), set up touch, rotate the picture, after how many minutes it goes
-      dark – see section 11.</p>
+    <p><b>Sound over HDMI to the TV</b> plays the Ultimate's sound through the TV. <b>Volume</b> (0–100 %) makes it
+      quieter without looking for the remote. With <b>fade out at the end of a tune, in at the next</b> the tunes blend
+      gently (only on the TV; the Ultimate itself plays unchanged). If a hi-fi is connected to the Ultimate as well,
+      turn up only one of them – the TV is about 0.2 s later.</p>
+    <h3>Bluetooth headphones</h3>
+    <p>Instead of the TV, the sound can also play through Bluetooth headphones (or a Bluetooth speaker):</p>
+    <ol>
+      <li>Put the headphones into <b>pairing mode</b> (usually hold the power button for a few seconds).</li>
+      <li>Tap <b>Search for headphones</b>, then <b>Pair</b> at the device found.</li>
+      <li>From then on the sound goes to the headphones as soon as they are connected, and back to the TV when you switch
+        them off. Headphones that are switched on reconnect by themselves.</li>
+    </ol>
+    <figure style="width:72%"><img src="bilder_en/web_bluetooth.png" alt=""><figcaption>Card “Bluetooth headphones” with paired,
+      connected headphones</figcaption></figure>
+    <p class="small" style="margin-top:4pt">The HDMI output must be switched on for this. Volume and fading apply to the
+      headphones too; on the TV, <b>Picture and sound → Sound via headphones</b> switches over.</p>
   </div>
 </div>
+<h3>Controls</h3>
+<p><b>TV remote control (HDMI-CEC):</b> operate the jukebox with the TV's remote – see section 10. Also when the TV
+      switches on and off: when the music starts, when the Pi starts, after a while without music – and whether the
+      jukebox switches off when the TV goes off (see section 12).</p>
+<p><b>Display on the Pi:</b> type of display (small OLED or 2.8″ with touch), set up touch, rotate the picture,
+      after how many minutes it goes dark – see section 11.</p>
 
 <h2 id="settings">8 · Settings – tab ⚙</h2>
 <div class="shots">
-  <figure class="phone"><img src="bilder/web_einstellungen.png" alt=""><figcaption>Playing: playback and timer</figcaption></figure>
+  <figure class="phone"><img src="bilder_en/web_einstellungen.png" alt=""><figcaption>Playback: settings and
+    schedule</figcaption></figure>
   <div class="side">
-    <h3 style="margin-top:0">Playing</h3>
+    <p style="margin-top:0">Three groups: <b>Playback</b> (playback, schedule, song lengths, data from the PC jukebox), <b>The Pi's network</b>
+  (Wi-Fi, party mode) and <b>System</b> (language, web password, switching off and smart plug, backup, updates).</p>
+    <h3>Playback</h3>
     <table>
       <tr><th style="width:42%">Setting</th><th>Effect</th></tr>
       <tr><td>Next tune without a known length after … minutes</td><td>time limit (default 5, 0 = never)</td></tr>
       <tr><td>or after … s of silence</td><td>moves on when a tune ends and goes silent (needs the stream)</td></tr>
-      <tr><td>Detect repeats</td><td>suggests a length when a tune starts over – <i>suggest</i>, <i>automatic</i> or <i>off</i></td></tr>
-      <tr><td>Find the same tune by name in the HVSC</td><td>take the length of another version of the same music</td></tr>
-      <tr><td>Sub-tunes</td><td><i>only the start tune</i> or <i>all one after the other</i></td></tr>
-      <tr><td>Switch SID addresses when needed</td><td>sets a free SID socket of the Ultimate to the address a stereo
+      <tr><td>Detect repetition</td><td>suggests a length when a tune starts again – <i>suggest</i>, <i>automatic</i> or <i>off</i></td></tr>
+      <tr><td>Look for the same tune by name in the HVSC</td><td>use the length of another version of the same music</td></tr>
+      <tr><td>Sub-tunes</td><td><i>only the start song</i> or <i>all, one after the other</i></td></tr>
+      <tr><td>Change SID addresses when needed</td><td>sets a free SID socket of the Ultimate to the address a stereo
         tune needs, and back afterwards</td></tr>
     </table>
     <ul>
-      <li><b>Timer:</b> play a list or stop at fixed times, e.g. weekdays at 18:00 “Feierabend” – with the TV on/off if
+      <li><b>Schedule:</b> play a list or stop at fixed times, e.g. weekdays at 18:00 “Evening” – with the TV on/off if
         wanted.</li>
-      <li><b>Song lengths:</b> upload or remove the HVSC file, download own lengths; remove STIL.</li>
-      <li><b>Take over data of the PC jukebox:</b> play counts, favourites and own lengths.</li>
-      <li><b>WLAN and network:</b> choose a WLAN (for the Pi without a cable), the Pi's own WLAN; <b>party mode</b> for
-        away from home without a router.</li>
-      <li>Change the <b>web password</b>; download and restore a <b>backup</b> (all settings, sources, lists and own lengths
-        in one file).</li>
+      <li><b>Song lengths:</b> upload or remove the HVSC file, download own lengths, <b>Read titles for the search</b>
+        (for 🔍 HVSC); remove STIL.</li>
+      <li><b>Take over data from the PC jukebox:</b> play counts, favourites and own lengths.</li>
+      <li><b>Wi-Fi and network:</b> choose a Wi-Fi (for the Pi without a cable), the Pi's own Wi-Fi; <b>party mode</b>
+        for away from home without a router.</li>
+    </ul>
+  </div>
+</div>
+<div class="shots">
+  <figure class="phone"><img src="bilder_en/web_sprache.png" alt=""><figcaption>Card “Sprache / Language”</figcaption></figure>
+  <div class="side">
+    <h3 style="margin-top:0">System</h3>
+    <ul>
+      <li><b>Sprache / Language:</b> English or German – for the page, the TV menu, the displays and the manual.</li>
+      <li>Change the <b>web password</b>; download and restore a <b>backup</b> (all settings, sources, lists, own lengths
+        and the block list in one file).</li>
+      <li><b>Switch off and smart plug:</b> switch off the jukebox, set up a smart plug – see section 12.</li>
+      <li><b>Updates:</b> look once a day (on/off), <b>Check now</b>, <b>Install</b>.</li>
     </ul>
   </div>
 </div>
 
 <h2 id="tv">9 · On the TV</h2>
-<p>On the HDMI output the Pi shows styles to the music at 1920 × 1080 – over black, a slide show or the C64's live
+<p>On the HDMI output the Pi shows effects to the music at 1920 × 1080 – over black, a slide show or the C64's live
   picture. <b>Top right</b> are title, composer, the SID chips needed, year and sub-tune, <b>bottom right</b> the playing
-  time. For every new tune the <b>“now playing” card</b> appears for a moment.</p>
+  time. For every new tune the <b>“Now playing” card</b> appears for a moment.</p>
 <div class="grid4">
-  <figure><img src="bilder/tv_bars.png" alt=""><figcaption>Style “bars” with the details top right</figcaption></figure>
-  <figure><img src="bilder/tv_idle_qr.png" alt=""><figcaption>Nothing playing: note with a QR code to the web page</figcaption></figure>
-  <figure><img src="bilder/tv_news.png" alt=""><figcaption>Retro news as a card in idle mode</figcaption></figure>
-  <figure><img src="bilder/tv_ticker.png" alt=""><figcaption>Retro news as a ticker during the music</figcaption></figure>
+  <figure><img src="bilder_en/tv_bars.png" alt=""><figcaption>Effect “Bars” with the details top right</figcaption></figure>
+  <figure><img src="bilder_en/tv_idle_qr.png" alt=""><figcaption>Nothing playing: note with a QR code to the web page</figcaption></figure>
+  <figure><img src="bilder_en/tv_news.png" alt=""><figcaption>Retro news as a card when idle</figcaption></figure>
+  <figure><img src="bilder_en/tv_ticker.png" alt=""><figcaption>Retro news as a ticker during the music</figcaption></figure>
 </div>
-<h3>Some of the 17 styles</h3>
+<h3>Some of the 17 effects</h3>
 <div class="grid">
-  <figure><img src="bilder/tv_sidvoices.png" alt=""><figcaption>SID voices: the real voices of each SID as a note roll</figcaption></figure>
-  <figure><img src="bilder/tv_c64.png" alt=""><figcaption>C64 Retro</figcaption></figure>
-  <figure><img src="bilder/tv_vinyl.png" alt=""><figcaption>Record</figcaption></figure>
-  <figure><img src="bilder/tv_neon_pictures.png" alt=""><figcaption>Neon grid</figcaption></figure>
-  <figure><img src="bilder/tv_milkdrop.png" alt=""><figcaption>Milkdrop</figcaption></figure>
-  <figure><img src="bilder/tv_cloud.png" alt=""><figcaption>Cloud</figcaption></figure>
+  <figure><img src="bilder_en/tv_sidvoices.png" alt=""><figcaption>SID voices: the real voices of each SID as a piano roll</figcaption></figure>
+  <figure><img src="bilder_en/tv_c64.png" alt=""><figcaption>C64 Retro</figcaption></figure>
+  <figure><img src="bilder_en/tv_vinyl.png" alt=""><figcaption>Vinyl</figcaption></figure>
+  <figure><img src="bilder_en/tv_neon_pictures.png" alt=""><figcaption>Neon Grid</figcaption></figure>
+  <figure><img src="bilder_en/tv_milkdrop.png" alt=""><figcaption>Milkdrop</figcaption></figure>
+  <figure><img src="bilder_en/tv_cloud.png" alt=""><figcaption>Cloud</figcaption></figure>
 </div>
 <div class="box"><b>SID voices</b> shows the three voices of each SID for the last 5 seconds (pitch upwards, voice 1 red,
   2 green, 3 blue, brighter = louder), on the right note, waveform and level. For this the Ultimate's
@@ -333,97 +380,141 @@
   work together with the background “C64 picture”.</div>
 
 <h2 id="remote">10 · Remote control and menu on the TV</h2>
-<p><b>Switch on:</b> tab 📺, card <b>TV-Fernbedienung (HDMI-CEC)</b>, tick <span class="de">Jukebox mit der
-  Fernbedienung des Fernsehers bedienen</span>. CEC must be on at the TV (called e.g. <i>Anynet+</i>, <i>SimpLink</i>,
-  <i>Bravia Sync</i>, <i>VIERA Link</i>). Most TVs send the keys only to the device they are showing – so switch to the
-  Pi's input (or use <span class="de">Fernseher jetzt auf den Pi umschalten</span> in the card).</p>
+<div class="shots">
+  <figure class="phone"><img src="bilder_en/web_cec.png" alt=""><figcaption>Card “TV remote control (HDMI-CEC)” – also when the TV switches on and off</figcaption></figure>
+  <div class="side">
+<p style="margin-top:0"><b>Switch on:</b> tab 📺, card <b>TV remote control (HDMI-CEC)</b>, tick “Control the jukebox with the TV's remote
+  control”. CEC must be on at the TV (called e.g. <i>Anynet+</i>, <i>SimpLink</i>, <i>Bravia Sync</i>, <i>VIERA
+  Link</i>). Most TVs send the keys only to the device they are showing – so switch to the Pi's input (or use
+  <b>Switch TV to the Pi now</b> in the card).</p>
 <table>
   <tr><th style="width:40%">Key</th><th>Effect</th></tr>
   <tr><td><span class="k">▶</span> <span class="k">❚❚</span></td><td>stop while music plays – play when stopped</td></tr>
   <tr><td><span class="k">■</span></td><td>stop</td></tr>
   <tr><td><span class="k">⏭</span> <span class="k">⏮</span> · <span class="k">⏩</span> <span class="k">⏪</span> ·
     <span class="k">→</span> <span class="k">←</span></td><td>next / previous tune</td></tr>
-  <tr><td><span class="k">↑</span> <span class="k">↓</span></td><td>next / previous style on the TV</td></tr>
+  <tr><td><span class="k">↑</span> <span class="k">↓</span></td><td>next / previous effect on the TV</td></tr>
   <tr><td>Channel <span class="k">+</span> <span class="k">−</span></td><td>next / previous sub-tune</td></tr>
   <tr><td><span class="k">OK</span> or a menu key</td><td>opens the <b>menu on the TV</b></td></tr>
 </table>
+  </div>
+</div>
 <p><b>In the menu:</b> <span class="k">↑</span> <span class="k">↓</span> choose, <span class="k">OK</span> or
   <span class="k">→</span> run or open, <span class="k">Back</span> or <span class="k">←</span> one level back (at the
   top: close). After 30 s without a key it closes by itself. ▶, ■, ⏭ and ⏮ also work with the menu open.</p>
-<div class="grid2">
-  <figure><img src="bilder/tv_menu.png" alt=""><figcaption>The main menu</figcaption></figure>
-  <figure><img src="bilder/tv_musik.png" alt=""><figcaption><span class="de">Musik wählen</span> (choose music): sources,
-    compilations, saved lists</figcaption></figure>
-  <figure><img src="bilder/tv_ordner.png" alt=""><figcaption>Browsing the folders of a source</figcaption></figure>
-  <figure><img src="bilder/tv_effekt.png" alt=""><figcaption>Choosing the style (● = the current one)</figcaption></figure>
+<div class="grid">
+  <figure><img src="bilder_en/tv_menu.png" alt=""><figcaption>The main menu</figcaption></figure>
+  <figure><img src="bilder_en/tv_musik.png" alt=""><figcaption>Choose music: HVSC search, sources, built lists, saved lists</figcaption></figure>
+  <figure><img src="bilder_en/tv_ordner.png" alt=""><figcaption>Browsing the folders of a source</figcaption></figure>
+  <figure><img src="bilder_en/tv_suche.png" alt=""><figcaption>Searching the HVSC with the on-screen keyboard: arrows
+    choose, OK types, Back deletes, “Done” searches</figcaption></figure>
+  <figure><img src="bilder_en/tv_effekt.png" alt=""><figcaption>Choosing the effect (● = the current one)</figcaption></figure>
+  <figure><img src="bilder_en/tv_ausschalten.png" alt=""><figcaption>Switch off: TV, jukebox, Ultimate</figcaption></figure>
 </div>
 <table>
-  <tr><th style="width:34%">Menu item</th><th>What it does</th></tr>
-  <tr><td><span class="de">Musik wählen</span> (choose music)</td><td>sources (“Ordner: …”) to browse –
-    <span class="de">Diesen Ordner abspielen</span> (play this folder), <span class="de">… mit allen Unterordnern</span>
-    (with all subfolders), <span class="de">Ordner hinten anhängen</span> (append folder), a file plays the folder from
-    there –, the compilations (favourites, most played, never played, random from the HVSC, short tunes, tunes for 2 or
-    3 SIDs) and all saved lists (play, append, rename, delete)</td></tr>
-  <tr><td><span class="de">Ende hier merken</span> / <span class="de">Erkannte Länge übernehmen</span> /
-    <span class="de">HVSC-Länge übernehmen</span></td><td>only for a tune without a known length: the playing time or the
-    length found becomes its length</td></tr>
-  <tr><td><span class="de">Zufall</span>, <span class="de">Wiederholen</span></td><td>shuffle, repeat on/off</td></tr>
-  <tr><td><span class="de">Effekt</span>, <span class="de">Effekte automatisch wechseln</span></td><td>choose the style,
-    automatic change on/off</td></tr>
-  <tr><td><span class="de">Ton am Fernseher</span>, <span class="de">Lautstärke am Fernseher</span></td><td>sound over HDMI
-    on/off; every OK one step quieter (100 → 90 … 10 → 100)</td></tr>
-  <tr><td><span class="de">Titel einblenden</span></td><td>the details top right on/off</td></tr>
-  <tr><td><span class="de">Längen prüfen</span></td><td>looks for missing lengths in the HVSC; then “… HVSC-Längen
-    übernehmen” (accept)</td></tr>
-  <tr><td>Ultimate</td><td>which one plays (● = active), <span class="de">Im Netzwerk suchen</span> (search), add new ones
-    with “+ name”</td></tr>
-  <tr><td><span class="de">Ultimate einschalten / ausschalten</span></td><td>wake it over its WLAN or switch it off
-    (asks first)</td></tr>
+  <tr><th style="width:30%">Menu item</th><th>What it does</th></tr>
+  <tr><td>Choose music ›</td><td>at the very top <i>Search the HVSC</i> (type words, “Done” shows up to 200 hits,
+    <i>Play all …</i>), then the sources (“Folder: …”) to browse – <i>Play this folder</i>, <i>… with all
+    sub-folders</i>, <i>Append folder</i>, a file plays the folder from there –, the built lists and all saved lists
+    (play, append, rename, delete)</td></tr>
+  <tr><td>Mark end here / Use detected length / Use HVSC length</td><td>only for a tune without a known length: the
+    playing time or the length found becomes its length</td></tr>
+  <tr><td>Never play again</td><td>asks first, puts the tune on the block list, then the next one comes</td></tr>
+  <tr><td>Shuffle, Repeat</td><td>on/off</td></tr>
+  <tr><td>Effect ›</td><td>choose the effect (switches the automatic change off)</td></tr>
+  <tr><td>Picture and sound ›</td><td>change effects automatically, show title, sound on the TV, sound via headphones
+    (with paired headphones), volume on the TV (every OK one step quieter: 100 → 90 … 10 → 100)</td></tr>
+  <tr><td>Ultimate ›</td><td>which one plays (● = active), <i>Switch on</i> / <i>Switch off</i>, <i>Search the
+    network</i>, add new ones with “+ name”</td></tr>
+  <tr><td>Check lengths</td><td>looks for missing lengths in the HVSC; then “Use … lengths”</td></tr>
+  <tr><td>Check for update</td><td>asks GitHub for a new version; if there is one, the line reads <i>Install update
+    …</i> (asks first, the jukebox restarts)</td></tr>
+  <tr><td>Sprache / Language</td><td>switches between German and English</td></tr>
+  <tr><td>Switch off ›</td><td><i>Switch TV off</i> (at once), <i>Switch off jukebox</i> and <i>Switch off Ultimate</i>
+    (both ask first) – right after opening the menu reached with <span class="k">↑</span> twice</td></tr>
+  <tr><td>Close</td><td>closes the menu</td></tr>
 </table>
-<div class="shots">
-  <figure style="width:90mm"><img src="bilder/tv_keyboard.png" alt=""><figcaption>Renaming a list with the on-screen
-    keyboard: arrows choose, OK types, Back deletes, <span class="de">Fertig</span> (done) accepts</figcaption></figure>
-  <div class="side">
-    <p>Notes appear discreetly above the playing time, e.g. “Fängt nach 1:35 von vorn an · OK: als Länge übernehmen”
-      (starts over after 1:35 · OK: take as length) – <span class="k">OK</span> then opens the menu at the right item, a
-      second OK accepts.</p>
-    <p>In the card <b>TV-Fernbedienung</b> you can also set the TV to switch on and change to the Pi when the music
-      starts, and to switch off when nothing has played for a while.</p>
-  </div>
-</div>
+<p>Notes appear discreetly above the playing time, e.g. “Starts again after 1:35 · OK: take as length” –
+  <span class="k">OK</span> then opens the menu at the right item, a second OK accepts.</p>
 
 <h2 id="touch">11 · Touch display on the Pi</h2>
-<div class="grid">
-  <figure><img src="bilder/tft_play.png" alt=""><figcaption>Playback with the buttons ⏮ ■ ⏭</figcaption></figure>
-  <figure><img src="bilder/tft_level.png" alt=""><figcaption>Levels left/right, below the last 15 s</figcaption></figure>
-  <figure><img src="bilder/tft_net.png" alt=""><figcaption>Network: address, WLAN, distributor, Ultimate</figcaption></figure>
+<div class="grid4">
+  <figure><img src="bilder_en/tft_play.png" alt=""><figcaption>Playback with the buttons ⏮ ■ ⏭ ⏻</figcaption></figure>
+  <figure><img src="bilder_en/tft_power.png" alt=""><figcaption>Button ⏻: the page “On / Off”</figcaption></figure>
+  <figure><img src="bilder_en/tft_level.png" alt=""><figcaption>Levels left/right, below the last 15 s</figcaption></figure>
+  <figure><img src="bilder_en/tft_net.png" alt=""><figcaption>Network: address, Wi-Fi, distributor, Ultimate</figcaption></figure>
 </div>
 <ul>
-  <li><b>Buttons:</b> ⏮ previous tune, ■ stop (or ▶ play when nothing plays), ⏭ next tune.</li>
+  <li><b>Buttons:</b> ⏮ previous tune, ■ stop (or ▶ play when nothing plays), ⏭ next tune, ⏻ on / off. A pressed button
+    flashes briefly.</li>
+  <li><b>On / Off:</b> <b>TV on</b> and <b>TV off</b> (over HDMI-CEC; dark when the TV remote control is switched off),
+    <b>Switch off jukebox</b> (red – only a second tap within 5 s switches off, the button then says “Tap again”) and
+    <b>Back</b>. Top right shows whether the TV is on; after 30 s without a tap it returns to playback.</li>
   <li><b>A tap outside the buttons</b> changes to the next page for 30 s: playback → levels → network.</li>
   <li>After 10 minutes without playback it goes dark (adjustable); <b>the first tap only wakes it</b>, the second one
     operates.</li>
-  <li>The touch reacts to pressure – best tap with a fingernail or a stylus. <span class="de">Touch einrichten</span>
-    (set up touch; tab 📺, card “Display am Pi”) shows three crosses to tap if taps land beside the buttons.</li>
-  <li>In the Pi's own WLAN the display shows name, password and address in large letters.</li>
+  <li>The touch reacts to pressure – best tap with a fingernail or a stylus. <b>Set up touch</b> (tab 📺, card “Display
+    on the Pi”) shows three crosses to tap if taps land beside the buttons.</li>
+  <li>In the Pi's own Wi-Fi the display shows name, password and address in large letters.</li>
 </ul>
 
-<h2 id="help" class="nb">12 · Quick help</h2>
+<h2 id="power">12 · Switching on and off</h2>
+<div class="shots">
+  <figure class="phone"><img src="bilder_en/web_steckdose.png" alt=""><figcaption>Card “Switch off and smart plug”
+    (Settings → System)</figcaption></figure>
+  <div class="side">
+    <h3 style="margin-top:0">Switching off the jukebox</h3>
+    <p>Always shut the Pi down cleanly – simply cutting the power can damage the SD card. It works from everywhere:</p>
+    <table>
+      <tr><th style="width:34%">Where</th><th>How</th></tr>
+      <tr><td>Web page</td><td>⏻ button at the top → <b>Switch off jukebox</b>, or <i>Settings → Switch off and smart
+        plug</i></td></tr>
+      <tr><td>TV</td><td>menu → <b>Switch off</b> → <b>Switch off jukebox</b> (asks first)</td></tr>
+      <tr><td>Touch display</td><td>⏻ → <b>Switch off jukebox</b>, tap twice</td></tr>
+    </table>
+    <h3>With a smart plug</h3>
+    <p>If the Pi is plugged into a <b>Tuya smart plug</b> (app “Smart Life” or “Tuya Smart”), it sets the plug's
+      switch-off timer before shutting down: after <i>Power off after</i> seconds (default 30) the power goes off. It is
+      switched on with the app or by voice, e.g. “Alexa, turn on Jukebox” – the Pi starts as soon as there is power. To
+      set it up, enter the plug's <b>Device ID</b> and <b>Local key</b> (where to find them is in the manual) and tap
+      <b>Check</b>.</p>
+    <h3>Together with the TV</h3>
+    <p>In the card <b>TV remote control</b> (tab 📺):</p>
+    <ul>
+      <li><b>Switch the TV on and to the Pi when the Pi starts:</b> the TV comes on and shows the Pi (in the first 90 s
+        after the start).</li>
+      <li><b>Switch off the jukebox when the TV goes off:</b> one minute after the TV goes into standby the Pi shuts
+        down, with a smart plug the power goes off afterwards – not while Bluetooth headphones are connected.</li>
+      <li>Also: switch the TV on when playback starts; switch it off when nothing has played for a while.</li>
+    </ul>
+    <p>So “Alexa, turn on Jukebox” is enough for the Pi and the TV, and in the evening the TV's remote switches
+      everything off again.</p>
+    <h3>Ultimate</h3>
+    <p>Switch it on and off with the ⏻ button at the top, in the tab “Devices” or in the TV menu (<i>Ultimate</i> or
+      <i>Switch off</i>).</p>
+  </div>
+</div>
+
+<h2 id="help">13 · Quick help</h2>
 <table>
   <tr><th style="width:36%">What you see</th><th>What helps</th></tr>
   <tr><td><code>c64pi.local</code> does not work</td><td>Use the IP address: QR code on the TV or the Pi's display,
     otherwise in the router's list.</td></tr>
-  <tr><td>The remote does nothing</td><td>Switch the TV to the Pi's input (or “Fernseher jetzt auf den Pi umschalten”);
-    switch CEC on at the TV; check the tick in the card “TV-Fernbedienung”.</td></tr>
-  <tr><td>No sound on the TV, styles do not move</td><td>The sound comes as a stream from the Ultimate: is the Ultimate
+  <tr><td>The remote does nothing</td><td>Switch the TV to the Pi's input (or “Switch TV to the Pi now”); switch CEC on
+    at the TV; check the tick in the card “TV remote control”.</td></tr>
+  <tr><td>No sound on the TV, effects do not move</td><td>The sound comes as a stream from the Ultimate: is the Ultimate
     on and entered with its Ethernet address? Are <i>Data Streams</i> allowed in the Ultimate?</td></tr>
-  <tr><td>Tunes always run 5 minutes</td><td>Length unknown: load the HVSC song lengths (tab Dateien), press “Ende hier
-    merken” at the end or accept the suggestions.</td></tr>
-  <tr><td>A voice is missing in a stereo tune</td><td>Switch on “switch SID addresses when needed”; ⚠ in the column
+  <tr><td>Headphones not found or silent</td><td>Keep the headphones in pairing mode while searching and pairing; the
+    HDMI output must be switched on; otherwise tap <b>Connect</b>.</td></tr>
+  <tr><td>Tunes always run 5 minutes</td><td>Length unknown: load the HVSC song lengths (tab Files), press “Mark end
+    here” at the end or accept the suggestions.</td></tr>
+  <tr><td>A voice is missing in a stereo tune</td><td>Switch on “Change SID addresses when needed”; ⚠ in the column
     “SIDs” marks tunes that do not match the Ultimate's setting.</td></tr>
   <tr><td>SID voices: a note instead of notes</td><td>Switch on “Debug Stream Mode” at the Ultimate; not together with
     the background “C64 picture”.</td></tr>
-  <tr><td>Password forgotten</td><td>see the manual, chapter “Passwort vergessen” (reset over SSH).</td></tr>
+  <tr><td>A tune no longer comes up by itself</td><td>It may be on the block list: tab “Lists” → <b>Blocked tunes</b> →
+    <b>Play again</b>.</td></tr>
+  <tr><td>Password forgotten</td><td>see the manual, chapter “Forgotten password” (reset over SSH).</td></tr>
 </table>
 <p class="small">C64 Jukebox · Copyright © 2026 Sedor (der-sedor.de) · free software under the GNU General Public
   License, version 3. “Commodore”, “C64”, “SID” and “Ultimate 64” / “C64 Ultimate” are trademarks of their respective
