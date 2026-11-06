@@ -88,6 +88,7 @@
       <label class="u64sel" translate="no">Ultimate <select id="ou64"></select></label>
       <button id="bblock" type="button" class="small" hidden title="Diesen Titel überspringen und künftig nicht mehr von selbst spielen">&#8856; Nicht mehr spielen</button>
     </div>
+    <div class="busy" id="pbusy" role="status" hidden><span class="spin" aria-hidden="true"></span><span id="pbusytxt"></span></div>
     <div class="msg" id="pmsg"></div>
   </div>
 
@@ -625,6 +626,14 @@
     <h3 id="asktitle"></h3>
     <input id="askin" maxlength="60" aria-label="Eingabe">
     <div class="row"><span class="grow"></span><button type="button" id="askno">Abbrechen</button><button type="button" id="askok" class="primary">OK</button></div>
+  </form>
+</dialog>
+
+<!-- a choice of a few answers (the jukebox's questions) -->
+<dialog id="choosedlg">
+  <form method="dialog" onsubmit="return false">
+    <h3 id="choosetitle"></h3>
+    <div id="chooseopts" class="chooseopts"></div>
   </form>
 </dialog>
 

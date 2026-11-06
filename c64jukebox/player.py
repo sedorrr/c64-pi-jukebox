@@ -272,9 +272,15 @@ class Player:
     async def _start(self, song=None, skip_blocked=False):
         """lock held. With skip_blocked a tune found blocked once its MD5 is known is not played: returns False"""
         item = self.items[self.order[self.pos]]
+        fresh = self.state == "stop"                 # Play pressed (not the next tune of a running list)
         self.state, self.msg = "load", ""
         self.version += 1
         core = self.core
+        if fresh and not await core.u64_ready():     # the Ultimate is off: offer to switch it on (core.wake_offer)
+            self.state, self.cur = "stop", None
+            self.msg = await core.wake_offer(self.order[self.pos], song)
+            self.version += 1
+            return True
         try:
             u = core.ultimate()
             src = core.sources.get(item["src"])

@@ -292,6 +292,8 @@ class Display:
         n = st.get("net") or {}
         p = st.get("player") or {}
         if self.tft:
+            if st.get("ask"):                              # a question of the jukebox: before everything else
+                return "ask"
             if self.override and self.clock() < self.override[1]:
                 return self.override[0]
             if n.get("mode") in ("ap", "none"):
@@ -305,7 +307,8 @@ class Display:
         """-> (picture, page) or None while the display sleeps"""
         p = st.get("player") or {}
         n = st.get("net") or {}
-        key = (p.get("state"), (p.get("now") or {}).get("md5"), n.get("mode"), (n.get("ap") or {}).get("ssid"))
+        key = (p.get("state"), (p.get("now") or {}).get("md5"), n.get("mode"), (n.get("ap") or {}).get("ssid"),
+               (st.get("ask") or {}).get("id"), (st.get("busy") or {}).get("text"))   # a question or work wakes it too
         now = self.clock()
         if p.get("state") in ("play", "load") or key != self.last_key or self.cal_step is not None:
             self.last_active = now
@@ -419,7 +422,7 @@ class Display:
                 self.armed = 0.0
                 self.on_touch(what)
                 return what
-        if self.page == "power":                          # beside the buttons: nothing (not by mistake away)
+        if self.page in ("power", "ask"):                 # beside the buttons: nothing (not by mistake away)
             return None
         order = ["play", "level", "net"]                  # a tap elsewhere: the next page, 30 s long
         other = order[(order.index(self.page) + 1) % len(order)] if self.page in order else "play"

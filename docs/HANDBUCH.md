@@ -587,6 +587,18 @@ Im Tab **Geräte → Ultimates** stehen die Geräte, die spielen können:
   war (sie steht dann im Feld darunter); sonst dort eintragen – sie steht im Router oder auf dem Gerät. Den Ton holt der
   Pi trotzdem nur über das Kabel. Am Fernseher: Menü → „Ultimate einschalten“ / „Ultimate ausschalten“ (fragt nach).
 
+**Abspielen, während das Ultimate aus ist:** Antwortet das gewählte Ultimate nicht, wenn man auf ▶ drückt (auf der
+Seite, mit der Fernbedienung oder am Touch-Display), fragt die Jukebox – auf der Seite, im Menü am Fernseher und am
+Touch-Display zugleich, die erste Antwort zählt:
+- **„…“ einschalten und abspielen:** weckt es wie **Ein** (dafür braucht sie seine WLAN-MAC) und spielt den gewählten
+  Titel, sobald es antwortet (am Elite II nach etwa 15 s).
+- **Stattdessen „…“ (ist an):** ein anderes eingetragenes Ultimate, das gerade an ist, spielt.
+- Ein anderes Ultimate, das aus ist, lässt sich ebenso einschalten. **Abbrechen** lässt alles, wie es ist.
+
+Die Frage bleibt eine Minute offen. Startet der [Zeitplan](#zeitplan) die Musik, weckt die Jukebox das Ultimate ohne
+zu fragen (es ist ja niemand da). Solange sie prüft, einschaltet oder den Titel lädt, zeigt der Fernseher ein Kästchen
+mit kreisenden Punkten („Bitte warten …“), die Seite und das Touch-Display eine Zeile dazu.
+
 ## Stream-Verteiler
 
 Das Ultimate schickt seinen Audio-Stream nur an **eine** Adresse. Ist der Verteiler an, ist diese Adresse der Pi: Er
@@ -1077,6 +1089,11 @@ Die Karte **Geräte im Netz** im Tab „Geräte“ zeigt alle Picos und Pis mit 
 [Touch-Display](#das-2-8-display-mit-touch) ⏻ → **Jukebox ausschalten**
 stoppt die Musik und fährt den Pi sauber herunter. Einfach den Strom wegnehmen sollte man nicht: Das kann die
 SD-Karte beschädigen.
+
+Ist das gewählte Ultimate dabei noch an (und kann sich selbst ausschalten – ein Ultimate 64 oder C64 Ultimate, kein
+1541-Ultimate-Modul), fragt die Jukebox: **Jukebox und „…“ ausschalten**, **Nur die Jukebox ausschalten** oder
+**Abbrechen**. Im Menü am Fernseher steht der Zeiger dabei auf „Abbrechen“. Schaltet sich die Jukebox von selbst aus
+(der Fernseher ging aus), bleibt das Ultimate an.
 
 Hängt der Pi an einer **smarten Steckdose mit Tuya-Technik** (z. B. Antela, App „Smart Life“ oder „Tuya Smart“),
 stellt er vor dem Herunterfahren ihren eingebauten **Ausschalt-Timer**: Nach *Strom aus nach* Sekunden (Standard 30,

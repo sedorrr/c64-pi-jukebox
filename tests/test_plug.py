@@ -136,10 +136,30 @@ def test_switch_off_from_the_tv(tmp_path):
         fake, mark = setup(jb, tmp_path, timer=True)
         jb.config["plug"].update(ip=fake.ip, id=ID, key=fake.key)
         entry = next(e for e in jb.menu.entries_of("power") if e[0] == "Jukebox ausschalten")
-        assert "Steckdose" in entry[2][1]
+        jb.menu.open()
+        jb.menu.level = "power"
+        await u64.stop()                                # the Ultimate is off: asked as before
         await jb.menu._do(entry[2])                     # the question first ...
-        await jb.menu._do(entry[2][3])                  # ... then "Ja, ausschalten"
+        assert "Steckdose" in jb.menu.confirm[0] and jb.menu.level == "confirm"
+        await jb.menu._do(jb.menu.confirm[2])           # ... then "Ja, ausschalten"
         assert "Strom aus in 30 s" in jb.menu.note and fake.dps["9"] == 30
+    run(tmp_path, t)
+
+
+def test_switch_off_from_the_tv_with_the_ultimate(tmp_path):
+    """the Ultimate is on: one question with three answers - both off, only the jukebox, cancel (the cursor there)"""
+    async def t(c, jb, u64):
+        fake, mark = setup(jb, tmp_path, timer=True)
+        jb.config["plug"].update(ip=fake.ip, id=ID, key=fake.key)
+        jb.menu.open()
+        jb.menu.level = "power"
+        await jb.menu._do(("pioffask",))
+        v = jb.menu.view()
+        assert jb.menu.level == "ask" and v["title"].startswith("Jukebox ausschalten – „") and v["sel"] == 2
+        assert [x["l"] for x in v["items"]][1:] == ["Nur die Jukebox ausschalten", "Abbrechen"]
+        await jb.menu._do(("askans", "both"))
+        assert u64.find("PUT", "/v1/machine:poweroff") and jb.powering_off and fake.dps["9"] == 30
+        assert jb.menu.level is None and "Strom aus in 30 s" in jb.busy["text"]     # the box with the spinner
     run(tmp_path, t)
 
 
@@ -150,6 +170,11 @@ def test_switch_off_from_the_touch_display(tmp_path):
         await jb.touch_cmd("tvoff")                     # no HDMI-CEC here: the reason on the page "Ein / Aus"
         jb.display.page = "power"
         assert "HDMI-CEC" in jb.display_state()["pnote"] and jb.display_state()["tvctl"]["ready"] is False
-        await jb.touch_cmd("pioff")
+        await jb.touch_cmd("pioff")                     # the Ultimate is on: the question page first
+        st = jb.display_state()
+        assert not jb.powering_off and st["ask"]["kind"] == "off" and \
+            [o["k"] for o in st["ask"]["opts"]] == ["both", "pi", "cancel"]
+        await jb.touch_cmd("ask:pi")                    # only the jukebox
         assert jb.powering_off and fake.dps["9"] == 30 and "Strom aus in 30 s" in jb.display_state()["pnote"]
+        assert not u64.find("PUT", "/v1/machine:poweroff") and jb.display_state()["ask"] is None
     run(tmp_path, t)

@@ -251,9 +251,21 @@ def make_app(jb, trust_local=False):
     async def power_off_post(req):
         d = await body(req)
         try:
-            return ok(**await j.power_off(force=bool(d.get("force"))))
+            return ok(**await j.power_off(force=bool(d.get("force")), u64=bool(d.get("u64"))))
         except ValueError as e:                  # plug=True: the plug did not answer (the page offers "anyway")
             return fail(str(e), plug=isinstance(e, plug.PlugError) or isinstance(e.__context__, plug.PlugError))
+
+    async def power_u64_get(req):
+        """the chosen Ultimate's name when it is on and can switch itself off (asked with "Jukebox ausschalten")"""
+        return ok(name=await j.u64_can_off())
+
+    async def ask_post(req):
+        """an answer to the jukebox's question (state "ask")"""
+        d = await body(req)
+        try:
+            return ok(msg=await j.ask_answer(str(d.get("k", "")), str(d.get("id", "")) or None))
+        except ValueError as e:
+            return fail(str(e))
 
     async def plug_check_post(req):
         if not plug.configured(j.config["plug"]):
@@ -845,6 +857,8 @@ def make_app(jb, trust_local=False):
     r.add_post("/api/cec", cec_post)
     r.add_get("/api/power", power_get)
     r.add_post("/api/power/off", power_off_post)
+    r.add_get("/api/power/u64", power_u64_get)
+    r.add_post("/api/ask", ask_post)
     r.add_post("/api/plug/check", plug_check_post)
     r.add_get("/api/schedule", schedule_get)
     r.add_get("/api/smart", smart_get)

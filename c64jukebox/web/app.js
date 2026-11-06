@@ -139,6 +139,7 @@ async function poll() {
   $('fhvsc').hidden = !S.hvsc;
   updShow();
   nowShow();
+  askShow();
   lTick();
 }
 function badges(i) {
@@ -181,7 +182,9 @@ function nowShow() {
     $('nb').innerHTML = ''; $('tel').textContent = ''; $('tlen').textContent = ''; $('pbar').style.width = '0';
     $('songsel').hidden = true; $('bblock').hidden = true; $('topnow').textContent = ''; $('endrow').hidden = true; $('looprow').hidden = true; $('namerow').hidden = true;
   }
-  $('pmsg').textContent = [p.msg, S.sidaddr].filter(Boolean).join(' · ');
+  const b = S.busy;                                /* the jukebox works on it: a turning ring instead of a silent wait */
+  $('pbusy').hidden = !b; $('pbusy').classList.toggle('still', !!b && !b.spin); $('pbusytxt').textContent = b ? b.text : '';
+  $('pmsg').textContent = [b && b.text === p.msg ? '' : p.msg, S.sidaddr].filter(Boolean).join(' · ');
   $('oshuf').checked = !!S.opts.shuffle; $('orep').checked = S.opts.repeat !== false;
   const sel = $('ou64'), opts = S.ultimates.map((u, i) => '<option value=' + i + '>' + H(u.label || u.addr || 'Ultimate ' + (i + 1)) + '</option>').join('');
   if (sel.dataset.o !== opts) { sel.innerHTML = opts; sel.dataset.o = opts; }
@@ -563,6 +566,30 @@ function ask(title, value) {
     d.oncancel = () => res(null);
     $('askin').onkeydown = ev => { if (ev.key === 'Enter') done($('askin').value.trim()); };
     d.showModal(); $('askin').focus();
+  });
+}
+
+/* a choice of a few answers - big buttons for phones; -> the key of the answer, null when closed */
+function choose(title, opts) {
+  return new Promise(res => {
+    const d = $('choosedlg'); $('choosetitle').textContent = title;
+    $('chooseopts').innerHTML = opts.map((o, k) => '<button type=button data-k=' + k + (o.red ? ' class=danger' : '') + '>' + H(o.l) + '</button>').join('');
+    $('chooseopts').onclick = ev => { const b = ev.target.closest('[data-k]'); if (b) { d.close(); res(opts[+b.dataset.k].k); } };
+    d.oncancel = () => res(null);
+    d.showModal();
+  });
+}
+/* the jukebox asks (S.ask: switch the Ultimate on to play? the Ultimate off too?) - here, on the TV and on the touch
+   display at once; the first answer counts, the others close */
+const askDone = new Set();
+function askShow() {
+  const a = S.ask, d = $('choosedlg');
+  if (d.open && d.dataset.ask && (!a || a.id !== d.dataset.ask)) { delete d.dataset.ask; d.close(); }
+  if (!a || d.open || askDone.has(a.id)) return;
+  d.dataset.ask = a.id;
+  choose(a.q, a.opts).then(k => {
+    askDone.add(a.id); delete d.dataset.ask;
+    api('ask', {id: a.id, k: k || 'cancel'}).then(r => { if (r.msg) toast(r.msg); poll(); }).catch(errToast);
   });
 }
 
@@ -1609,10 +1636,18 @@ $('plchk').onclick = async () => {
 /* "Jukebox ausschalten": the card in the settings and the button at the top */
 async function piOff() {
   const plug = (CFG && CFG.plug && CFG.plug.id) || (S && S.plug);
-  if (!confirm(T('Die Jukebox jetzt ausschalten?') + (plug ? ' ' + T('Die Steckdose schaltet danach ab.') : ''))) return;
+  const q = T('Die Jukebox jetzt ausschalten?') + (plug ? ' ' + T('Die Steckdose schaltet danach ab.') : '');
+  let name = '', u64 = false;
+  try { name = (await api('power/u64')).name || ''; } catch (e) { /* not known: asked as before */ }
+  if (name) {                                    /* the Ultimate is on and can switch itself off: that one too? */
+    const k = await choose(q + ' ' + T('„%s“ ist noch an.', name), [{k: 'both', l: T('Jukebox und „%s“ ausschalten', name), red: true},
+      {k: 'pi', l: T('Nur die Jukebox ausschalten'), red: true}, {k: 'cancel', l: T('Abbrechen')}]);
+    if (k !== 'both' && k !== 'pi') return;
+    u64 = k === 'both';
+  } else if (!confirm(q)) return;
   try {
     let r;
-    try { r = await api('power/off', {}); } catch (e) {
+    try { r = await api('power/off', {u64}); } catch (e) {
       if (!/Steckdose|plug/i.test(e.message) || !confirm(e.message + '\n\n' + T('Trotzdem herunterfahren? (Der Strom bleibt dann an.)'))) throw e;
       r = await api('power/off', {force: true});
     }

@@ -1,6 +1,7 @@
 """REST client for the Ultimate 64 / Ultimate II+ / C64 Ultimate (network password as header X-Password)."""
 import asyncio
 import json
+import time
 from urllib.parse import quote
 
 import aiohttp
@@ -9,6 +10,7 @@ from yarl import URL
 from .i18n import tr
 
 STREAM_PORT = 11001
+SEEN = {}            # address -> monotonic time of its last answer (any HTTP answer); gone after a failed connection
 
 
 def error_text(status, body):
@@ -46,6 +48,7 @@ class Ultimate:
             async with self.session.request(method, url, data=data, headers=headers,
                                             timeout=aiohttp.ClientTimeout(total=timeout)) as r:
                 body = await r.read()
+                SEEN[self.addr] = time.monotonic()
                 if r.status == 403 or r.status == 401:
                     raise UltimateError(tr("Ultimate lehnt ab: Netzwerk-Passwort falsch?"))
                 if r.status >= 300:
@@ -57,6 +60,7 @@ class Ultimate:
                         return {}
                 return body
         except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
+            SEEN.pop(self.addr, None)
             raise UltimateError(tr("Ultimate %s nicht erreichbar (%s)") % (self.addr, type(e).__name__))
 
     async def play_path(self, path, song=None):
@@ -100,3 +104,12 @@ class Ultimate:
 
     async def info(self, timeout=3):
         return await self.request("GET", "/v1/info", timeout=timeout, want_json=True)
+
+    def forget(self):
+        """switched off: its last answer no longer says it is on"""
+        SEEN.pop(self.addr, None)
+
+    def seen_within(self, secs):
+        """it answered within the last secs seconds (and no connection failed since)"""
+        t = SEEN.get(self.addr)
+        return t is not None and time.monotonic() - t <= secs

@@ -4,6 +4,7 @@ play from a file on), the presets of "Listen zusammenstellen", the saved lists (
 keyboard on the screen, and deleted); shuffle, repeat, the effect and its automatic change, sound over HDMI and its
 volume, the title card ("Bild und Ton"); which Ultimate plays (a network search adds more); a newer version on GitHub
 (looked for here too) installed on request; "Ausschalten": the TV, the jukebox, the Ultimate (off and on again).
+A question of the jukebox (core.ask: switch the Ultimate on to play? off too?) opens the menu on the level "ask".
 Closed after 30 s without a key (60 s at the keyboard). Only the logic - the HDMI service draws what view() returns
 (hdmi-in.json "menu")."""
 from . import VERSION, i18n, plug, sidfile, smartlist
@@ -35,13 +36,14 @@ def onoff(v):
 class TvMenu:
     # marked with tr() for tools/i18n_check.py (German at import); view() shows them with tr()
     TITLES = {"main": "C64-Jukebox", "lists": tr("Musik wählen"), "effects": tr("Effekt am Fernseher"),
-              "ultimates": tr("Welches Ultimate spielt"), "sound": tr("Bild und Ton"), "power": tr("Ausschalten")}
+              "ultimates": tr("Welches Ultimate spielt"), "sound": tr("Bild und Ton"), "power": tr("Ausschalten"),
+              "ask": tr("Frage")}
 
     def __init__(self, core, clock):
         self.core, self.clock = core, clock
         self.level = None                        # None = closed, "main", "lists", "effects", "list", "confirm", "kbd"
         self.sel = {"main": 0, "lists": 0, "effects": 0, "list": 0, "confirm": 0, "dir": 0, "ultimates": 0, "sound": 0,
-                    "power": 0}
+                    "power": 0, "ask": 0}
         self.at = 0.0
         self.note = ""                           # one line under the items (what just happened, or why not)
         self.version = 0
@@ -54,13 +56,37 @@ class TvMenu:
         self.play_job = None                     # a folder being collected for playing
         self.scan_job = None                     # the network search for Ultimates
         self.found = []                          # Ultimates it found that are not in the list yet
+        self.ask_back = None                     # the level a question of the jukebox came over (None: was closed)
 
     # ---- state
     def is_open(self):
         limit = KBD_TIMEOUT_S if self.level == "kbd" else TIMEOUT_S
         if self.level and (self.clock() - self.at > limit or (self.close_at and self.clock() >= self.close_at)):
             self.close()
+        if self.level == "ask" and not self.core.ask_state():       # answered elsewhere (or nobody answered)
+            self._ask_gone()
         return self.level is not None
+
+    def _ask_gone(self):
+        """the question is over: back to where it came over, or closed again"""
+        if self.ask_back:
+            self.level, self.ask_back = self.ask_back, None
+            self.version += 1
+        else:
+            self.close()
+
+    def ask_show(self):
+        """the jukebox asks (core.ask): the menu opens on the question; for "off" the cursor stands on "Abbrechen" -
+        OK twice must not switch anything off"""
+        a = self.core.ask_state()
+        if not a:
+            return
+        keys = [o["k"] for o in a["opts"]]
+        if self.level != "ask":
+            self.ask_back = self.level if self.is_open() and self.level not in ("confirm", "kbd") else None
+        self.level, self.note, self.at, self.close_at, self.confirm, self.kbd = "ask", "", self.clock(), None, None, None
+        self.sel["ask"] = keys.index("cancel") if a["kind"] == "off" and "cancel" in keys else 0
+        self.version += 1
 
     def open(self):
         self.level, self.note, self.at, self.close_at = "main", "", self.clock(), None
@@ -72,7 +98,7 @@ class TvMenu:
         self.version += 1
 
     def close(self):
-        self.level, self.note, self.confirm, self.kbd, self.close_at = None, "", None, None, None
+        self.level, self.note, self.confirm, self.kbd, self.close_at, self.ask_back = None, "", None, None, None, None
         self.version += 1
 
     def _u64_name(self, u=None):
@@ -108,6 +134,9 @@ class TvMenu:
         if self.level == "confirm":
             q, yes, act, _ = self.confirm
             return [(tr("Nein"), "", ("unconfirm",)), (yes, "", act)]
+        if self.level == "ask":
+            a = self.core.ask_state()
+            return [(o["l"], "", ("askans", o["k"])) for o in a["opts"]] if a else []
         if self.level == "effects":
             return [(tr(name), "●" if key == h.get("mode") else "", ("mode", key)) for key, name in MODES.items()]
         if self.level == "dir" and self.dir.get("q") is not None:      # search hits
@@ -150,9 +179,7 @@ class TvMenu:
         if self.level == "power":
             return [
                 (tr("Fernseher ausschalten"), "", ("tvoff",)),
-                (tr("Jukebox ausschalten"), "›", ("ask", tr("Jukebox ausschalten? Die Steckdose schaltet danach ab.")
-                                                  if plug.configured(c["plug"]) else tr("Jukebox ausschalten?"),
-                                                  tr("Ja, ausschalten"), ("pioff",), "power")),
+                (tr("Jukebox ausschalten"), "›", ("pioffask",)),
                 (tr("Ultimate ausschalten"), name + " ›", ("ask", tr("„%s“ ausschalten?") % name, tr("Ja, ausschalten"),
                                                               ("power", False), "power")),
             ]
@@ -255,9 +282,14 @@ class TvMenu:
         self.version += 1
 
     def view(self):
-        """what the HDMI service draws, or None (closed)"""
+        """what the HDMI service draws, or None (closed); closed while the jukebox works on something (switching an
+        Ultimate on, loading the tune): a box with that and a spinner (core.busy)"""
         if not self.is_open():
-            return None
+            b = self.core.busy_state(0.4)
+            if not b:
+                return None
+            return {"kind": "busy", "title": b["text"], "spin": b["spin"],
+                    "hint": tr("Bitte warten …") if b["spin"] else ""}
         self._jobs_note()
         if self.level == "kbd":
             k = self.kbd
@@ -270,6 +302,8 @@ class TvMenu:
         top = max(0, min(sel - WINDOW // 2, len(e) - WINDOW))
         if self.level == "confirm":
             title = self.confirm[0]
+        elif self.level == "ask":
+            title = (self.core.ask_state() or {}).get("q", "")
         elif self.level == "list":
             title = tr("Liste „%s“") % self.cur_list
         elif self.level == "dir" and self.dir.get("q") is not None:
@@ -329,6 +363,12 @@ class TvMenu:
                 self.level, self.dir = "lists", None
         elif self.level == "confirm":
             self.level, self.confirm = self.confirm[3], None
+        elif self.level == "ask":                        # back: as "Abbrechen"
+            try:
+                await self.core.ask_answer("cancel")
+            except ValueError:
+                pass
+            self._ask_gone()
         else:
             self.level = "main"
 
@@ -567,6 +607,29 @@ class TvMenu:
                 self.close_at = self.clock() + DONE_S
             except ValueError as e:
                 self.note = str(e)
+        elif kind == "askans":
+            back = self.ask_back
+            try:
+                msg = await core.ask_answer(a[1])
+            except ValueError as e:
+                msg = str(e)
+            self.ask_back = None
+            if msg or not back:                          # done: the menu goes, what happens now shows as core.busy
+                self.close()
+            else:                                        # "Abbrechen": back where it was asked
+                self.level = back
+        elif kind == "pioffask":                         # the Ultimate is on: "off too?" (core.ask), else as before
+            try:
+                if await core.off_ask():
+                    self.ask_show()                      # (core opens it here only while the TV picture is on)
+                    return
+            except ValueError as e:
+                self.note = str(e)
+                return
+            c = core.config
+            await self._do(("ask", tr("Jukebox ausschalten? Die Steckdose schaltet danach ab.")
+                            if plug.configured(c["plug"]) else tr("Jukebox ausschalten?"),
+                            tr("Ja, ausschalten"), ("pioff",), "power"))
         elif kind == "pioff":
             try:
                 r = await core.power_off()

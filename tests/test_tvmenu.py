@@ -411,13 +411,14 @@ def test_menu_in_english(tmp_path):
         assert v["title"] == "Switch off" and [x["l"] for x in v["items"]] == \
             ["Switch TV off", "Switch off jukebox", "Switch off Ultimate"]
         await jb._cec_cmd("down")
-        await jb._cec_cmd("select")                         # asks first, "No" first
+        await jb._cec_cmd("select")              # the Ultimate is on: off too? The cursor on "Cancel"
         v = jb.menu.view()
-        assert v["title"].startswith("Switch off the jukebox?") and [x["l"] for x in v["items"]] == \
-            ["No", "Yes, switch off"]
+        assert v["title"] == "Switch off the jukebox – “Elite” too?" and [x["l"] for x in v["items"]] == \
+            ["Switch off the jukebox and “Elite”", "Only switch off the jukebox", "Cancel"] and v["sel"] == 2
         scr.present(MenuView().items(v))
         pygame.image.save(scr.snapshot(), os.path.join(HERE, "web", "hdmi_menu_en_ask.png"))
-        await jb._cec_cmd("back")
+        await jb._cec_cmd("back")                # "Cancel": back where it was asked
+        assert jb.menu.level == "power" and jb.ask is None
         await jb._cec_cmd("back")
         jb.menu.sel["main"] = labels.index("Picture and sound")
         await jb._cec_cmd("select")

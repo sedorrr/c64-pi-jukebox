@@ -44,6 +44,10 @@ TV_BOOT_S = 90             # TV on at the start (cec.tv_on_boot): only this long
                            # for the first time is someone switching it on, not to be pulled to the Pi
 PI_OFF_S = 60               # TV to standby -> Pi off (cec.pi_off); the TV on again within it keeps the Pi on
 TV_ASK_S = 30               # how often the TV is asked whether it is on (some do not announce their standby)
+ASK_S = 60                  # a question (switch the Ultimate on? off too?) stays open this long
+SEEN_OK_S = 20              # an Ultimate that answered within this is not asked again before playing
+WAKE_SETTLE_S = 3           # woken: it answers /v1/info a moment before playing works
+WAKE_POLL_S = 2             # woken: asked this often whether it answers
 
 
 def version_key(v):
@@ -169,6 +173,11 @@ class Jukebox:
         self.bt_conn = False                              # the chosen headphones are connected
         self.bt_at = 0.0
         self.power_msg = ""                               # what switching an Ultimate on/off did last
+        self.ask = None                                   # the open question (ask_open): page, TV menu, touch display
+        self._auto_wake = False                           # the timer starts the music: wake without asking
+        self._waking = None                               # the Ultimate being woken (index), while side "power" runs
+        self.busy = None                                  # {"text", "since", "spin", "until"}: the jukebox works on it
+        self._others_up = (None, {})                      # (clock, {index: answers}) of the other Ultimates
         # repeat of a tune without a length (loopwatch.py): the tune looked at, since when, and what was found
         self.loops = None
         self._loop_cur, self._loop_id, self._loop_el0 = None, 0, 0.0
@@ -462,6 +471,7 @@ class Jukebox:
     async def schedule_run(self, e):
         """one timer entry is due: play (a saved list or the current one) or stop, the TV with it if wanted"""
         p = self.player
+        self._auto_wake = True                       # nobody to ask: an Ultimate that is off is woken
         try:
             if e["do"] == "play":
                 if e.get("list"):
@@ -480,6 +490,8 @@ class Jukebox:
             self.sched_msg = time.strftime("%H:%M ", time.localtime(self.wall())) + schedule.describe(e)
         except (ValueError, OSError) as err:
             self.sched_msg = "%s: %s" % (schedule.describe(e), err)
+        finally:
+            self._auto_wake = False
 
     # ------------------------------------------------------------ the TV's remote control (HDMI-CEC, cec.py)
     def cec_apply(self):
@@ -710,16 +722,12 @@ class Jukebox:
             d = await self.ultimate(i).info(timeout=3)
         except UltimateError:
             return u.get("wmac", "")
-        mac = wol.normalize_mac((d or {}).get("wifi_mac"))
-        if mac and mac != u.get("wmac"):
-            u["wmac"] = mac
-            self.config.save()
-            events.log(tr("WLAN-MAC von %s gemerkt: %s") % (u.get("label") or u.get("addr"), mac))
+        self._learn_mac(i, d)
         return u.get("wmac", "")
 
-    async def u64_power(self, i, on):
-        """on: the magic packet to its WLAN MAC, then wait (beside) until it answers; off: SID sockets back, playing
-        stopped, PUT /v1/machine:poweroff"""
+    async def u64_power(self, i, on, then=None):
+        """on: the magic packet to its WLAN MAC, then wait (beside) until it answers - and then run then() (play what
+        was asked for); off: SID sockets back, playing stopped, PUT /v1/machine:poweroff"""
         us = self.config["ultimates"]
         if not 0 <= i < len(us) or not us[i].get("addr"):
             raise ValueError(tr("Kein Ultimate an dieser Stelle"))
@@ -735,35 +743,258 @@ class Jukebox:
                 raise ValueError(tr("Weckruf ging nicht hinaus: %s") % e)
             self.power_msg = tr("Weckruf an „%s“ gesendet (WLAN %s) – warte auf Antwort …") % (name, mac)
             events.log(tr("Ultimate %s: Weckruf an WLAN-MAC %s") % (name, mac))
-            self._side("power", lambda: self._u64_wait_awake(i, name))
+            self._waking = i
+            self._side("power", lambda: self._u64_wait_awake(i, name, then=then))
             return self.power_msg
         await self.u64_learn_mac(i)
         if i == self.config["u64_sel"] and self.player.state != "stop":
             await self.player.stop()
         await self.sid_release()
+        u = self.ultimate(i)
         try:
-            await self.ultimate(i).machine("poweroff")
+            await u.request("PUT", "/v1/machine:poweroff", timeout=5)
         except UltimateError as e:
-            raise ValueError(str(e))
+            if "Disconnected" not in str(e):             # it dropped the connection while going off: that is success
+                raise ValueError(str(e))
+        u.forget()                                       # its answer to "poweroff" must not count as "on" (u64_ready)
         self.power_msg = tr("„%s“ ausgeschaltet") % name
         events.log(tr("Ultimate %s: ausgeschaltet (machine:poweroff)") % name)
         return self.power_msg
 
-    async def _u64_wait_awake(self, i, name, limit_s=60):
+    async def _u64_wait_awake(self, i, name, limit_s=60, then=None):
         t0 = self.clock()
-        while self.clock() - t0 < limit_s:
-            await asyncio.sleep(2)
-            try:
-                await self.ultimate(i).info(timeout=2)
-            except UltimateError:
-                continue
-            self.power_msg = tr("„%s“ ist wach (nach %.0f s)") % (name, self.clock() - t0)
-            events.log(tr("Ultimate %s: wach nach %.0f s") % (name, self.clock() - t0))
-            self._stream_req_at = -1e9                   # ask for the stream at once
-            return
-        self.power_msg = tr("„%s“ antwortet nach %d s noch nicht – WLAN-MAC richtig? „Wake-Up on WiFi“ an?") % (
-            name, limit_s)
-        events.log(tr("Ultimate %s: nach %d s keine Antwort auf den Weckruf") % (name, limit_s))
+        try:
+            while self.clock() - t0 < limit_s:
+                await asyncio.sleep(WAKE_POLL_S)
+                try:
+                    await self.ultimate(i).info(timeout=2)
+                except UltimateError:
+                    continue
+                self.power_msg = tr("„%s“ ist wach (nach %.0f s)") % (name, self.clock() - t0)
+                events.log(tr("Ultimate %s: wach nach %.0f s") % (name, self.clock() - t0))
+                self._stream_req_at = -1e9                   # ask for the stream at once
+                if then:
+                    if self.busy:
+                        self.busy_set(tr("„%s“ ist an – Titel wird geladen …") % name)
+                    await asyncio.sleep(WAKE_SETTLE_S)        # answers on /v1/info before everything else is ready
+                    self._waking = None
+                    await then()
+                return
+            self.power_msg = tr("„%s“ antwortet nach %d s noch nicht – WLAN-MAC richtig? „Wake-Up on WiFi“ an?") % (
+                name, limit_s)
+            events.log(tr("Ultimate %s: nach %d s keine Antwort auf den Weckruf") % (name, limit_s))
+            if then and self.player.state == "stop":
+                self.player.msg, self.player.version = self.power_msg, self.player.version + 1
+                self.busy_set(self.power_msg, spin=False, secs=10)
+        finally:
+            self._waking = None
+
+    async def u64_ready(self, i=None):
+        """the Ultimate answers - asked only when it was not heard from for a while (an answer to anything counts)"""
+        try:
+            u = self.ultimate(i)
+        except UltimateError:
+            return True                                  # none entered: playing says so itself
+        if u.seen_within(SEEN_OK_S):
+            return True
+        h = self.hub.state() if self.hub else {}
+        if h.get("active") and h.get("from") == host_of(u.addr):          # its stream arrives: it is on
+            return True
+        if i is not None:
+            return await self._answers(i)
+        i = self.config["u64_sel"]
+        self.busy_set(tr("Prüfe „%s“ …") % self._u64_label(i))
+        others = [j for j, x in enumerate(self.config["ultimates"]) if j != i and x.get("addr")]
+        try:                                             # the others at the same time: needed when it is off
+            up = await asyncio.gather(self._answers(i), *[self._answers(j) for j in others])
+        finally:
+            self.busy_clear()
+        self._others_up = (self.clock(), dict(zip(others, up[1:])))
+        return up[0]
+
+    async def _answers(self, i):
+        try:
+            d = await self.ultimate(i).info(timeout=3)
+        except UltimateError:
+            return False
+        self._learn_mac(i, d)
+        return True
+
+    # ---- "the jukebox works on it": a box on the TV, a line on the page and the touch display
+    def busy_set(self, text, spin=True, secs=None):
+        self.busy = {"text": text, "since": self.clock(), "spin": spin,
+                     "until": self.clock() + secs if secs else None}
+        self._display_tick()
+
+    def busy_clear(self):
+        self.busy = None
+
+    def busy_state(self, min_s=0.0):
+        """-> {"text", "spin"} or None; min_s: shown only after that long (a quick check must not flash)"""
+        b = self.busy
+        if b and b["until"] is not None and self.clock() > b["until"]:
+            self.busy = b = None
+        if not b or self.clock() - b["since"] < min_s:
+            return None
+        return {"text": b["text"], "spin": b["spin"]}
+
+    def _learn_mac(self, i, info):
+        u = self.config["ultimates"][i]
+        mac = wol.normalize_mac((info or {}).get("wifi_mac"))
+        if mac and mac != u.get("wmac"):
+            u["wmac"] = mac
+            self.config.save()
+            events.log(tr("WLAN-MAC von %s gemerkt: %s") % (u.get("label") or u.get("addr"), mac))
+
+    def _u64_label(self, i):
+        u = self.config["ultimates"][i]
+        return u.get("label") or u.get("addr") or "Ultimate"
+
+    # ---- questions to whoever stands at the jukebox: on the page, in the TV menu and on the touch display at once;
+    # the first answer counts
+    def ask_open(self, kind, q, opts, data=None):
+        """opts: [(key, label, red)]"""
+        self.busy = None
+        self.ask = {"id": secrets.token_hex(4), "kind": kind, "q": q, "data": data or {}, "until": self.clock() + ASK_S,
+                    "opts": [{"k": k, "l": label, "red": bool(red)} for k, label, red in opts]}
+        if self.config["hdmi"].get("on"):
+            self.menu.ask_show()
+        self._display_tick()
+        return self.ask
+
+    def ask_state(self):
+        a = self.ask
+        if a and self.clock() > a["until"]:
+            self.ask = a = None                          # nobody answered: as "Abbrechen"
+        return {k: a[k] for k in ("id", "kind", "q", "opts")} if a else None
+
+    async def ask_answer(self, key, ask_id=None):
+        """-> what was done (also shown on the page, the TV menu and the touch display)"""
+        a = self.ask_state() and self.ask
+        if not a or ask_id and ask_id != a["id"]:
+            raise ValueError(tr("Die Frage ist nicht mehr offen"))
+        if key not in [o["k"] for o in a["opts"]]:
+            raise ValueError(tr("Unbekannte Antwort"))
+        self.ask = None
+        try:
+            msg = await (self._wake_answer(key, a["data"]) if a["kind"] == "wake" else self._off_answer(key))
+        except ValueError as e:
+            msg = str(e)
+            self.busy_set(msg, spin=False, secs=8)
+        if msg:
+            self.power_msg = msg
+            self._touch_note(msg)
+            if self.menu.is_open():
+                self.menu.note = msg
+        self._display_tick()
+        return msg
+
+    # ---- Play while the Ultimate is off: switch it on (or play on another one)?
+    async def wake_offer(self, idx, song):
+        """the player could not start: the chosen Ultimate does not answer. -> the line for the player"""
+        i = self.config["u64_sel"]
+        name = self._u64_label(i)
+        if self._waking == i:
+            return tr("„%s“ wird eingeschaltet – es spielt, sobald es antwortet") % name
+        data = {"idx": idx, "song": song, "lver": self.player.lver}
+        us = self.config["ultimates"]
+        can = bool(wol.normalize_mac(us[i].get("wmac")))
+        if self._auto_wake:                              # the timer: nobody to ask
+            if not can:
+                return tr("„%s“ antwortet nicht") % name
+            return await self._wake_answer("wake:%d" % i, data)
+        others = [j for j, u in enumerate(us) if j != i and u.get("addr")]
+        t, known = self._others_up
+        if t is not None and self.clock() - t < 10 and all(j in known for j in others):
+            up = [known[j] for j in others]              # asked together with the chosen one a moment ago
+        else:
+            up = await asyncio.gather(*[self.u64_ready(j) for j in others])
+        opts = [("wake:%d" % i, tr("„%s“ einschalten und abspielen") % name, False)] if can else []
+        for j, on in zip(others, up):
+            if on:
+                opts.append(("use:%d" % j, tr("Stattdessen „%s“ (ist an)") % self._u64_label(j), False))
+            elif wol.normalize_mac(us[j].get("wmac")):
+                opts.append(("wake:%d" % j, tr("„%s“ einschalten und abspielen") % self._u64_label(j), False))
+        opts.append(("cancel", tr("Abbrechen"), False))
+        q = tr("„%s“ ist aus (antwortet nicht).") % name
+        if not can:
+            q += " " + tr("Zum Einschalten fehlt seine WLAN-MAC (Tab „Geräte“).")
+        self.ask_open("wake", q, opts, data)
+        events.log(tr("„%s“ antwortet nicht – Einschalten angeboten") % name)
+        return tr("„%s“ antwortet nicht – einschalten?") % name
+
+    async def _wake_answer(self, key, data):
+        if key == "cancel":
+            return ""
+        kind, j = key.split(":")
+        j = int(j)
+        if j != self.config["u64_sel"]:
+            await self.select_ultimate(j)
+        name = self._u64_label(j)
+        if kind == "use":
+            self.busy_set(tr("Titel wird geladen …"))
+            await self._play_offered(data)
+            return tr("Es spielt jetzt „%s“") % name
+        await self.u64_power(j, True, then=lambda: self._play_offered(data))
+        msg = tr("„%s“ wird eingeschaltet – es spielt, sobald es antwortet") % name
+        self.busy_set(tr("„%s“ wird eingeschaltet …") % name)
+        p = self.player
+        p.msg, p.version = msg, p.version + 1
+        return msg
+
+    async def _play_offered(self, data):
+        """what Play was pressed for: the same entry when the list is still the same"""
+        p = self.player
+        try:
+            if p.state != "stop":
+                return
+            if p.lver == data.get("lver") and 0 <= data.get("idx", -1) < len(p.items):
+                await p.play_index(data["idx"], data.get("song"))
+            else:
+                await p.play()
+        finally:
+            self.busy_clear()
+            if p.state != "play" and p.msg:              # did not start: why, for a while on the TV too
+                self.busy_set(p.msg, spin=False, secs=8)
+
+    # ---- switching the jukebox off: the Ultimate too?
+    async def u64_can_off(self):
+        """-> the chosen Ultimate's name when it answers and can switch itself off (Ultimate 64, C64 Ultimate - not a
+        1541 Ultimate cartridge), else """""
+        try:
+            u = self.ultimate()
+            d = await u.info(timeout=2)
+        except UltimateError:
+            return ""
+        self._learn_mac(self.config["u64_sel"], d)
+        return self._u64_label(self.config["u64_sel"]) if "64" in str((d or {}).get("product") or "") else ""
+
+    async def off_ask(self):
+        """the TV menu and the touch display: "Jukebox ausschalten" while the Ultimate is on -> asked (True), else False
+        (switch off as before)"""
+        if self.powering_off:
+            raise ValueError(tr("Der Pi wird schon ausgeschaltet"))
+        name = await self.u64_can_off()
+        if not name:
+            return False
+        self.ask_open("off", tr("Jukebox ausschalten – „%s“ auch?") % name,
+                      [("both", tr("Jukebox und „%s“ ausschalten") % name, True),
+                       ("pi", tr("Nur die Jukebox ausschalten"), True), ("cancel", tr("Abbrechen"), False)])
+        return True
+
+    async def _off_answer(self, key):
+        if key == "cancel":
+            return ""
+        self.busy_set(tr("Jukebox wird ausgeschaltet …"))
+        try:
+            r = await self.power_off(u64=key == "both")
+        except ValueError:
+            self.busy_clear()
+            raise
+        msg = tr("Jukebox wird ausgeschaltet – Strom aus in %d s") % r["secs"] if r["timer"] else \
+            tr("Jukebox wird ausgeschaltet")
+        self.busy_set(msg)                               # stays until the Pi is off
+        return msg
 
     async def resolve(self, host):
         """IPv4 of a name, remembered for a minute (".local" names via the system's mDNS)"""
@@ -924,14 +1155,20 @@ class Jukebox:
             self.config.save()
         return st
 
-    async def power_off(self, force=False):
+    async def power_off(self, force=False, u64=False):
         """set the plug's timer, then shut down (in a moment: the page gets its answer first). Without the timer
-        (plug not answering) only with force - the Pi must never lose its power while it runs."""
+        (plug not answering) only with force - the Pi must never lose its power while it runs. u64: the chosen
+        Ultimate off first (before the plug's timer runs: switching it off may take seconds)."""
         if self.powering_off:
             raise ValueError(tr("Der Pi wird schon ausgeschaltet"))
         if not await self.can_power_off():
             raise ValueError(tr("Der Pi darf sich nicht selbst ausschalten – Installationsskript noch einmal "
                                  "ausführen"))
+        if u64:
+            try:
+                await self.u64_power(self.config["u64_sel"], False)
+            except ValueError as e:                      # the jukebox goes off anyway - it was asked for
+                events.log(tr("Ultimate nicht ausgeschaltet: %s") % e)
         c = self.config["plug"]
         secs = max(20, min(int(c.get("off_s") or 30), 600))
         timer = False
@@ -2219,8 +2456,15 @@ class Jukebox:
                                  tr("Fernseher wird ausgeschaltet"))
             except ValueError as e:
                 self._touch_note(str(e))
+        elif what.startswith("ask:"):                      # an answer on the question page
+            try:
+                await self.ask_answer(what[4:])
+            except ValueError as e:
+                self._touch_note(str(e))
         elif what == "pioff":
             try:
+                if await self.off_ask():                 # the Ultimate is on: off too? (the question page)
+                    return
                 r = await self.power_off()
                 self._touch_note(tr("Jukebox wird ausgeschaltet – Strom aus in %d s") % r["secs"] if r["timer"] else
                                  tr("Jukebox wird ausgeschaltet"))
@@ -2735,6 +2979,8 @@ class Jukebox:
             "sel": self.config["u64_sel"],
             "stream": dict(st, on=self.config["stream"]["on"], msg=self.stream_msg),
             "power_msg": self.power_msg,
+            "ask": self.ask_state(),
+            "busy": self.busy_state(0.4),
             "np": np,
             "arp": self.arp_log,
             "pico_news": {"n": len(self.notifier.news_body.split(b"\n")) if self.notifier.news_body else 0},

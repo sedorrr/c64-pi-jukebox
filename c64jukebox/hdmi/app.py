@@ -6,6 +6,7 @@ Settings (written by the jukebox into hdmi-in.json, key "cfg"):
   like the PC jukebox's "Auto-Switch Style"), bg ("none" | "images" | "video"), img_s (seconds per picture),
   shuffle, opacity (0..100 % brightness of the background), osd (title etc. at the top right, time at the bottom)."""
 import json
+import math
 import os
 import queue
 import random
@@ -371,6 +372,34 @@ class MenuView:
 
     TITLE_LINE, NOTE_LINE = 54, 40
 
+    def _render_busy(self, m, phase):
+        """the jukebox works on something: the text, under it eight dots going round (one lit) - or, without "spin",
+        only the text (what went wrong)"""
+        width = self.W - 100
+        lines = wrap(m.get("title", ""), self.f_title, width, 3) or [""]
+        spin = bool(m.get("spin"))
+        h = 40 + len(lines) * self.TITLE_LINE + (110 if spin else 0) + (40 if m.get("hint") else 0) + 34
+        s = pygame.Surface((self.W, h), pygame.SRCALPHA)
+        pygame.draw.rect(s, self.BG, s.get_rect(), border_radius=18)
+        pygame.draw.rect(s, self.BORDER, s.get_rect(), 6, border_radius=18)
+        y = 40
+        for line in lines:
+            t = _fit_surface(self.f_title.render(line, True, self.TEXT), width)
+            s.blit(t, ((self.W - t.get_width()) // 2, y))
+            y += self.TITLE_LINE
+        if spin:
+            cx, cy, r = self.W // 2, y + 50, 34
+            for k in range(8):
+                a = k * math.pi / 4
+                lit = k == phase % 8
+                pygame.draw.circle(s, self.VALUE if lit else self.BORDER, (int(cx + r * math.sin(a)), int(cy - r * math.cos(a))),
+                                   9 if lit else 7)
+            y += 110
+        if m.get("hint"):
+            hint = self.f_small.render(m["hint"], True, self.HINT)
+            s.blit(hint, ((self.W - hint.get_width()) // 2, y))
+        return s
+
     def _render(self, m):
         """a long title (the questions name the tune) and note wrap onto more lines, the box grows with them"""
         if m.get("kind") == "kbd":
@@ -416,13 +445,15 @@ class MenuView:
         s.blit(hint, ((self.W - hint.get_width()) // 2, y))
         return s
 
-    def items(self, m):
+    def items(self, m, now=None):
         if not m:
             self.key = None
             return []
-        key = json.dumps(m, sort_keys=True)
+        busy = m.get("kind") == "busy"
+        phase = int((time.monotonic() if now is None else now) * 8) if busy and m.get("spin") else 0
+        key = json.dumps(m, sort_keys=True) + "|%d" % phase
         if key != self.key:
-            self.key, self.surf = key, self._render(m)
+            self.key, self.surf = key, self._render_busy(m, phase) if busy else self._render(m)
             self.ver += 1
         s = self.surf
         return [Item("menu", s, self.ver, ((SIZE[0] - s.get_width()) // 2, (SIZE[1] - s.get_height()) // 2)

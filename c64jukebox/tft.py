@@ -368,7 +368,7 @@ def bold(size):
 
 class TftScreen:
     """320 x 240 pages in C64 colours: "play" (with four touch buttons), "level" (meters), "net", "power" (TV on/off,
-    jukebox off), "cal" (crosses)"""
+    jukebox off), "ask" (a question of the jukebox, one button per answer), "cal" (crosses)"""
 
     def __init__(self):
         from .display import font
@@ -376,6 +376,7 @@ class TftScreen:
         self.mid = font(17)
         self.small = font(14)
         self.head = bold(15)
+        self.ask_buttons = []                 # [(box, "ask:<key>")] of the question drawn last
 
     @staticmethod
     def _fit(d, text, f, width):
@@ -408,6 +409,8 @@ class TftScreen:
             self._level(d, st)
         elif page == "power":
             self._power(d, st)
+        elif page == "ask":
+            self._ask(d, st.get("ask") or {})
         else:
             self._play(d, st)
         return img
@@ -454,7 +457,27 @@ class TftScreen:
         d.text((W - 10 - d.textlength(t, font=self.small), 226), t, font=self.small, fill=SOFT)
 
     def buttons(self, page):
-        return BUTTONS if page == "play" else POWER_BUTTONS if page == "power" else []
+        return BUTTONS if page == "play" else POWER_BUTTONS if page == "power" else \
+            self.ask_buttons if page == "ask" else []
+
+    def _ask(self, d, a):
+        """the question in up to three lines, under it one wide button per answer (the red ones switch off)"""
+        self._bar(d, tr("Frage"))
+        y = 32
+        for line in self._wrap(d, a.get("q", ""), self.mid, W - 16, 3):
+            d.text((8, y), line, font=self.mid, fill=WHITE)
+            y += 21
+        opts = (a.get("opts") or [])[:4]
+        top = max(y + 6, 96)
+        h = min(46, (H - 6 - top) // max(1, len(opts)) - 6)
+        self.ask_buttons = []
+        for k, o in enumerate(opts):
+            box = (8, top + k * (h + 6), W - 8, top + k * (h + 6) + h)
+            self.ask_buttons.append((box, "ask:" + o["k"]))
+            d.rounded_rectangle(box, radius=10, fill=RED if o.get("red") else LIGHT)
+            t = self._fit(d, o.get("l", ""), self.head, W - 32)
+            d.text(((W - d.textlength(t, font=self.head)) // 2, (box[1] + box[3]) // 2 - 9), t, font=self.head,
+                   fill=WHITE if o.get("red") else DARK)
 
     def _power(self, d, st):
         """TV on / off (HDMI-CEC), the jukebox off - a second tap within a few seconds (st["armed"])"""
@@ -508,7 +531,12 @@ class TftScreen:
         s = st.get("stream") or {}
         foot = (tr("Stream %d/s → %d Picos") % (s.get("pps", 0), len(s.get("targets", [])))) if s.get("on") else \
             tr("%d Titel in der Liste") % p.get("total", 0)
-        d.text((8, 138), self._fit(d, foot, self.small, W - 16), font=self.small, fill=SOFT)
+        b = st.get("busy")
+        if b:                                         # the jukebox works on it: the text, dots counting up each second
+            dots = "." * (1 + int(time.time()) % 3) if b.get("spin") else ""
+            d.text((8, 136), self._fit(d, b["text"].rstrip(" …") + dots, self.head, W - 16), font=self.head, fill=WHITE)
+        else:
+            d.text((8, 138), self._fit(d, foot, self.small, W - 16), font=self.small, fill=SOFT)
         for (x0, y0, x1, y1), what in BUTTONS:
             d.rounded_rectangle((x0, y0, x1, y1), radius=10, fill=LIGHT)
             self._icon(d, what, (x0 + x1) // 2, (y0 + y1) // 2, state)

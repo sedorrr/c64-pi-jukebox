@@ -586,6 +586,18 @@ The **Devices → Ultimates** tab lists the devices that can play:
   (it is then shown in the field below); otherwise enter it there – it is shown in the router or on the device. The Pi still
   fetches the sound only over the cable. On the TV: menu → “Switch Ultimate on” / “Switch Ultimate off” (asks for confirmation).
 
+**Playing while the Ultimate is off:** if the chosen Ultimate does not answer when you press ▶ (on the page, with the
+remote or on the touch display), the jukebox asks – on the page, in the TV menu and on the touch display at once, the
+first answer counts:
+- **Switch on “…” and play:** wakes it like **On** (this needs its Wi-Fi MAC) and plays the chosen tune as soon as it
+  answers (on the Elite II after about 15 s).
+- **Use “…” instead (it is on):** another entered Ultimate that is on right now plays.
+- Another Ultimate that is off can be switched on the same way. **Cancel** leaves everything as it is.
+
+The question stays open for a minute. When the [timer](#zeitplan) starts the music, the jukebox wakes the Ultimate
+without asking (nobody is there to answer). While it checks, switches on or loads the tune, the TV shows a box with
+dots going round (“Please wait …”), the page and the touch display a line about it.
+
 ## Stream distributor {#stream-verteiler}
 
 The Ultimate sends its audio stream to **one** address only. If the distributor is on, that address is the Pi: it
@@ -1076,6 +1088,10 @@ The card **Devices on the network** in the **Devices** tab shows all Picos and P
 [touch display](#das-2-8-display-mit-touch) ⏻ → **Switch off jukebox**
 stops the music and shuts the Pi down cleanly. You should not simply cut the power: that can damage the
 SD card.
+
+If the chosen Ultimate is still on (and can switch itself off – an Ultimate 64 or C64 Ultimate, not a 1541 Ultimate
+cartridge), the jukebox asks: **Switch off the jukebox and “…”**, **Only switch off the jukebox** or **Cancel**. In the
+TV menu the cursor stands on “Cancel”. When the jukebox switches itself off (the TV went off), the Ultimate stays on.
 
 If the Pi is plugged into a **smart plug with Tuya technology** (e.g. Antela, app “Smart Life” or “Tuya Smart”),
 it sets the plug's built-in **switch-off timer** before shutting down: after *Power off after* seconds (default 30,

@@ -693,7 +693,8 @@ def test_switch_off_with_the_plug(browser, demo):
     page.click("#plsave")
     until(lambda: demo.jb.config["plug"]["off_s"] == 45)
     assert demo.jb.config["plug"]["key"] == demo.plug.key
-    page.click("#pwroff")
+    page.click("#pwroff")                                         # the Ultimate is on: that one too?
+    page.click("#chooseopts button:has-text('Nur die Jukebox ausschalten')")
     page.wait_for_selector("#pwrstate:has-text('schaltet in 45 s ab')")
     assert demo.plug.dps["9"] == 45 and page.is_disabled("#pwroff")
     no_overflow(page)
@@ -744,9 +745,46 @@ def test_power_from_every_tab(browser, demo):
     no_overflow(page)
     page.screenshot(path=os.path.join(HERE, "power_menu.png"))
     page.click("#menubtns button >> nth=4")
+    page.wait_for_selector("#choosedlg[open]")                    # the Ultimate is on: off too? Big buttons
+    assert page.inner_text("#choosetitle").endswith("„Elite II“ ist noch an.")
+    labels = page.eval_on_selector_all("#chooseopts button", "bs => bs.map(b => b.textContent)")
+    assert labels == ["Jukebox und „Elite II“ ausschalten", "Nur die Jukebox ausschalten", "Abbrechen"]
+    no_overflow(page)
+    page.screenshot(path=os.path.join(HERE, "power_ask.png"))
+    page.click("#chooseopts button >> nth=0")
     until(lambda: demo.jb.powering_off)
+    assert demo.u64.find("PUT", "/v1/machine:poweroff")
     demo.jb.powering_off = False
     assert not page.errors
+
+
+def test_play_while_the_ultimate_is_off(browser, demo):
+    """Play while the chosen Ultimate does not answer: the page asks - switch it on, or play on the other one (on)"""
+    from fakes import free_port
+    jb = demo.jb
+    demo.call(jb.player.stop())
+    us = jb.config.data["ultimates"]
+    us.append({"label": "Elite I", "addr": "127.0.0.1:%d" % free_port(1), "pw": "", "wmac": "12:34:56:78:9A:BC"})
+    jb.config.data["u64_sel"] = len(us) - 1
+    try:
+        page = new_page(browser, demo, PHONE)
+        page.wait_for_selector("#bplay")
+        n = len(plays(demo))
+        page.click("#bplay")
+        page.wait_for_selector("#choosedlg[open]")
+        assert page.inner_text("#choosetitle") == "„Elite I“ ist aus (antwortet nicht)."
+        labels = page.eval_on_selector_all("#chooseopts button", "bs => bs.map(b => b.textContent)")
+        assert labels == ["„Elite I“ einschalten und abspielen", "Stattdessen „Elite II“ (ist an)", "Abbrechen"]
+        no_overflow(page)
+        page.screenshot(path=os.path.join(HERE, "wake_ask.png"))
+        page.click("#chooseopts button >> nth=1")
+        until(lambda: len(plays(demo)) == n + 1 and jb.player.state == "play")
+        page.wait_for_selector("#choosedlg[open]", state="detached")
+        assert jb.config["u64_sel"] == 0 and jb.ask is None
+        assert not page.errors
+    finally:
+        us.pop()
+        jb.config.data["u64_sel"] = 0
 
 
 def test_english_page(browser, demo):
